@@ -26,3 +26,8 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# BMAD Method (local agent tooling / planning artifacts — keep off remote)
+/_bmad/
+/_bmad-output/
+/.agents/skills/bmad-*/
