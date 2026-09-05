@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\TenantController;
+use App\Http\Controllers\Api\V1\TenantSsoController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,11 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/tenant', [TenantController::class, 'show'])->name('api.v1.tenant.show');
         Route::patch('/tenant', [TenantController::class, 'update'])->name('api.v1.tenant.update');
+
+        Route::get('/tenant/sso', [TenantSsoController::class, 'show'])
+            ->name('api.v1.tenant.sso.show');
+        Route::patch('/tenant/sso', [TenantSsoController::class, 'update'])
+            ->name('api.v1.tenant.sso.update');
 
         Route::get('/tenant/feature-flags', [FeatureFlagController::class, 'index'])
             ->name('api.v1.tenant.feature-flags.index');

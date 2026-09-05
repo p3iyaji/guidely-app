@@ -20,6 +20,13 @@ class UpdateUserRequest extends FormRequest
         return $this->user()?->can('update', $user) ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->exists('external_id') && $this->input('external_id') === '') {
+            $this->merge(['external_id' => null]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -37,6 +44,15 @@ class UpdateUserRequest extends FormRequest
                 'email',
                 'max:255',
                 Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'external_id' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('users', 'external_id')
+                    ->where(fn ($query) => $query->where('tenant_id', $tenantId))
+                    ->ignore($user->id),
             ],
             'role' => ['sometimes', 'string', Rule::in($this->tenantAssignableRoleValues())],
             'school_ids' => ['sometimes', 'array'],

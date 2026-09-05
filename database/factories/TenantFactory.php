@@ -23,6 +23,10 @@ class TenantFactory extends Factory
             'type' => TenantType::School,
             'cohort_enabled' => false,
             'cohort_label' => null,
+            'sso_enabled' => false,
+            'sso_provider' => null,
+            'sso_entity_id' => null,
+            'sso_client_id' => null,
         ];
     }
 

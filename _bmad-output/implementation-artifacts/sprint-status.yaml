@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 09-05-2026 17:06
-last_updated: 09-05-2026 20:20
+last_updated: 09-05-2026 20:45
 project: guidely-app
 project_key: NOKEY
 tracking_system: file-system
@@ -43,7 +43,7 @@ development_status:
   1-4-authentication-for-web-and-hybrid: done
   1-5-roles-policies-and-user-administration: done
   1-5b-user-administration: done
-  1-6-sso-readiness-without-rebuilding-tenancy: backlog
+  1-6-sso-readiness-without-rebuilding-tenancy: done
   1-7-append-only-audit-events: backlog
   1-8-authenticated-app-shell-by-role: backlog
   1-9-pilot-toolkit-and-school-onboarding-tooling: backlog

@@ -10,7 +10,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'type', 'cohort_enabled', 'cohort_label'])]
+#[Fillable([
+    'name',
+    'type',
+    'cohort_enabled',
+    'cohort_label',
+    'sso_enabled',
+    'sso_provider',
+    'sso_entity_id',
+    'sso_client_id',
+])]
 class Tenant extends Model
 {
     /** @use HasFactory<TenantFactory> */
@@ -21,6 +30,7 @@ class Tenant extends Model
      */
     protected $attributes = [
         'cohort_enabled' => false,
+        'sso_enabled' => false,
     ];
 
     protected static function booted(): void
@@ -38,6 +48,7 @@ class Tenant extends Model
         return [
             'type' => TenantType::class,
             'cohort_enabled' => 'boolean',
+            'sso_enabled' => 'boolean',
         ];
     }
 

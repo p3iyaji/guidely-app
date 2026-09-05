@@ -1,59 +1,35 @@
-# Handover — GuidelyEdu after Story 1.5b
+# Handover — GuidelyEdu after Story 1.6
 
 **Date:** 2026-09-05  
 **Project:** `/Users/pauliyaji/Documents/GuidelyEdu/guidely-app`  
-**VCS:** git initialized; remote `origin` → https://github.com/p3iyaji/guidely-app (`main` @ `a7c8063`). `.env` is gitignored.
+**Remote:** https://github.com/p3iyaji/guidely-app (`main`)
 
 ## Verdict
 
-Epic 1 identity foundation is complete through **FR-54 User administration**. Next backlog stories: **1.6 SSO readiness**, **1.7 Audit**, **1.8 Role shell**.
+Epic 1 identity track through **SSO readiness stubs** is complete (no live IdP). Next: **1.7 Audit**, **1.8 Role shell**, **1.9 Pilot toolkit**.
 
 ## Sprint board
 
 | Key | Status |
 |-----|--------|
-| 1-1 … 1-5 | done |
-| 1-5b-user-administration | **review** (spec `done`) |
-| 1-6 … 1-9 | backlog |
-| epic-1 | in-progress |
+| 1-1 … 1-5b | done |
+| 1-6-sso-readiness-without-rebuilding-tenancy | **review** (spec `done`) |
+| 1-7 … 1-9 | backlog |
 
-## Shipped this arc (1.1–1.5b)
+## 1.6 delivered
 
-- Root Laravel 13 + Vue SPA (**no Inertia**), design tokens, health  
-- Tenancy + Schools isolation  
-- Feature flags (Tenant-only)  
-- Sanctum Web session + Hybrid tokens + auth AuditEvents  
-- Roles, deactivation, Tenant Admin–only Tenant mutations, AccessDenied  
-- **`/api/v1/users`** Tenant Admin CRUD: create, list, show, update Role/schools, password reset, deactivate + last-admin orphan guard  
-
-## Key APIs (1.5b)
-
-- `GET/POST /api/v1/users`  
-- `GET/PATCH /api/v1/users/{user}`  
-- `PATCH /api/v1/users/{user}/password`  
-- `POST /api/v1/users/{user}/deactivate`  
-
-## Deferred highlights
-
-See `deferred-work.md`: reactivate API, user list pagination, SPA 403→AccessDenied, school_user authz, School flag overrides, token expiry, `/me` + shell (1.8), Audit hardening (1.7).
-
-## Constraints
-
-- No BMAD Loop / no Inertia / no Spatie unless Ask First  
-- `role` is **not** fillable — controllers `forceFill` role  
-- Do not put `BelongsToTenant` on `User` (breaks login lookup)  
-- Pint + PHPUnit + Vitest  
+- `users.external_id` (Tenant-scoped unique)
+- Tenant SSO stubs (`sso_enabled` default false + placeholders)
+- `GET|PATCH /api/v1/tenant/sso` (Tenant Admin)
+- `LinkExternalIdByEmail` helper (no duplicates / no overwrite / skip deactivated)
+- README: SAML vs OIDC still open
 
 ## Verify
 
 ```bash
-php artisan test --compact --filter='UserAdministration|RolePolicy|Authentication|Tenant|FeatureFlag|Health'
-npm test
+php artisan test --compact --filter='SsoReadiness|Authentication|UserAdministration|Tenant|RolePolicy'
 ```
 
 ## Next
 
-1. Mark `1-5b-user-administration` → `done` after human glance  
-2. Start **1.6** (`bmad-build`) or Vue Users UI with shell **1.8**  
-
-Specs: `spec-1-5b-user-administration.md` (Suggested Review Order at bottom).
+Mark 1.6 board `done` after glance → start **1.7** (`bmad-build`) or commit/push current work.

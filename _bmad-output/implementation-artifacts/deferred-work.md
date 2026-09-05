@@ -49,3 +49,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5b-user-administration.md`
   summary: Paginate/filter Tenant Admin User list for large Tenants.
   evidence: Review noted index uses get() with no pagination.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-sso-readiness-without-rebuilding-tenancy.md`
+  summary: Add required metadata validation when sso_enabled is true, and/or live IdP protocol choice (SAML vs OIDC).
+  evidence: Review noted enable-without-provider is allowed for Pilot stubs; Architecture open Q remains for first Trust enablement.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-sso-readiness-without-rebuilding-tenancy.md`
+  summary: Harden LinkExternalIdByEmail with transaction/row lock against concurrent unique races.
+  evidence: Review noted check-then-write can surface raw DB unique violations under concurrency.
