@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-05  
 **Project:** `/Users/pauliyaji/Documents/GuidelyEdu/guidely-app`  
-**VCS:** none (no `.git`). Do not invent commits unless asked to `git init`.
+**VCS:** git initialized; remote `origin` → https://github.com/p3iyaji/guidely-app (`main` @ `a7c8063`). `.env` is gitignored.
 
 ## Verdict
 
