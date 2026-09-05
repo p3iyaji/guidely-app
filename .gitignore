@@ -7,6 +7,8 @@
 .phpunit.result.cache
 /.codex
 /.cursor/
+/.claude/
+/.agents/
 /.idea
 /.nova
 /.phpunit.cache
@@ -26,8 +28,10 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+AGENTS.md
+CLAUDE.md
+Claude.md
 
 # BMAD Method (local agent tooling / planning artifacts — keep off remote)
 /_bmad/
 /_bmad-output/
-/.agents/skills/bmad-*/
