@@ -1,0 +1,121 @@
+<?php
+
+namespace Database\Factories;
+
+use App\Domain\Identity\Role;
+use App\Domain\Tenancy\Tenant;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+/**
+ * @extends Factory<User>
+ */
+class UserFactory extends Factory
+{
+    /**
+     * The current password being used by the factory.
+     */
+    protected static ?string $password;
+
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'email_verified_at' => now(),
+            'password' => static::$password ??= Hash::make('password'),
+            'remember_token' => Str::random(10),
+            'tenant_id' => Tenant::factory(),
+            'role' => Role::Teacher,
+            'deactivated_at' => null,
+        ];
+    }
+
+    /**
+     * Indicate that the model's email address should be unverified.
+     */
+    public function unverified(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'email_verified_at' => null,
+        ]);
+    }
+
+    public function forTenant(Tenant $tenant): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'tenant_id' => $tenant->id,
+        ]);
+    }
+
+    public function teacher(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::Teacher,
+        ]);
+    }
+
+    public function supportStaff(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::SupportStaff,
+        ]);
+    }
+
+    public function senco(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::Senco,
+        ]);
+    }
+
+    public function schoolLeader(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::SchoolLeader,
+        ]);
+    }
+
+    public function tenantAdmin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::TenantAdmin,
+        ]);
+    }
+
+    public function trustSendLead(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::TrustSendLead,
+        ]);
+    }
+
+    public function trustExecutive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::TrustExecutive,
+        ]);
+    }
+
+    public function platformOperator(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::PlatformOperator,
+            'tenant_id' => null,
+        ]);
+    }
+
+    public function deactivated(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'deactivated_at' => now(),
+        ]);
+    }
+}

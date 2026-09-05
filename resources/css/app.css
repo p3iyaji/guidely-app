@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../js/**/*.{js,vue}';
+@source '../views/**/*.blade.php';
+
+@theme {
+    /* Colours — DESIGN.md (light mode only) */
+    --color-canvas: #F0F0F5;
+    --color-surface: #FFFFFF;
+    --color-surface-muted: #F7F7FB;
+    --color-primary: #5B63E6;
+    --color-primary-hover: #4A52D4;
+    --color-primary-foreground: #FFFFFF;
+    --color-primary-soft: #E8E9FC;
+    --color-secondary: #10B981;
+    --color-secondary-foreground: #FFFFFF;
+    --color-text: #1F2937;
+    --color-text-muted: #6B7280;
+    --color-text-inverse: #FFFFFF;
+    --color-border: #E5E7EB;
+    --color-border-strong: #D1D5DB;
+    --color-success: #10B981;
+    --color-success-soft: #D1FAE5;
+    --color-warning: #F59E0B;
+    --color-warning-soft: #FEF3C7;
+    --color-danger: #EF4444;
+    --color-danger-soft: #FEE2E2;
+    --color-info: #3B82F6;
+    --color-info-soft: #DBEAFE;
+    --color-topbar: #5B63E6;
+    --color-sidebar: #FFFFFF;
+    --color-focus-ring: #5B63E6;
+
+    /* Typography */
+    --font-sans: Inter, 'Segoe UI', system-ui, sans-serif;
+    --font-display: Inter, 'Segoe UI', system-ui, sans-serif;
+    --text-display: 28px;
+    --text-display--line-height: 1.25;
+    --text-heading: 20px;
+    --text-heading--line-height: 1.3;
+    --text-body: 14px;
+    --text-body--line-height: 1.5;
+    --text-label: 12px;
+    --text-label--line-height: 1.4;
+    --text-meta: 12px;
+    --text-meta--line-height: 1.4;
+    --text-metric: 32px;
+    --text-metric--line-height: 1.1;
+
+    /* Radius — DESIGN.md */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    --radius-DEFAULT: 10px;
+
+    /* Spacing / layout shell */
+    --spacing-page: 24px;
+    --spacing-gutter: 24px;
+    --spacing-sidebar-width: 240px;
+    --spacing-topbar-height: 56px;
+}
+
+@layer base {
+    body {
+        font-family: var(--font-sans);
+        font-size: var(--text-body);
+        line-height: var(--text-body--line-height);
+        color: var(--color-text);
+        background-color: var(--color-canvas);
+    }
+}

@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Domain\Tenancy;
+
+use App\Models\User;
+use Database\Factories\TenantFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+#[Fillable(['name', 'type', 'cohort_enabled', 'cohort_label'])]
+class Tenant extends Model
+{
+    /** @use HasFactory<TenantFactory> */
+    use HasFactory, HasUlids;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'cohort_enabled' => false,
+    ];
+
+    protected static function booted(): void
+    {
+        static::created(function (Tenant $tenant): void {
+            app(FeatureFlagResolver::class)->seedDefaults($tenant);
+        });
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'type' => TenantType::class,
+            'cohort_enabled' => 'boolean',
+        ];
+    }
+
+    protected static function newFactory(): TenantFactory
+    {
+        return TenantFactory::new();
+    }
+
+    public function schools(): HasMany
+    {
+        return $this->hasMany(School::class);
+    }
+
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function featureFlags(): HasMany
+    {
+        return $this->hasMany(TenantFeatureFlag::class);
+    }
+
+    public function isTrust(): bool
+    {
+        return $this->type === TenantType::Trust;
+    }
+}

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GuidelyEdu — Evidence Base (SENCO)</title>
+  <style>
+    /* Spine: DESIGN.md shell; EXPERIENCE.md Evidence Base, Gaps, Reasoning Pathway, Flow 2 */
+    :root {
+      --canvas: #F0F0F5;
+      --surface: #FFFFFF;
+      --primary: #5B63E6;
+      --primary-soft: #E8E9FC;
+      --text: #1F2937;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+      --danger: #EF4444;
+      --danger-soft: #FEE2E2;
+      --warning: #F59E0B;
+      --warning-soft: #FEF3C7;
+      --success: #10B981;
+      --success-soft: #D1FAE5;
+      --info-soft: #DBEAFE;
+      --font: Inter, "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: #d1d5db;
+      color: var(--text);
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+    .browser {
+      width: 1100px;
+      background: var(--canvas);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0,0,0,.18);
+    }
+    .topbar {
+      background: var(--primary);
+      color: #fff;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 24px;
+      font-size: 14px;
+    }
+    .brand { font-family: "Segoe Script", cursive; font-size: 20px; margin-right: 12px; }
+    .topbar nav a { color: #fff; text-decoration: none; opacity: .9; margin-right: 16px; }
+    .spacer { flex: 1; }
+    .search {
+      background: rgba(255,255,255,.95);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      min-width: 200px;
+    }
+    .shell { display: flex; min-height: 640px; }
+    .sidebar {
+      width: 220px;
+      background: #fff;
+      border-right: 1px solid var(--border);
+      padding: 16px 12px;
+      font-size: 13px;
+    }
+    .side-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .side-item.active { background: #F7F7FB; color: var(--primary); font-weight: 600; }
+    .main { flex: 1; padding: 24px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+    .disclaimer {
+      background: var(--info-soft);
+      color: #1e3a8a;
+      font-size: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    .kpi {
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(31,41,55,.08);
+      padding: 14px;
+    }
+    .kpi .label { font-size: 12px; color: var(--muted); }
+    .kpi .metric { font-size: 28px; font-weight: 700; margin-top: 4px; }
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .pill-gaps { background: var(--warning-soft); color: #92400e; }
+    .pill-ready { background: var(--success-soft); color: #065f46; }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+    .card {
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(31,41,55,.08);
+      padding: 16px;
+    }
+    .card h2 { font-size: 15px; margin: 0 0 12px; }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      gap: 8px;
+    }
+    .row:last-child { border-bottom: none; }
+    .meta { color: var(--muted); font-size: 12px; }
+    .dim {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+    .fail { color: var(--danger); font-weight: 600; }
+    .pass { color: var(--success); font-weight: 600; }
+    .pathway {
+      margin-top: 12px;
+      background: #F7F7FB;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+    }
+    .pathway strong { display: block; margin-bottom: 6px; }
+    .btn {
+      margin-top: 12px;
+      width: 100%;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .btn-outline {
+      background: #fff;
+      border: 1px solid #D1D5DB;
+      color: var(--text);
+      margin-top: 8px;
+    }
+    .caption { margin-top: 12px; font-size: 12px; color: #4b5563; text-align: center; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="browser" aria-label="Web Client — SENCO Evidence Base">
+      <header class="topbar">
+        <span class="brand">GuidelyEdu</span>
+        <nav>
+          <a href="#">Home</a>
+          <a href="#">Pupils</a>
+          <a href="#">Review Cycles</a>
+          <a href="#">School Report</a>
+        </nav>
+        <span class="spacer"></span>
+        <span class="search">Search pupils or reviews…</span>
+        <span style="margin-left:12px">Aisha · SENCO</span>
+      </header>
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="side-item">Dashboard</div>
+          <div class="side-item">Pupils</div>
+          <div class="side-item">Review Cycles</div>
+          <div class="side-item active">Evidence Base</div>
+          <div class="side-item">Gaps</div>
+          <div class="side-item">Outputs</div>
+          <div class="side-item">School Report</div>
+          <div class="side-item">Import</div>
+          <div class="side-item">Settings</div>
+        </aside>
+        <main class="main">
+          <h1>Maya Okonkwo</h1>
+          <p class="sub">Year 4 · SEN Support · Review Cycle due 28 Aug 2026 · <span class="pill pill-gaps">gaps</span></p>
+          <div class="disclaimer">Documentation evaluations support professional judgement. They are not diagnoses, funding decisions, or statutory determinations.</div>
+          <div class="kpis">
+            <div class="kpi"><div class="label">Evidence Records</div><div class="metric">18</div></div>
+            <div class="kpi"><div class="label">Open Gaps</div><div class="metric" style="color:#b45309">2</div></div>
+            <div class="kpi"><div class="label">Rule Library</div><div class="metric" style="font-size:18px;padding-top:10px">v1.2</div></div>
+            <div class="kpi"><div class="label">Last SRE run</div><div class="metric" style="font-size:16px;padding-top:12px">Today 09:41</div></div>
+          </div>
+          <div class="grid">
+            <section class="card">
+              <h2>Evidence Base</h2>
+              <div class="row"><div><strong>Intervention</strong><div class="meta">James · Teacher · 20 Aug 10:15</div><div class="meta">Small-group literacy support</div></div><span>›</span></div>
+              <div class="row"><div><strong>Observation</strong><div class="meta">James · Teacher · 18 Aug 14:02</div><div class="meta">Transition difficulty after break</div></div><span>›</span></div>
+              <div class="row"><div><strong>Pupil Response</strong><div class="meta">Support Staff · 15 Aug</div><div class="meta">Settled with visual timetable</div></div><span>›</span></div>
+            </section>
+            <section class="card">
+              <h2>Determinations</h2>
+              <div class="dim"><span>Sequential compliance</span><span class="pass">Met</span></div>
+              <div class="dim"><span>Evidential sufficiency</span><span class="fail">Not met</span></div>
+              <div class="dim"><span>Proportionality</span><span class="pass">Met</span></div>
+              <div class="dim"><span>Outcome progression</span><span style="color:#92400e;font-weight:600">Uncovered</span></div>
+              <div class="pathway">
+                <strong>Reasoning Pathway — Evidential sufficiency</strong>
+                Rule: GR-SUFF-04 (v1.2)<br />
+                Evidence considered: ER-102, ER-118<br />
+                Condition “review-period Intervention log ≥ 2” — fail<br />
+                Determination: not met
+              </div>
+              <button type="button" class="btn">Generate review summary</button>
+              <button type="button" class="btn btn-outline">Override with rationale…</button>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+    <p class="caption">Key mock — UJ-2 SENCO Evidence Base + Gaps + Reasoning Pathway. Spine wins on conflict.</p>
+  </div>
+</body>
+</html>

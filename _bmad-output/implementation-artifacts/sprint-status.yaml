@@ -1,0 +1,102 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 09-05-2026 17:06
+last_updated: 09-05-2026 20:20
+project: guidely-app
+project_key: NOKEY
+tracking_system: file-system
+story_location: 
+  /Users/pauliyaji/Documents/GuidelyEdu/guidely-app/_bmad-output/implementation-artifacts
+development_status:
+  epic-1: in-progress
+  1-1-root-laravel-scaffold-and-design-tokens: done
+  1-2-tenant-school-and-isolation: done
+  1-3-feature-flags-by-configuration: done
+  1-4-authentication-for-web-and-hybrid: done
+  1-5-roles-policies-and-user-administration: done
+  1-5b-user-administration: done
+  1-6-sso-readiness-without-rebuilding-tenancy: backlog
+  1-7-append-only-audit-events: backlog
+  1-8-authenticated-app-shell-by-role: backlog
+  1-9-pilot-toolkit-and-school-onboarding-tooling: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-pupil-working-records: backlog
+  2-2-need-categories-on-the-pupil: backlog
+  2-3-cohort-and-class-assignment-for-teachers: backlog
+  2-4-my-pupils-list-and-pupil-row-ui: backlog
+  2-5-import-template-upload-with-partial-success: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-record-observation: backlog
+  3-2-record-intervention: backlog
+  3-3-record-pupil-response: backlog
+  3-4-draft-evidence-records: backlog
+  3-5-hybrid-capture-offline-queue-and-client-parity: backlog
+  3-6-connector-sourced-evidence-without-parallel-logging: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-chronological-evidence-base: backlog
+  4-2-amend-evidence-with-history: backlog
+  4-3-senco-review-notes: backlog
+  4-4-versioned-ontology-and-evidence-mapping: backlog
+  4-5-rule-library-with-initial-and-escalation-coverage: backlog
+  4-6-deterministic-sre-evaluator-four-dimensions: backlog
+  4-7-async-re-evaluation-gaps-and-documentation-status: backlog
+  4-8-reasoning-pathway-and-gap-list-ui: backlog
+  4-9-override-with-mandatory-rationale: backlog
+  4-10-operator-ontology-rule-publish-and-controlled-roll-forward: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-create-review-cycle-and-due-list: backlog
+  5-2-automated-review-cycle-management-flagged: backlog
+  5-3-confirmed-documentation-outputs-review-summary-ehcp-pack: backlog
+  5-4-export-ready-files-and-advanced-packs: backlog
+  5-5-school-report-readiness: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-connector-configuration-and-field-sharing: backlog
+  6-2-sync-upsert-without-duplication: backlog
+  6-3-standardised-mis-connector-adapter-pilot-primary: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  7-1-trust-multi-academy-indicators: backlog
+  7-2-escalation-indicators: backlog
+  7-3-portfolio-benchmarking-and-trends-flagged: backlog
+  7-4-compliance-risk-alerts-flagged: backlog
+  7-5-minimised-safeguarding-signal-ingest-flagged: backlog
+  epic-7-retrospective: optional
