@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Audit\AuditEventType;
+use App\Domain\Audit\AuditWriter;
 use App\Domain\Tenancy\CurrentTenant;
 use App\Domain\Tenancy\Tenant;
 use App\Http\Controllers\Controller;
@@ -12,6 +14,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class TenantController extends Controller
 {
+    public function __construct(private AuditWriter $audit) {}
+
     public function show(Request $request): TenantResource
     {
         $tenant = $this->currentTenantOrFail();
@@ -26,6 +30,14 @@ class TenantController extends Controller
         $tenant = $this->currentTenantOrFail();
 
         $tenant->update($request->validated());
+
+        $this->audit->record(
+            AuditEventType::TenantCohortUpdated,
+            $request,
+            $request->user(),
+            resourceType: 'tenant',
+            resourceId: $tenant->id,
+        );
 
         return new TenantResource($tenant->refresh());
     }

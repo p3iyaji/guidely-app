@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Audit\AuditEventType;
+use App\Domain\Audit\AuditWriter;
 use App\Domain\Tenancy\School;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreSchoolRequest;
@@ -14,6 +16,8 @@ use Illuminate\Http\Response;
 
 class SchoolController extends Controller
 {
+    public function __construct(private AuditWriter $audit) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', School::class);
@@ -31,6 +35,14 @@ class SchoolController extends Controller
     {
         $school = School::query()->create($request->validated());
 
+        $this->audit->record(
+            AuditEventType::SchoolCreated,
+            $request,
+            $request->user(),
+            resourceType: 'school',
+            resourceId: $school->id,
+        );
+
         return (new SchoolResource($school))
             ->response()
             ->setStatusCode(201);
@@ -47,14 +59,31 @@ class SchoolController extends Controller
     {
         $school->update($request->validated());
 
+        $this->audit->record(
+            AuditEventType::SchoolUpdated,
+            $request,
+            $request->user(),
+            resourceType: 'school',
+            resourceId: $school->id,
+        );
+
         return new SchoolResource($school->refresh());
     }
 
-    public function destroy(School $school): Response
+    public function destroy(Request $request, School $school): Response
     {
         $this->authorize('delete', $school);
 
+        $schoolId = $school->id;
         $school->delete();
+
+        $this->audit->record(
+            AuditEventType::SchoolDeleted,
+            $request,
+            $request->user(),
+            resourceType: 'school',
+            resourceId: $schoolId,
+        );
 
         return response()->noContent();
     }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Audit\AuditEventType;
+use App\Domain\Audit\AuditWriter;
 use App\Domain\Identity\Role;
 use App\Domain\Tenancy\CurrentTenant;
 use App\Http\Controllers\Controller;
@@ -20,6 +22,8 @@ class UserController extends Controller
     public const LAST_TENANT_ADMIN_CODE = 'last_tenant_admin';
 
     public const USER_DEACTIVATED_CODE = 'user_deactivated';
+
+    public function __construct(private AuditWriter $audit) {}
 
     public function index(): AnonymousResourceCollection
     {
@@ -61,6 +65,14 @@ class UserController extends Controller
 
             return $user;
         });
+
+        $this->audit->record(
+            AuditEventType::UserCreated,
+            $request,
+            $request->user(),
+            resourceType: 'user',
+            resourceId: (string) $user->id,
+        );
 
         $user->load('schools');
 
@@ -116,6 +128,14 @@ class UserController extends Controller
             return $user;
         });
 
+        $this->audit->record(
+            AuditEventType::UserUpdated,
+            $request,
+            $request->user(),
+            resourceType: 'user',
+            resourceId: (string) $user->id,
+        );
+
         $user->refresh()->load('schools');
 
         return new UserResource($user);
@@ -134,6 +154,14 @@ class UserController extends Controller
         ])->save();
 
         $user->tokens()->delete();
+
+        $this->audit->record(
+            AuditEventType::UserPasswordReset,
+            $request,
+            $request->user(),
+            resourceType: 'user',
+            resourceId: (string) $user->id,
+        );
 
         $user->load('schools');
 
@@ -155,6 +183,14 @@ class UserController extends Controller
         }
 
         $user->deactivate();
+
+        $this->audit->record(
+            AuditEventType::UserDeactivated,
+            $request,
+            $request->user(),
+            resourceType: 'user',
+            resourceId: (string) $user->id,
+        );
 
         $user->refresh()->load('schools');
 

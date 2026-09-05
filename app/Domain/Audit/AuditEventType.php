@@ -7,4 +7,17 @@ enum AuditEventType: string
     case LoginSuccess = 'auth.login.success';
     case LoginFailed = 'auth.login.failed';
     case Logout = 'auth.logout';
+
+    case UserCreated = 'user.created';
+    case UserUpdated = 'user.updated';
+    case UserDeactivated = 'user.deactivated';
+    case UserPasswordReset = 'user.password_reset';
+
+    case SchoolCreated = 'school.created';
+    case SchoolUpdated = 'school.updated';
+    case SchoolDeleted = 'school.deleted';
+
+    case TenantCohortUpdated = 'tenant.cohort.updated';
+    case FeatureFlagUpdated = 'feature_flag.updated';
+    case TenantSsoUpdated = 'tenant.sso.updated';
 }
