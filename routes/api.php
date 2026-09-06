@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\PilotTenantController;
 use App\Http\Controllers\Api\V1\PilotToolkitController;
+use App\Http\Controllers\Api\V1\PupilController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantSsoController;
@@ -46,6 +47,8 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.tenant.feature-flags.update');
 
         Route::apiResource('schools', SchoolController::class)->names('api.v1.schools');
+
+        Route::apiResource('pupils', PupilController::class)->names('api.v1.pupils');
 
         Route::apiResource('users', UserController::class)
             ->except(['destroy'])

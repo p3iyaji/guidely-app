@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
+use App\Policies\PupilPolicy;
 use App\Policies\SchoolPolicy;
 use App\Policies\TenantPolicy;
 use App\Policies\UserPolicy;
@@ -31,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(School::class, SchoolPolicy::class);
+        Gate::policy(Pupil::class, PupilPolicy::class);
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
 
