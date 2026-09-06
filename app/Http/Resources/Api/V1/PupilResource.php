@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Domain\Ontology\NeedTerm;
 use App\Domain\Pupils\Pupil;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -27,9 +28,28 @@ class PupilResource extends JsonResource
             'year_group' => $this->year_group,
             'send_status' => $this->send_status?->value,
             'documentation_status' => $this->documentation_status?->value,
+            'primary_need' => $this->needPayload($this->primaryNeedTerm, $this->primary_need_notes),
+            'secondary_need' => $this->needPayload($this->secondaryNeedTerm, $this->secondary_need_notes),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'deleted_at' => $this->deleted_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array{id: string, code: string, label: string, notes: ?string}|null
+     */
+    private function needPayload(?NeedTerm $term, ?string $notes): ?array
+    {
+        if ($term === null) {
+            return null;
+        }
+
+        return [
+            'id' => $term->id,
+            'code' => $term->code,
+            'label' => $term->label,
+            'notes' => $notes,
         ];
     }
 }

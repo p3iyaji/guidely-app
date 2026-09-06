@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Domain\Audit\AuditEventType;
 use App\Domain\Audit\AuditWriter;
 use App\Domain\Identity\Role;
+use App\Domain\Ontology\NeedTerm;
 use App\Domain\Pupils\Pupil;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StorePupilRequest;
@@ -20,6 +21,16 @@ use Illuminate\Validation\ValidationException;
 
 class PupilController extends Controller
 {
+    /**
+     * @var list<string>
+     */
+    private const NEED_ATTRIBUTE_KEYS = [
+        'primary_need_term_id',
+        'primary_need_notes',
+        'secondary_need_term_id',
+        'secondary_need_notes',
+    ];
+
     public function __construct(private AuditWriter $audit) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -35,6 +46,7 @@ class PupilController extends Controller
         }
 
         $query = Pupil::query()
+            ->with(['primaryNeedTerm', 'secondaryNeedTerm'])
             ->orderBy('family_name')
             ->orderBy('given_name')
             ->orderBy('id');
@@ -60,13 +72,20 @@ class PupilController extends Controller
             ]);
         }
 
+        $pupil->load(['primaryNeedTerm', 'secondaryNeedTerm']);
+
+        $hasNeedValues = $this->pupilHasNeedValues($pupil);
+
         $this->audit->record(
             AuditEventType::PupilCreated,
             $request,
             $request->user(),
             resourceType: 'pupil',
             resourceId: $pupil->id,
+            metadata: $hasNeedValues ? $this->needAuditMetadata($pupil) : [],
         );
+
+        $this->enqueueSreReevaluationIfNeeded($pupil, $hasNeedValues);
 
         return (new PupilResource($pupil))
             ->response()
@@ -77,11 +96,15 @@ class PupilController extends Controller
     {
         $this->authorize('view', $pupil);
 
+        $pupil->loadMissing(['primaryNeedTerm', 'secondaryNeedTerm']);
+
         return new PupilResource($pupil);
     }
 
     public function update(UpdatePupilRequest $request, Pupil $pupil): PupilResource
     {
+        $needChanged = $this->needAttributesChanged($pupil, $request->validated());
+
         try {
             $pupil->update($request->validated());
         } catch (UniqueConstraintViolationException) {
@@ -90,15 +113,20 @@ class PupilController extends Controller
             ]);
         }
 
+        $pupil->refresh()->load(['primaryNeedTerm', 'secondaryNeedTerm']);
+
         $this->audit->record(
             AuditEventType::PupilUpdated,
             $request,
             $request->user(),
             resourceType: 'pupil',
             resourceId: $pupil->id,
+            metadata: $needChanged ? $this->needAuditMetadata($pupil) : [],
         );
 
-        return new PupilResource($pupil->refresh());
+        $this->enqueueSreReevaluationIfNeeded($pupil, $needChanged);
+
+        return new PupilResource($pupil);
     }
 
     public function destroy(Request $request, Pupil $pupil): Response
@@ -137,5 +165,67 @@ class PupilController extends Controller
         }
 
         return $user->can('viewLeft', Pupil::class);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function needAttributesChanged(Pupil $pupil, array $validated): bool
+    {
+        foreach (self::NEED_ATTRIBUTE_KEYS as $key) {
+            if (! array_key_exists($key, $validated)) {
+                continue;
+            }
+
+            if ($pupil->getAttribute($key) !== $validated[$key]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function pupilHasNeedValues(Pupil $pupil): bool
+    {
+        return $pupil->primary_need_term_id !== null
+            || $pupil->secondary_need_term_id !== null
+            || filled($pupil->primary_need_notes)
+            || filled($pupil->secondary_need_notes);
+    }
+
+    /**
+     * @return array<string, bool|int|float|string|null>
+     */
+    private function needAuditMetadata(Pupil $pupil): array
+    {
+        return [
+            'primary_need_term_id' => $pupil->primary_need_term_id,
+            'primary_need_term_code' => $this->termCode($pupil->primaryNeedTerm),
+            'primary_need_notes' => $pupil->primary_need_notes,
+            'secondary_need_term_id' => $pupil->secondary_need_term_id,
+            'secondary_need_term_code' => $this->termCode($pupil->secondaryNeedTerm),
+            'secondary_need_notes' => $pupil->secondary_need_notes,
+        ];
+    }
+
+    private function termCode(?NeedTerm $term): ?string
+    {
+        return $term?->code;
+    }
+
+    private function enqueueSreReevaluationIfNeeded(Pupil $pupil, bool $needChanged): void
+    {
+        if (! $needChanged) {
+            return;
+        }
+
+        $jobClass = 'App\\Jobs\\SreReevaluatePupil';
+
+        if (! class_exists($jobClass)) {
+            return;
+        }
+
+        // Real job only — never invent a stub. Constructor matches AD-17 shape when present.
+        dispatch(new $jobClass($pupil->tenant_id, $pupil->id, 'need_changed'));
     }
 }

@@ -6,6 +6,7 @@ use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
 use App\Domain\Tenancy\CurrentTenant;
 use App\Domain\Tenancy\School;
+use App\Http\Requests\Api\V1\Concerns\ValidatesPupilNeedFields;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -14,6 +15,8 @@ use Illuminate\Validation\Validator;
 
 class StorePupilRequest extends FormRequest
 {
+    use ValidatesPupilNeedFields;
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', Pupil::class) ?? false;
@@ -27,7 +30,7 @@ class StorePupilRequest extends FormRequest
         $tenantId = CurrentTenant::id();
         $schoolId = $this->string('school_id')->toString();
 
-        return [
+        return array_merge([
             'school_id' => [
                 'required',
                 'ulid',
@@ -49,7 +52,7 @@ class StorePupilRequest extends FormRequest
             'date_of_birth' => ['nullable', 'date', 'before:today'],
             'year_group' => ['required', 'string', 'max:50'],
             'send_status' => ['required', 'string', Rule::in(SendStatus::values())],
-        ];
+        ], $this->needFieldRules());
     }
 
     /**
@@ -57,11 +60,11 @@ class StorePupilRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
+        return array_merge([
             'mis_key.unique' => 'A Pupil with this MIS key already exists in this School.',
             'school_id.exists' => 'The selected School must be an active School in your organisation.',
             'send_status.in' => 'SEND status must be SEN Support, EHCP, or neither.',
-        ];
+        ], $this->needFieldMessages());
     }
 
     public function withValidator(Validator $validator): void
@@ -88,6 +91,10 @@ class StorePupilRequest extends FormRequest
                 );
             }
         });
+
+        $validator->after(function (Validator $validator): void {
+            $this->validateNeedConsistency($validator);
+        });
     }
 
     protected function prepareForValidation(): void
@@ -106,5 +113,7 @@ class StorePupilRequest extends FormRequest
         if ($merge !== []) {
             $this->merge($merge);
         }
+
+        $this->prepareNeedFieldsForValidation();
     }
 }

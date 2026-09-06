@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Domain\Ontology\NeedTerm;
 use App\Domain\Pupils\DocumentationStatus;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
@@ -33,6 +34,10 @@ class PupilFactory extends Factory
             'year_group' => 'Year '.fake()->numberBetween(7, 11),
             'send_status' => SendStatus::Neither,
             'documentation_status' => DocumentationStatus::NotStarted,
+            'primary_need_term_id' => null,
+            'primary_need_notes' => null,
+            'secondary_need_term_id' => null,
+            'secondary_need_notes' => null,
         ];
     }
 
@@ -69,6 +74,22 @@ class PupilFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'send_status' => SendStatus::Ehcp,
+        ]);
+    }
+
+    public function withPrimaryNeed(NeedTerm $term, ?string $notes = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'primary_need_term_id' => $term->id,
+            'primary_need_notes' => $notes,
+        ]);
+    }
+
+    public function withSecondaryNeed(NeedTerm $term, ?string $notes = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'secondary_need_term_id' => $term->id,
+            'secondary_need_notes' => $notes,
         ]);
     }
 }

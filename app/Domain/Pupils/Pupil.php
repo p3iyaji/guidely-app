@@ -2,6 +2,7 @@
 
 namespace App\Domain\Pupils;
 
+use App\Domain\Ontology\NeedTerm;
 use App\Domain\Tenancy\Concerns\BelongsToTenant;
 use App\Domain\Tenancy\School;
 use Database\Factories\PupilFactory;
@@ -20,6 +21,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'date_of_birth',
     'year_group',
     'send_status',
+    'primary_need_term_id',
+    'primary_need_notes',
+    'secondary_need_term_id',
+    'secondary_need_notes',
 ])]
 class Pupil extends Model
 {
@@ -54,5 +59,15 @@ class Pupil extends Model
     public function school(): BelongsTo
     {
         return $this->belongsTo(School::class);
+    }
+
+    public function primaryNeedTerm(): BelongsTo
+    {
+        return $this->belongsTo(NeedTerm::class, 'primary_need_term_id');
+    }
+
+    public function secondaryNeedTerm(): BelongsTo
+    {
+        return $this->belongsTo(NeedTerm::class, 'secondary_need_term_id');
     }
 }

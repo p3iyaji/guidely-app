@@ -6,6 +6,7 @@ use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
 use App\Domain\Tenancy\CurrentTenant;
 use App\Domain\Tenancy\School;
+use App\Http\Requests\Api\V1\Concerns\ValidatesPupilNeedFields;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -14,6 +15,8 @@ use Illuminate\Validation\Validator;
 
 class UpdatePupilRequest extends FormRequest
 {
+    use ValidatesPupilNeedFields;
+
     public function authorize(): bool
     {
         /** @var Pupil $pupil */
@@ -32,7 +35,7 @@ class UpdatePupilRequest extends FormRequest
         $tenantId = CurrentTenant::id();
         $schoolId = $this->input('school_id', $pupil->school_id);
 
-        return [
+        return array_merge([
             'school_id' => [
                 'sometimes',
                 'ulid',
@@ -54,7 +57,7 @@ class UpdatePupilRequest extends FormRequest
             'date_of_birth' => ['nullable', 'date', 'before:today'],
             'year_group' => ['sometimes', 'filled', 'string', 'max:50'],
             'send_status' => ['sometimes', 'string', Rule::in(SendStatus::values())],
-        ];
+        ], $this->needFieldRules());
     }
 
     /**
@@ -62,14 +65,14 @@ class UpdatePupilRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
+        return array_merge([
             'mis_key.unique' => 'A Pupil with this MIS key already exists in this School.',
             'school_id.exists' => 'The selected School must be an active School in your organisation.',
             'send_status.in' => 'SEND status must be SEN Support, EHCP, or neither.',
             'given_name.filled' => 'Given name cannot be blank.',
             'family_name.filled' => 'Family name cannot be blank.',
             'year_group.filled' => 'Year group cannot be blank.',
-        ];
+        ], $this->needFieldMessages());
     }
 
     public function withValidator(Validator $validator): void
@@ -121,6 +124,12 @@ class UpdatePupilRequest extends FormRequest
                 );
             }
         });
+
+        $validator->after(function (Validator $validator): void {
+            /** @var Pupil $pupil */
+            $pupil = $this->route('pupil');
+            $this->validateNeedConsistency($validator, $pupil);
+        });
     }
 
     protected function prepareForValidation(): void
@@ -139,5 +148,7 @@ class UpdatePupilRequest extends FormRequest
         if ($merge !== []) {
             $this->merge($merge);
         }
+
+        $this->prepareNeedFieldsForValidation();
     }
 }
