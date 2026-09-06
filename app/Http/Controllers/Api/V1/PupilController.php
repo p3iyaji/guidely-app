@@ -40,18 +40,24 @@ class PupilController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        // Teachers/Support Staff (and other non-viewer Roles) stay empty until Story 2.3.
-        if ($this->returnsEmptyCohort($user)) {
-            return PupilResource::collection(collect());
-        }
-
         $query = Pupil::query()
             ->with(['primaryNeedTerm', 'secondaryNeedTerm'])
             ->orderBy('family_name')
             ->orderBy('given_name')
             ->orderBy('id');
 
-        if (! $user->seesAllTenantSchools()) {
+        if ($this->isAssignmentScoped($user)) {
+            $schoolIds = $user->schools()->allRelatedIds();
+
+            $query->whereIn('school_id', $schoolIds)
+                ->whereHas(
+                    'assignedUsers',
+                    fn ($assignees) => $assignees->whereKey($user->id)
+                );
+        } elseif ($this->returnsEmptyCohort($user)) {
+            // Non-viewer Roles without assignment scope stay empty until a later story.
+            return PupilResource::collection(collect());
+        } elseif (! $user->seesAllTenantSchools()) {
             $query->whereIn('school_id', $user->schools()->allRelatedIds());
         }
 
@@ -153,6 +159,16 @@ class PupilController extends Controller
             Role::Senco,
             Role::TenantAdmin,
             Role::SchoolLeader,
+            Role::Teacher,
+            Role::SupportStaff,
+        ], true);
+    }
+
+    private function isAssignmentScoped(User $user): bool
+    {
+        return in_array($user->role, [
+            Role::Teacher,
+            Role::SupportStaff,
         ], true);
     }
 

@@ -22,8 +22,19 @@ class PupilPolicy
      */
     public function view(User $user, Pupil $pupil): bool
     {
-        return $this->canViewPupils($user)
-            && $this->canAccessPupilSchool($user, $pupil);
+        if (! $user->isActiveTenantStaff() || ! $this->canAccessPupilSchool($user, $pupil)) {
+            return false;
+        }
+
+        if ($this->canViewSchoolOrTenantPupils($user)) {
+            return true;
+        }
+
+        if ($this->isAssignmentScoped($user)) {
+            return $pupil->isAssignedTo($user);
+        }
+
+        return false;
     }
 
     /**
@@ -53,6 +64,15 @@ class PupilPolicy
     }
 
     /**
+     * Whether the user may assign Teachers/Support Staff to the Pupil.
+     */
+    public function assign(User $user, Pupil $pupil): bool
+    {
+        return $this->canMutatePupils($user)
+            && $this->canAccessPupilSchool($user, $pupil);
+    }
+
+    /**
      * Whether the user may include soft-deleted (left) Pupils in listings.
      */
     public function viewLeft(User $user): bool
@@ -70,7 +90,7 @@ class PupilPolicy
             || $user->role === Role::TenantAdmin;
     }
 
-    private function canViewPupils(User $user): bool
+    private function canViewSchoolOrTenantPupils(User $user): bool
     {
         if (! $user->isActiveTenantStaff()) {
             return false;
@@ -80,6 +100,14 @@ class PupilPolicy
             Role::Senco,
             Role::TenantAdmin,
             Role::SchoolLeader,
+        ], true);
+    }
+
+    private function isAssignmentScoped(User $user): bool
+    {
+        return in_array($user->role, [
+            Role::Teacher,
+            Role::SupportStaff,
         ], true);
     }
 

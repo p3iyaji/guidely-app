@@ -456,7 +456,7 @@ class PupilTest extends TestCase
             ->assertJsonPath('data.mis_key', 'SHARED-KEY');
     }
 
-    public function test_teacher_and_support_staff_cannot_show_pupil_by_id(): void
+    public function test_teacher_and_support_staff_cannot_show_unassigned_pupil_by_id(): void
     {
         $tenant = Tenant::factory()->create();
         $school = School::factory()->forTenant($tenant)->create();
@@ -469,6 +469,25 @@ class PupilTest extends TestCase
             $this->assertForbidden(
                 $this->actingAs($actor)->getJson('/api/v1/pupils/'.$pupil->id)
             );
+        }
+    }
+
+    public function test_teacher_and_support_staff_can_show_assigned_pupil_by_id(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $school = School::factory()->forTenant($tenant)->create();
+        $pupil = Pupil::factory()->forSchool($school)->create();
+
+        foreach (['teacher', 'supportStaff'] as $factoryState) {
+            $actor = User::factory()->forTenant($tenant)->{$factoryState}()->create();
+            $actor->schools()->attach($school->id);
+            $pupil->assignTo($actor);
+
+            $this->actingAs($actor)->getJson('/api/v1/pupils/'.$pupil->id)
+                ->assertOk()
+                ->assertJsonPath('data.id', $pupil->id);
+
+            $pupil->unassign($actor);
         }
     }
 

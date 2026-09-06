@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\Identity\Role;
+use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\CurrentTenant;
 use App\Domain\Tenancy\FeatureFlagKey;
 use App\Domain\Tenancy\FeatureFlagResolver;
@@ -64,6 +65,18 @@ class User extends Authenticatable
     public function schools(): BelongsToMany
     {
         return $this->belongsToMany(School::class)->withTimestamps();
+    }
+
+    /**
+     * Pupils assigned to this User via pupil_user (not school_user School access).
+     *
+     * @return BelongsToMany<Pupil, $this>
+     */
+    public function assignedPupils(): BelongsToMany
+    {
+        return $this->belongsToMany(Pupil::class)
+            ->withPivot(['class_label', 'cohort_label', 'source'])
+            ->withTimestamps();
     }
 
     /**

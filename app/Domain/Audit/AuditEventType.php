@@ -20,6 +20,7 @@ enum AuditEventType: string
     case PupilCreated = 'pupil.created';
     case PupilUpdated = 'pupil.updated';
     case PupilDeleted = 'pupil.deleted';
+    case PupilAssignmentUpdated = 'pupil.assignment.updated';
 
     case TenantCreated = 'tenant.created';
     case TenantCohortUpdated = 'tenant.cohort.updated';

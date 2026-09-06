@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\PilotTenantController;
 use App\Http\Controllers\Api\V1\PilotToolkitController;
+use App\Http\Controllers\Api\V1\PupilAssignmentController;
 use App\Http\Controllers\Api\V1\PupilController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\TenantController;
@@ -49,6 +50,10 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('schools', SchoolController::class)->names('api.v1.schools');
 
         Route::apiResource('pupils', PupilController::class)->names('api.v1.pupils');
+        Route::post('/pupils/{pupil}/assignments', [PupilAssignmentController::class, 'store'])
+            ->name('api.v1.pupils.assignments.store');
+        Route::delete('/pupils/{pupil}/assignments/{user}', [PupilAssignmentController::class, 'destroy'])
+            ->name('api.v1.pupils.assignments.destroy');
 
         Route::apiResource('users', UserController::class)
             ->except(['destroy'])

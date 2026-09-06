@@ -8,6 +8,7 @@ use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -91,5 +92,17 @@ class PupilFactory extends Factory
             'secondary_need_term_id' => $term->id,
             'secondary_need_notes' => $notes,
         ]);
+    }
+
+    /**
+     * After creating, assign the Pupil to the given staff User.
+     *
+     * @param  array{class_label?: ?string, cohort_label?: ?string, source?: string}  $pivot
+     */
+    public function assignedTo(User $user, array $pivot = []): static
+    {
+        return $this->afterCreating(function (Pupil $pupil) use ($user, $pivot): void {
+            $pupil->assignTo($user, $pivot);
+        });
     }
 }
