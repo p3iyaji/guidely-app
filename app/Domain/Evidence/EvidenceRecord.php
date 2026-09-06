@@ -2,6 +2,7 @@
 
 namespace App\Domain\Evidence;
 
+use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Ontology\SettingTerm;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\Concerns\BelongsToTenant;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'author_id',
     'occurred_at',
     'setting_term_id',
+    'provision_term_id',
     'body',
 ])]
 class EvidenceRecord extends Model
@@ -63,5 +65,10 @@ class EvidenceRecord extends Model
     public function settingTerm(): BelongsTo
     {
         return $this->belongsTo(SettingTerm::class, 'setting_term_id');
+    }
+
+    public function provisionTerm(): BelongsTo
+    {
+        return $this->belongsTo(ProvisionTerm::class, 'provision_term_id');
     }
 }

@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Evidence\EvidenceType;
+use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Ontology\SettingTerm;
 use App\Domain\Pupils\Pupil;
 use App\Models\User;
@@ -32,6 +33,7 @@ class EvidenceRecordFactory extends Factory
             'lifecycle' => EvidenceLifecycle::Submitted,
             'occurred_at' => now()->utc(),
             'setting_term_id' => SettingTerm::factory(),
+            'provision_term_id' => null,
             'body' => fake()->sentence(),
         ];
     }
@@ -55,6 +57,24 @@ class EvidenceRecordFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'setting_term_id' => $term->id,
+        ]);
+    }
+
+    public function intervention(?ProvisionTerm $term = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => EvidenceType::Intervention,
+            'setting_term_id' => null,
+            'provision_term_id' => $term?->id ?? ProvisionTerm::factory(),
+        ]);
+    }
+
+    public function withProvision(ProvisionTerm $term): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => EvidenceType::Intervention,
+            'setting_term_id' => null,
+            'provision_term_id' => $term->id,
         ]);
     }
 }

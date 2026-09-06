@@ -4,10 +4,12 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\ImportController;
+use App\Http\Controllers\Api\V1\InterventionController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\ObservationController;
 use App\Http\Controllers\Api\V1\PilotTenantController;
 use App\Http\Controllers\Api\V1\PilotToolkitController;
+use App\Http\Controllers\Api\V1\ProvisionTermController;
 use App\Http\Controllers\Api\V1\PupilAssignmentController;
 use App\Http\Controllers\Api\V1\PupilController;
 use App\Http\Controllers\Api\V1\SchoolController;
@@ -60,8 +62,12 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/observations', [ObservationController::class, 'store'])
             ->name('api.v1.observations.store');
+        Route::post('/interventions', [InterventionController::class, 'store'])
+            ->name('api.v1.interventions.store');
         Route::get('/ontology/setting-terms', [SettingTermController::class, 'index'])
             ->name('api.v1.ontology.setting-terms.index');
+        Route::get('/ontology/provision-terms', [ProvisionTermController::class, 'index'])
+            ->name('api.v1.ontology.provision-terms.index');
 
         Route::get('/import/template', [ImportController::class, 'template'])
             ->name('api.v1.import.template');

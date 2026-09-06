@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Ontology\SettingTerm;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -25,7 +26,8 @@ class EvidenceRecordResource extends JsonResource
             'type' => $this->type?->value,
             'lifecycle' => $this->lifecycle?->value,
             'occurred_at' => $this->occurred_at?->utc()->toIso8601String(),
-            'setting' => $this->settingPayload($this->settingTerm),
+            'setting' => $this->termPayload($this->settingTerm),
+            'provision' => $this->termPayload($this->provisionTerm),
             'body' => $this->body,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
@@ -35,7 +37,7 @@ class EvidenceRecordResource extends JsonResource
     /**
      * @return array{id: string, code: string, label: string}|null
      */
-    private function settingPayload(?SettingTerm $term): ?array
+    private function termPayload(SettingTerm|ProvisionTerm|null $term): ?array
     {
         if ($term === null) {
             return null;

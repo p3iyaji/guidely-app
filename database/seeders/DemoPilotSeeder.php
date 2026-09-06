@@ -46,6 +46,7 @@ class DemoPilotSeeder extends Seeder
         $this->call([
             NeedOntologySeeder::class,
             SettingOntologySeeder::class,
+            ProvisionOntologySeeder::class,
         ]);
 
         $tenant = Tenant::factory()->school()->create([

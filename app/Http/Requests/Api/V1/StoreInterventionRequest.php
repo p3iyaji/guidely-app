@@ -4,12 +4,12 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Tenancy\CurrentTenant;
-use Database\Seeders\SettingOntologySeeder;
+use Database\Seeders\ProvisionOntologySeeder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
-class StoreObservationRequest extends FormRequest
+class StoreInterventionRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -23,22 +23,22 @@ class StoreObservationRequest extends FormRequest
     {
         $tenantId = CurrentTenant::id();
 
-        $activePublishedStubTerm = Rule::exists('setting_terms', 'id')->where(function ($query): void {
+        $activePublishedStubTerm = Rule::exists('provision_terms', 'id')->where(function ($query): void {
             $query->where('is_active', true)
                 ->whereIn('ontology_version_id', function ($versionQuery): void {
                     $versionQuery->select('id')
                         ->from('ontology_versions')
                         ->where('status', 'published')
-                        ->where('code', SettingOntologySeeder::STUB_VERSION_CODE);
+                        ->where('code', ProvisionOntologySeeder::STUB_VERSION_CODE);
                 });
         });
 
         return [
-            // Free-text setting labels are never accepted — Ontology term ids only.
-            'setting' => ['prohibited'],
-            // Intervention fields must not be submitted on Observation create.
+            // Free-text provision labels are never accepted — Ontology term ids only.
             'provision' => ['prohibited'],
-            'provision_term_id' => ['prohibited'],
+            // Observation fields must not be submitted on Intervention create.
+            'setting' => ['prohibited'],
+            'setting_term_id' => ['prohibited'],
             'pupil_id' => [
                 'required',
                 'ulid',
@@ -48,12 +48,12 @@ class StoreObservationRequest extends FormRequest
                 }),
             ],
             'occurred_at' => ['required', 'date', 'before_or_equal:now'],
-            'setting_term_id' => [
+            'provision_term_id' => [
                 'required',
                 'ulid',
                 $activePublishedStubTerm,
             ],
-            'body' => ['required', 'string', 'max:5000'],
+            'body' => ['nullable', 'string', 'max:5000'],
             'client_type' => ['sometimes', 'string', Rule::in(['web', 'hybrid'])],
         ];
     }
@@ -64,12 +64,11 @@ class StoreObservationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'setting.prohibited' => 'Setting must use an Ontology term id, not a free-text label.',
-            'provision.prohibited' => 'Provision is not used for Observations.',
-            'provision_term_id.prohibited' => 'Provision is not used for Observations.',
-            'setting_term_id.required' => 'A Setting Ontology term is required.',
-            'setting_term_id.exists' => 'The selected Setting must be an active published Ontology term.',
-            'body.required' => 'What was observed is required.',
+            'provision.prohibited' => 'Provision must use an Ontology term id, not a free-text label.',
+            'setting.prohibited' => 'Setting is not used for Interventions.',
+            'setting_term_id.prohibited' => 'Setting is not used for Interventions.',
+            'provision_term_id.required' => 'A Provision Ontology term is required.',
+            'provision_term_id.exists' => 'The selected Provision must be an active published Ontology term.',
             'pupil_id.exists' => 'The selected Pupil could not be found.',
             'occurred_at.before_or_equal' => 'Session date and time cannot be in the future.',
             'client_type.in' => 'Client type must be web or hybrid.',
@@ -81,7 +80,8 @@ class StoreObservationRequest extends FormRequest
         $merge = [];
 
         if ($this->exists('body') && is_string($this->input('body'))) {
-            $merge['body'] = Str::of($this->input('body'))->trim()->toString();
+            $trimmed = Str::of($this->input('body'))->trim()->toString();
+            $merge['body'] = $trimmed === '' ? null : $trimmed;
         }
 
         $clientType = $this->input('client_type')
@@ -100,18 +100,18 @@ class StoreObservationRequest extends FormRequest
     }
 
     /**
-     * @return array{pupil_id: string, occurred_at: string, setting_term_id: string, body: string, client_type: string}
+     * @return array{pupil_id: string, occurred_at: string, provision_term_id: string, body: ?string, client_type: string}
      */
-    public function observationPayload(): array
+    public function interventionPayload(): array
     {
-        /** @var array{pupil_id: string, occurred_at: string, setting_term_id: string, body: string, client_type?: string} $validated */
+        /** @var array{pupil_id: string, occurred_at: string, provision_term_id: string, body?: ?string, client_type?: string} $validated */
         $validated = $this->validated();
 
         return [
             'pupil_id' => $validated['pupil_id'],
             'occurred_at' => $validated['occurred_at'],
-            'setting_term_id' => $validated['setting_term_id'],
-            'body' => $validated['body'],
+            'provision_term_id' => $validated['provision_term_id'],
+            'body' => $validated['body'] ?? null,
             'client_type' => $validated['client_type'] ?? 'web',
         ];
     }

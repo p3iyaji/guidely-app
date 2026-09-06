@@ -28,4 +28,5 @@ enum AuditEventType: string
     case TenantSsoUpdated = 'tenant.sso.updated';
 
     case EvidenceObservationCreated = 'evidence.observation.created';
+    case EvidenceInterventionCreated = 'evidence.intervention.created';
 }

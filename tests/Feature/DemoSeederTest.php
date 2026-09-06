@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Identity\Role;
+use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Ontology\SettingTerm;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\FeatureFlagKey;
@@ -11,6 +12,7 @@ use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use Database\Seeders\DemoPilotSeeder;
 use Database\Seeders\DemoTrustSeeder;
+use Database\Seeders\ProvisionOntologySeeder;
 use Database\Seeders\SettingOntologySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -75,6 +77,14 @@ class DemoSeederTest extends TestCase
             'code' => SettingOntologySeeder::STUB_VERSION_CODE,
             'status' => 'published',
         ]);
+        $this->assertTrue(
+            ProvisionTerm::query()->fromPublishedStub()->exists(),
+            'DemoPilotSeeder should seed the Provision Ontology stub.',
+        );
+        $this->assertDatabaseHas('ontology_versions', [
+            'code' => ProvisionOntologySeeder::STUB_VERSION_CODE,
+            'status' => 'published',
+        ]);
     }
 
     public function test_demo_trust_seeder_enables_trust_dashboard_for_trust_roles(): void
@@ -99,6 +109,10 @@ class DemoSeederTest extends TestCase
         $this->assertTrue(
             SettingTerm::query()->fromPublishedStub()->exists(),
             'DatabaseSeeder should leave the Setting Ontology stub available.',
+        );
+        $this->assertTrue(
+            ProvisionTerm::query()->fromPublishedStub()->exists(),
+            'DatabaseSeeder should leave the Provision Ontology stub available.',
         );
     }
 }

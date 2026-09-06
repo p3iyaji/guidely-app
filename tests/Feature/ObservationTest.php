@@ -117,6 +117,23 @@ class ObservationTest extends TestCase
             ->assertJsonValidationErrors(['setting']);
     }
 
+    public function test_provision_term_id_is_rejected_on_observation_create(): void
+    {
+        [, , $teacher, $pupil] = $this->tenantSchoolTeacherWithAssignedPupil();
+        $setting = $this->settingTerm('CLASSROOM');
+
+        $response = $this->actingAs($teacher)->postJson('/api/v1/observations', [
+            'pupil_id' => $pupil->id,
+            'occurred_at' => now()->subHour()->utc()->toIso8601String(),
+            'setting_term_id' => $setting->id,
+            'provision_term_id' => '01hprovisionterm000000000',
+            'body' => 'Observed during literacy.',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['provision_term_id']);
+    }
+
     public function test_inactive_or_non_stub_setting_term_is_rejected(): void
     {
         [, , $teacher, $pupil] = $this->tenantSchoolTeacherWithAssignedPupil();
