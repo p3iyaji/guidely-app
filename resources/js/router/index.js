@@ -6,6 +6,7 @@ import AccessDenied from '../pages/AccessDenied.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
 import LoginPage from '../pages/LoginPage.vue';
+import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -133,7 +134,8 @@ const routes = [
             {
                 path: 'pilot-toolkit',
                 name: 'pilot-toolkit',
-                ...stub('Pilot toolkit'),
+                component: PilotToolkitPage,
+                meta: { title: 'Pilot toolkit', requiresAuth: true },
             },
         ],
     },

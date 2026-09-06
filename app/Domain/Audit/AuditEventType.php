@@ -17,6 +17,7 @@ enum AuditEventType: string
     case SchoolUpdated = 'school.updated';
     case SchoolDeleted = 'school.deleted';
 
+    case TenantCreated = 'tenant.created';
     case TenantCohortUpdated = 'tenant.cohort.updated';
     case FeatureFlagUpdated = 'feature_flag.updated';
     case TenantSsoUpdated = 'tenant.sso.updated';

@@ -34,6 +34,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
 
+        Gate::define('create-pilot-tenant', fn (User $user): bool => $user->isPlatformOperator() && ! $user->isDeactivated());
+        Gate::define('view-pilot-toolkit', fn (User $user): bool => $user->isActiveTenantStaff() && $user->isTenantAdmin());
+
         // Future addendum rows — deny by default until those domains ship.
         Gate::define('capture-evidence', fn (): bool => false);
         Gate::define('view-evidence', fn (): bool => false);

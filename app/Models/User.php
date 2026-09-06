@@ -89,6 +89,11 @@ class User extends Authenticatable
         return $this->role === Role::TenantAdmin;
     }
 
+    public function isPlatformOperator(): bool
+    {
+        return $this->role === Role::PlatformOperator && $this->tenant_id === null;
+    }
+
     /**
      * Whether this User is the sole active Tenant Admin for their Tenant.
      */

@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\MeController;
+use App\Http\Controllers\Api\V1\PilotTenantController;
+use App\Http\Controllers\Api\V1\PilotToolkitController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantSsoController;
@@ -52,6 +54,15 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.users.reset-password');
         Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate'])
             ->name('api.v1.users.deactivate');
+
+        Route::post('/pilot/tenants', [PilotTenantController::class, 'store'])
+            ->name('api.v1.pilot.tenants.store');
+        Route::get('/pilot/import-template', [PilotToolkitController::class, 'importTemplate'])
+            ->name('api.v1.pilot.import-template');
+        Route::get('/pilot/disclaimers', [PilotToolkitController::class, 'disclaimers'])
+            ->name('api.v1.pilot.disclaimers');
+        Route::get('/pilot/success-metrics', [PilotToolkitController::class, 'successMetrics'])
+            ->name('api.v1.pilot.success-metrics');
 
         Route::get('/trust-dashboard', [FeatureStubController::class, 'trustDashboard'])
             ->middleware('feature:trust_dashboard')

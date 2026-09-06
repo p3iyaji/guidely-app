@@ -2,6 +2,7 @@
 
 namespace App\Domain\Audit;
 
+use App\Domain\Identity\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -120,6 +121,11 @@ class AuditWriter
     private function assertTenantMatchesUser(?User $user, ?string $tenantId): void
     {
         if ($user === null || $tenantId === null) {
+            return;
+        }
+
+        // Platform Operators have no Tenant; they may attach bootstrap events to a new Tenant.
+        if ($user->role === Role::PlatformOperator && $user->tenant_id === null) {
             return;
         }
 

@@ -80,3 +80,8 @@ npm run build
 Users may store a nullable Tenant-scoped `external_id` for future IdP subject mapping. Tenants store SSO stub fields (`sso_enabled` defaults to false, plus provider / entity_id / client_id placeholders) with no live IdP, ACS, or callback routes in Pilot.
 
 **Open question:** SAML vs OIDC protocol priority for first Trust SSO enablement remains undecided (see Architecture open question #2 in `_bmad-output/planning-artifacts/architecture/architecture-guidely-app-2026-08-20/ARCHITECTURE-SPINE.md`). Do not install Socialite/SAML packages or choose a protocol without an explicit product decision.
+
+## Operator docs
+
+- [School onboarding runbook](docs/runbooks/school-onboarding.md) — `guidely:onboard-school` Artisan path for Schools, flags, and Tenant Admin Users (FR-57)
+- [UK residency deploy notes](docs/deploy-uk-residency.md) — UK / UK-adequate targets for primary DB, object storage, and backups (NFR-9, AD-14)

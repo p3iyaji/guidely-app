@@ -59,6 +59,7 @@ export const NAV_BY_ROLE = {
     ],
     platform_operator: [
         { key: 'dashboard', label: 'Dashboard', to: '/' },
+        { key: 'pilot-toolkit', label: 'Pilot toolkit', to: '/pilot-toolkit' },
         { key: 'settings', label: 'Settings', to: '/settings' },
     ],
 };

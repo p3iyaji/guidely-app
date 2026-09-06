@@ -23,6 +23,8 @@ import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 import StatusPill from '../shared/ui/StatusPill.vue';
 import TopBar from '../shared/ui/TopBar.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
+import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
+import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
 describe('Role nav IA', () => {
@@ -87,6 +89,7 @@ describe('Role nav IA', () => {
     it('lists Platform Operator sidebar items', () => {
         expect(navLabelsForRole('platform_operator')).toEqual([
             'Dashboard',
+            'Pilot toolkit',
             'Settings',
         ]);
     });
@@ -137,6 +140,19 @@ describe('Role nav IA', () => {
             const resolved = router.resolve(to);
             expect(resolved.matched.length, `missing production route for nav target ${to}`).toBeGreaterThan(0);
         }
+    });
+
+    it('uses PilotToolkitPage for production pilot-toolkit route', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/pilot-toolkit');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(PilotToolkitPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 });
 
