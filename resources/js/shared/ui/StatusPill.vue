@@ -4,7 +4,7 @@
         :class="toneClass"
         data-testid="status-pill"
     >
-        <span aria-hidden="true">●</span>
+        <span aria-hidden="true">{{ icon }}</span>
         {{ label }}
     </span>
 </template>
@@ -16,7 +16,8 @@ const props = defineProps({
     status: {
         type: String,
         required: true,
-        validator: (value) => ['ready', 'gaps', 'uncovered', 'not-started'].includes(value),
+        validator: (value) =>
+            ['ready', 'gaps', 'uncovered', 'not-started', 'evaluating'].includes(value),
     },
 });
 
@@ -25,6 +26,15 @@ const labels = {
     gaps: 'Gaps',
     uncovered: 'Uncovered',
     'not-started': 'Not started',
+    evaluating: 'Evaluating',
+};
+
+const icons = {
+    ready: '●',
+    gaps: '●',
+    uncovered: '●',
+    'not-started': '○',
+    evaluating: '◐',
 };
 
 const tones = {
@@ -32,8 +42,10 @@ const tones = {
     gaps: 'bg-warning-soft text-warning',
     uncovered: 'bg-danger-soft text-danger',
     'not-started': 'bg-surface-muted text-text-muted',
+    evaluating: 'bg-info-soft text-info',
 };
 
 const label = computed(() => labels[props.status] ?? props.status);
+const icon = computed(() => icons[props.status] ?? '●');
 const toneClass = computed(() => tones[props.status] ?? tones['not-started']);
 </script>

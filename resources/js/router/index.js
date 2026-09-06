@@ -7,6 +7,7 @@ import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
+import PupilsPage from '../pages/PupilsPage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -58,7 +59,13 @@ const routes = [
             {
                 path: 'pupils',
                 name: 'pupils',
-                ...stub('My Pupils'),
+                component: PupilsPage,
+                meta: { title: 'Pupils', requiresAuth: true },
+            },
+            {
+                path: 'pupils/:id',
+                name: 'pupil-detail',
+                ...stub('Pupil'),
             },
             {
                 path: 'capture',

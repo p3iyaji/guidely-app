@@ -24,6 +24,7 @@ import StatusPill from '../shared/ui/StatusPill.vue';
 import TopBar from '../shared/ui/TopBar.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
+import PupilsPage from '../pages/PupilsPage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
@@ -154,6 +155,24 @@ describe('Role nav IA', () => {
         expect(leaf?.components?.default ?? leaf?.component).toBe(PilotToolkitPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
+
+    it('uses PupilsPage for production pupils route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const list = router.resolve('/pupils');
+        const listLeaf = list.matched[list.matched.length - 1];
+
+        expect(listLeaf?.components?.default ?? listLeaf?.component).toBe(PupilsPage);
+        expect(listLeaf?.components?.default ?? listLeaf?.component).not.toBe(ComingSoonPage);
+
+        const detail = router.resolve('/pupils/pup_1');
+        const detailLeaf = detail.matched[detail.matched.length - 1];
+
+        expect(detailLeaf?.components?.default ?? detailLeaf?.component).toBe(ComingSoonPage);
+    });
 });
 
 describe('isNavItemActive', () => {
@@ -181,6 +200,9 @@ describe('shared primitives smoke', () => {
 
         const pill = mount(StatusPill, { props: { status: 'gaps' } });
         expect(pill.text()).toContain('Gaps');
+
+        const evaluating = mount(StatusPill, { props: { status: 'evaluating' } });
+        expect(evaluating.text()).toContain('Evaluating');
 
         expect(mount(LoadingSkeleton).attributes('role')).toBe('status');
     });
