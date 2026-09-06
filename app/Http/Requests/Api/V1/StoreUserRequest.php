@@ -6,6 +6,7 @@ use App\Domain\Tenancy\CurrentTenant;
 use App\Http\Requests\Api\V1\Concerns\ValidatesTenantAssignableRoles;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
@@ -20,6 +21,12 @@ class StoreUserRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->filled('email')) {
+            $this->merge([
+                'email' => Str::lower(trim((string) $this->input('email'))),
+            ]);
+        }
+
         if ($this->exists('external_id') && $this->input('external_id') === '') {
             $this->merge(['external_id' => null]);
         }

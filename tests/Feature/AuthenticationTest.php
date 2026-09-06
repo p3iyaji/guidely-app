@@ -42,6 +42,22 @@ class AuthenticationTest extends TestCase
         ]);
     }
 
+    public function test_login_succeeds_when_email_case_differs_from_stored_value(): void
+    {
+        $user = $this->provisionedUser([
+            'email' => 'Staff.User@Example.COM',
+        ]);
+
+        $this->assertSame('staff.user@example.com', $user->email);
+
+        $this->fromSpa()->postJson('/api/v1/login', [
+            'email' => 'STAFF.USER@Example.COM',
+            'password' => 'password',
+        ])->assertOk();
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_web_login_failure_with_wrong_password_returns_generic_401_and_audits(): void
     {
         $user = $this->provisionedUser();

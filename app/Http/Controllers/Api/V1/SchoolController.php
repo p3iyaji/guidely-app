@@ -22,7 +22,12 @@ class SchoolController extends Controller
     {
         $this->authorize('viewAny', School::class);
 
+        $user = $request->user();
         $query = School::query()->orderBy('name');
+
+        if ($user !== null && ! $user->seesAllTenantSchools()) {
+            $query->whereKey($user->schools()->allRelatedIds());
+        }
 
         if ($request->boolean('active')) {
             $query->active();

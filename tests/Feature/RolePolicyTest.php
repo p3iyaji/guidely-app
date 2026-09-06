@@ -111,23 +111,42 @@ class RolePolicyTest extends TestCase
         ]);
     }
 
-    public function test_non_admin_same_tenant_staff_can_still_list_and_view_schools(): void
+    public function test_non_admin_same_tenant_staff_are_limited_to_assigned_schools(): void
     {
         $tenant = Tenant::factory()->create();
-        $school = School::factory()->forTenant($tenant)->create(['name' => 'Visible School']);
+        $schoolA = School::factory()->forTenant($tenant)->create(['name' => 'Assigned School']);
+        $schoolB = School::factory()->forTenant($tenant)->create(['name' => 'Other School']);
         $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacher->schools()->attach($schoolA->id);
 
         $this->actingAs($teacher)->getJson('/api/v1/schools')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $school->id);
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $schoolA->id)
+            ->assertJsonMissing(['id' => $schoolB->id]);
 
-        $this->actingAs($teacher)->getJson('/api/v1/schools/'.$school->id)
+        $this->actingAs($teacher)->getJson('/api/v1/schools/'.$schoolA->id)
             ->assertOk()
-            ->assertJsonPath('data.name', 'Visible School');
+            ->assertJsonPath('data.name', 'Assigned School');
+
+        $this->assertForbiddenMutation(
+            $this->actingAs($teacher)->getJson('/api/v1/schools/'.$schoolB->id)
+        );
 
         $this->actingAs($teacher)->getJson('/api/v1/tenant')
             ->assertOk()
             ->assertJsonPath('data.id', $tenant->id);
+    }
+
+    public function test_teacher_without_school_assignments_sees_empty_school_list(): void
+    {
+        $tenant = Tenant::factory()->create();
+        School::factory()->forTenant($tenant)->create(['name' => 'Unscoped School']);
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+
+        $this->actingAs($teacher)->getJson('/api/v1/schools')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_factory_role_states_cover_each_role(): void

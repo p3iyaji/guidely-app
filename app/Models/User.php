@@ -13,11 +13,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'email', 'password', 'tenant_id', 'external_id'])]
@@ -40,6 +42,18 @@ class User extends Authenticatable
             'role' => Role::class,
             'deactivated_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Always persist emails lowercased so login/SSO lookups stay consistent.
+     */
+    protected function email(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value): ?string => $value === null
+                ? null
+                : Str::lower(trim($value)),
+        );
     }
 
     public function tenant(): BelongsTo
@@ -151,6 +165,39 @@ class User extends Authenticatable
         $resolver ??= app(FeatureFlagResolver::class);
 
         return $resolver->isEnabled(FeatureFlagKey::TrustDashboard, $this->tenant);
+    }
+
+    /**
+     * Tenant Admins and active Trust staff see every School in the Tenant.
+     * Other Roles are limited to the school_user pivot.
+     */
+    public function seesAllTenantSchools(?FeatureFlagResolver $resolver = null): bool
+    {
+        if (! $this->isActiveTenantStaff($resolver)) {
+            return false;
+        }
+
+        return $this->isTenantAdmin() || $this->isActiveTrustStaff($resolver);
+    }
+
+    /**
+     * Whether this User may view/access a School (same Tenant + Admin/Trust or pivot).
+     */
+    public function canAccessSchool(School $school, ?FeatureFlagResolver $resolver = null): bool
+    {
+        if (! $this->isActiveTenantStaff($resolver)) {
+            return false;
+        }
+
+        if ($this->tenant_id === null || $this->tenant_id !== $school->tenant_id) {
+            return false;
+        }
+
+        if ($this->seesAllTenantSchools($resolver)) {
+            return true;
+        }
+
+        return $this->schools()->whereKey($school->id)->exists();
     }
 
     /**

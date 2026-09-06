@@ -58,6 +58,15 @@ php artisan route:list --path=api/v1/health
 npm run build
 ```
 
+**Browser E2E (Playwright):** first-time browser install, then smoke against a dedicated SQLite DB:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+Credentials are seeded by `E2eSeeder` (`e2e.admin@example.sch.uk` / `password`). Uses port `8010` and `database/e2e.sqlite` so local app data is untouched.
+
 ## Layout
 
 | Path | Role |

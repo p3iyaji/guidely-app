@@ -15,6 +15,6 @@ class MeController extends Controller
     {
         abort_unless($request->user(), 401);
 
-        return new UserResource($request->user());
+        return new UserResource($request->user()->loadMissing('schools'));
     }
 }

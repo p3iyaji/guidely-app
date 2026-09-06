@@ -20,6 +20,7 @@ class TenantIsolationTest extends TestCase
         School::factory()->forTenant($tenantB)->create(['name' => 'Bravo School']);
 
         $userA = User::factory()->forTenant($tenantA)->create();
+        $userA->schools()->attach($schoolA->id);
 
         $response = $this->actingAs($userA)->getJson('/api/v1/schools');
 

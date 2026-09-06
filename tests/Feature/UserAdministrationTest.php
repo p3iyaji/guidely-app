@@ -49,6 +49,38 @@ class UserAdministrationTest extends TestCase
         $this->assertTrue($created->schools()->whereKey($school->id)->exists());
     }
 
+    public function test_user_create_and_update_normalise_email_to_lowercase(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+
+        $create = $this->actingAs($admin)->postJson('/api/v1/users', [
+            'name' => 'Cased Teacher',
+            'email' => '  Teacher.CASE@Example.COM ',
+            'password' => 'password123',
+            'role' => Role::Teacher->value,
+        ]);
+
+        $create->assertCreated()
+            ->assertJsonPath('data.email', 'teacher.case@example.com');
+
+        $created = User::query()->where('email', 'teacher.case@example.com')->first();
+        $this->assertNotNull($created);
+        $this->assertDatabaseMissing('users', ['email' => 'Teacher.CASE@Example.COM']);
+
+        $update = $this->actingAs($admin)->patchJson('/api/v1/users/'.$created->id, [
+            'email' => 'Updated.CASE@Example.COM',
+        ]);
+
+        $update->assertOk()
+            ->assertJsonPath('data.email', 'updated.case@example.com');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $created->id,
+            'email' => 'updated.case@example.com',
+        ]);
+    }
+
     #[DataProvider('nonAdminRoles')]
     public function test_non_admin_cannot_mutate_or_read_users(string $factoryState): void
     {

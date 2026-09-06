@@ -3,6 +3,8 @@
  * Vue nav never authorises APIs — this only reflects API 403 responses.
  */
 
+import { navigateToAccessDenied } from '../navigation';
+
 function readCookie(name) {
     const encoded = document.cookie
         .split('; ')
@@ -42,11 +44,7 @@ export async function apiFetch(url, options = {}) {
         const payload = await response.clone().json().catch(() => ({}));
 
         if (payload.code === 'forbidden' || !payload.code) {
-            const { default: router } = await import('../router');
-
-            if (router.currentRoute.value.name !== 'access-denied') {
-                await router.push({ name: 'access-denied' });
-            }
+            await navigateToAccessDenied();
         }
     }
 

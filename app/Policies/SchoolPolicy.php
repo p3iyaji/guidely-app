@@ -20,8 +20,7 @@ class SchoolPolicy
      */
     public function view(User $user, School $school): bool
     {
-        return $user->isActiveTenantStaff()
-            && $this->sameTenant($user, $school);
+        return $user->canAccessSchool($school);
     }
 
     /**

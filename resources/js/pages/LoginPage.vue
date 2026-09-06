@@ -56,6 +56,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { login } from '../api/auth';
+import { useSession } from '../features/auth/session';
 
 const router = useRouter();
 
@@ -77,7 +78,6 @@ async function onSubmit() {
             return;
         }
 
-        const { useSession } = await import('../features/auth/session');
         await useSession().bootstrap();
         await router.push({ name: 'home' });
     } catch (error) {

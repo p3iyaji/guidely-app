@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Audit\AuditEvent;
+use App\Domain\Audit\AuditEventType;
 use App\Domain\Identity\Role;
 use App\Domain\Tenancy\FeatureFlagKey;
 use App\Domain\Tenancy\FeatureFlagResolver;
@@ -49,6 +51,34 @@ class OnboardSchoolCommandTest extends TestCase
         $resolver = app(FeatureFlagResolver::class);
         $this->assertTrue($resolver->isEnabled(FeatureFlagKey::Connectors, $tenant->refresh()));
         $this->assertFalse($resolver->isEnabled(FeatureFlagKey::TrustDashboard, $tenant));
+
+        $this->assertDatabaseHas('audit_events', [
+            'event_type' => AuditEventType::SchoolCreated->value,
+            'tenant_id' => $tenant->id,
+            'resource_type' => 'school',
+            'resource_id' => $school->id,
+            'user_id' => null,
+        ]);
+        $this->assertDatabaseHas('audit_events', [
+            'event_type' => AuditEventType::UserCreated->value,
+            'tenant_id' => $tenant->id,
+            'resource_type' => 'user',
+            'resource_id' => (string) $admin->id,
+            'user_id' => null,
+        ]);
+        $this->assertDatabaseHas('audit_events', [
+            'event_type' => AuditEventType::FeatureFlagUpdated->value,
+            'tenant_id' => $tenant->id,
+            'resource_type' => 'tenant',
+            'resource_id' => $tenant->id,
+        ]);
+        $this->assertSame(
+            2,
+            AuditEvent::query()
+                ->where('event_type', AuditEventType::FeatureFlagUpdated->value)
+                ->where('tenant_id', $tenant->id)
+                ->count()
+        );
     }
 
     public function test_onboard_school_fails_for_missing_tenant(): void

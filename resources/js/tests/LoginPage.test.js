@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { login, logout } from '../api/auth.js';
+import { useSession } from '../features/auth/session.js';
 import LoginPage from '../pages/LoginPage.vue';
 import { routes } from '../router/index.js';
 
@@ -104,10 +105,9 @@ describe('LoginPage', () => {
         await router.isReady();
     });
 
-    afterEach(async () => {
+    afterEach(() => {
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
-        const { useSession } = await import('../features/auth/session.js');
         useSession().setUser(null);
     });
 
@@ -214,7 +214,6 @@ describe('LoginPage', () => {
         expect(push).toHaveBeenCalledWith({ name: 'home' });
         expect(wrapper.find('[data-testid="login-error"]').exists()).toBe(false);
 
-        const { useSession } = await import('../features/auth/session.js');
         expect(useSession().role.value).toBe('teacher');
     });
 });

@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Audit\AuditEventType;
+use App\Domain\Audit\AuditWriter;
 use App\Domain\Identity\Role;
 use App\Domain\Tenancy\FeatureFlagKey;
 use App\Domain\Tenancy\FeatureFlagResolver;
@@ -9,8 +11,10 @@ use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
 class OnboardSchoolCommand extends Command
@@ -32,12 +36,12 @@ class OnboardSchoolCommand extends Command
      */
     protected $description = 'Create a School under an existing Tenant, optionally toggle flags, and provision a Tenant Admin User. Warning: --admin-password may appear in shell history.';
 
-    public function handle(FeatureFlagResolver $flags): int
+    public function handle(FeatureFlagResolver $flags, AuditWriter $audit): int
     {
         $tenantId = (string) $this->argument('tenant_id');
         $schoolName = (string) ($this->option('school-name') ?? '');
         $adminName = (string) ($this->option('admin-name') ?? '');
-        $adminEmail = (string) ($this->option('admin-email') ?? '');
+        $adminEmail = Str::lower(trim((string) ($this->option('admin-email') ?? '')));
         $adminPassword = (string) ($this->option('admin-password') ?? '');
         /** @var list<string> $enableFlags */
         $enableFlags = array_values(array_filter((array) $this->option('enable-flag')));
@@ -91,6 +95,8 @@ class OnboardSchoolCommand extends Command
             return self::FAILURE;
         }
 
+        $cliRequest = Request::create('/', 'CONSOLE');
+
         [$school, $admin] = DB::transaction(function () use (
             $tenant,
             $schoolName,
@@ -100,6 +106,8 @@ class OnboardSchoolCommand extends Command
             $enableFlags,
             $disableFlags,
             $flags,
+            $audit,
+            $cliRequest,
         ): array {
             $school = new School;
             $school->forceFill([
@@ -108,12 +116,47 @@ class OnboardSchoolCommand extends Command
                 'is_active' => true,
             ])->save();
 
+            $audit->record(
+                AuditEventType::SchoolCreated,
+                $cliRequest,
+                tenantId: $tenant->id,
+                resourceType: 'school',
+                resourceId: $school->id,
+                metadata: [
+                    'source' => 'guidely:onboard-school',
+                ],
+            );
+
             foreach ($enableFlags as $key) {
                 $flags->set($tenant, FeatureFlagKey::from($key), true);
+                $audit->record(
+                    AuditEventType::FeatureFlagUpdated,
+                    $cliRequest,
+                    tenantId: $tenant->id,
+                    resourceType: 'tenant',
+                    resourceId: $tenant->id,
+                    metadata: [
+                        'source' => 'guidely:onboard-school',
+                        'flag_key' => $key,
+                        'enabled' => true,
+                    ],
+                );
             }
 
             foreach ($disableFlags as $key) {
                 $flags->set($tenant, FeatureFlagKey::from($key), false);
+                $audit->record(
+                    AuditEventType::FeatureFlagUpdated,
+                    $cliRequest,
+                    tenantId: $tenant->id,
+                    resourceType: 'tenant',
+                    resourceId: $tenant->id,
+                    metadata: [
+                        'source' => 'guidely:onboard-school',
+                        'flag_key' => $key,
+                        'enabled' => false,
+                    ],
+                );
             }
 
             $admin = new User;
@@ -126,6 +169,17 @@ class OnboardSchoolCommand extends Command
             ])->save();
 
             $admin->schools()->sync([$school->id]);
+
+            $audit->record(
+                AuditEventType::UserCreated,
+                $cliRequest,
+                tenantId: $tenant->id,
+                resourceType: 'user',
+                resourceId: (string) $admin->id,
+                metadata: [
+                    'source' => 'guidely:onboard-school',
+                ],
+            );
 
             return [$school, $admin];
         });
