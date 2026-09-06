@@ -495,6 +495,38 @@ class PupilAssignmentTest extends TestCase
         ]);
     }
 
+    public function test_moving_pupil_to_school_prunes_assignees_without_access(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $schoolA = School::factory()->forTenant($tenant)->create();
+        $schoolB = School::factory()->forTenant($tenant)->create();
+        $senco = User::factory()->forTenant($tenant)->senco()->create();
+        $senco->schools()->sync([$schoolA->id, $schoolB->id]);
+
+        $teacherAOnly = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacherAOnly->schools()->attach($schoolA->id);
+
+        $teacherBoth = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacherBoth->schools()->sync([$schoolA->id, $schoolB->id]);
+
+        $pupil = Pupil::factory()->forSchool($schoolA)->create();
+        $pupil->assignTo($teacherAOnly);
+        $pupil->assignTo($teacherBoth);
+
+        $this->actingAs($senco)->patchJson('/api/v1/pupils/'.$pupil->id, [
+            'school_id' => $schoolB->id,
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('pupil_user', [
+            'pupil_id' => $pupil->id,
+            'user_id' => $teacherAOnly->id,
+        ]);
+        $this->assertDatabaseHas('pupil_user', [
+            'pupil_id' => $pupil->id,
+            'user_id' => $teacherBoth->id,
+        ]);
+    }
+
     /**
      * @return array<string, array{0: string}>
      */

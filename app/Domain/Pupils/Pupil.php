@@ -45,6 +45,23 @@ class Pupil extends Model
 
     protected static function booted(): void
     {
+        static::updating(function (Pupil $pupil): void {
+            if (! $pupil->isDirty('school_id')) {
+                return;
+            }
+
+            $school = School::query()->find($pupil->school_id);
+
+            $assigneeIds = $pupil->assignedUsers()
+                ->get()
+                ->reject(fn (User $assignee): bool => $school !== null && $assignee->canAccessSchool($school))
+                ->modelKeys();
+
+            if ($assigneeIds !== []) {
+                $pupil->assignedUsers()->detach($assigneeIds);
+            }
+        });
+
         static::deleting(function (Pupil $pupil): void {
             $pupil->assignedUsers()->detach();
         });

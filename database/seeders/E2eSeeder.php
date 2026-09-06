@@ -19,6 +19,8 @@ class E2eSeeder extends Seeder
 
     public const PASSWORD = 'password';
 
+    public const SCHOOL_NAME = 'E2E Primary';
+
     public function run(): void
     {
         $tenant = Tenant::query()->create([
@@ -31,7 +33,7 @@ class E2eSeeder extends Seeder
         $school = new School;
         $school->forceFill([
             'tenant_id' => $tenant->id,
-            'name' => 'E2E Primary',
+            'name' => self::SCHOOL_NAME,
             'is_active' => true,
         ])->save();
 

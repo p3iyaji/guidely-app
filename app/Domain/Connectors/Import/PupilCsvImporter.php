@@ -8,7 +8,6 @@ use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
 use App\Domain\Tenancy\CurrentTenant;
 use App\Domain\Tenancy\School;
-use App\Http\Resources\Api\V1\PupilResource;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
@@ -69,7 +68,7 @@ class PupilCsvImporter
 
     /**
      * @return array{
-     *     committed: list<array<string, mixed>>,
+     *     committed: list<array{row: int, action: string, pupil: Pupil}>,
      *     errors: list<array{row: int, message: string}>,
      *     summary: array{committed_count: int, error_count: int}
      * }
@@ -333,10 +332,11 @@ class PupilCsvImporter
 
             $this->enqueueSreReevaluation($existing);
 
-            return array_merge(
-                ['row' => $rowNumber, 'action' => 'updated'],
-                (new PupilResource($existing))->resolve($request),
-            );
+            return [
+                'row' => $rowNumber,
+                'action' => 'updated',
+                'pupil' => $existing,
+            ];
         }
 
         $pupil = Pupil::query()->create($validated);
@@ -353,10 +353,11 @@ class PupilCsvImporter
 
         $this->enqueueSreReevaluation($pupil);
 
-        return array_merge(
-            ['row' => $rowNumber, 'action' => 'created'],
-            (new PupilResource($pupil))->resolve($request),
-        );
+        return [
+            'row' => $rowNumber,
+            'action' => 'created',
+            'pupil' => $pupil,
+        ];
     }
 
     /**

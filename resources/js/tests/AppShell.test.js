@@ -100,6 +100,7 @@ describe('Role nav IA', () => {
         expect(navLabelsForRole('tenant_admin')).toEqual([
             'Users',
             'Schools',
+            'Pupils',
             'Import',
             'Connectors',
             'Feature flags',

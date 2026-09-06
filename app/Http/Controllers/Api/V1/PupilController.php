@@ -46,7 +46,7 @@ class PupilController extends Controller
             ->orderBy('given_name')
             ->orderBy('id');
 
-        if ($this->isAssignmentScoped($user)) {
+        if ($user->isAssignmentScopedForPupils()) {
             $schoolIds = $user->schools()->allRelatedIds();
 
             $query->whereIn('school_id', $schoolIds)
@@ -159,14 +159,6 @@ class PupilController extends Controller
             Role::Senco,
             Role::TenantAdmin,
             Role::SchoolLeader,
-            Role::Teacher,
-            Role::SupportStaff,
-        ], true);
-    }
-
-    private function isAssignmentScoped(User $user): bool
-    {
-        return in_array($user->role, [
             Role::Teacher,
             Role::SupportStaff,
         ], true);

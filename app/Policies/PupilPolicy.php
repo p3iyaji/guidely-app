@@ -30,7 +30,7 @@ class PupilPolicy
             return true;
         }
 
-        if ($this->isAssignmentScoped($user)) {
+        if ($user->isAssignmentScopedForPupils()) {
             return $pupil->isAssignedTo($user);
         }
 
@@ -100,14 +100,6 @@ class PupilPolicy
             Role::Senco,
             Role::TenantAdmin,
             Role::SchoolLeader,
-        ], true);
-    }
-
-    private function isAssignmentScoped(User $user): bool
-    {
-        return in_array($user->role, [
-            Role::Teacher,
-            Role::SupportStaff,
         ], true);
     }
 

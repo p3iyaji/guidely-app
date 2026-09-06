@@ -214,6 +214,17 @@ class User extends Authenticatable
     }
 
     /**
+     * Teachers and Support Staff see Pupils only via pupil_user assignment (not full School lists).
+     */
+    public function isAssignmentScopedForPupils(): bool
+    {
+        return in_array($this->role, [
+            Role::Teacher,
+            Role::SupportStaff,
+        ], true);
+    }
+
+    /**
      * Mark the user deactivated and revoke Sanctum tokens immediately.
      */
     public function deactivate(): void

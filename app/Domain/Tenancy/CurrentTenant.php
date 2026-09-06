@@ -4,6 +4,7 @@ namespace App\Domain\Tenancy;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class CurrentTenant
 {
@@ -27,5 +28,25 @@ class CurrentTenant
     public static function check(): bool
     {
         return static::id() !== null;
+    }
+
+    /**
+     * Resolve the current Tenant model or fail with 404 (no / missing Tenant).
+     */
+    public static function require(): Tenant
+    {
+        $tenantId = static::id();
+
+        if ($tenantId === null) {
+            throw new NotFoundHttpException;
+        }
+
+        $tenant = Tenant::query()->find($tenantId);
+
+        if ($tenant === null) {
+            throw new NotFoundHttpException;
+        }
+
+        return $tenant;
     }
 }

@@ -489,6 +489,37 @@ class ImportPupilsTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_imported_pupil_appears_for_teacher_after_assignment(): void
+    {
+        [$tenant, $school, $senco] = $this->tenantSchoolAndSenco();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacher->schools()->attach($school->id);
+
+        $upload = $this->actingAs($senco)->post('/api/v1/import/pupils', [
+            'file' => $this->csvUpload($this->csvContents([
+                $this->validRow($school->name, 'MIS-E2E'),
+            ])),
+        ]);
+
+        $upload->assertOk()
+            ->assertJsonPath('data.summary.committed_count', 1);
+
+        $pupilId = $upload->json('data.committed.0.id');
+        $this->assertNotEmpty($pupilId);
+
+        $this->actingAs($teacher)->getJson('/api/v1/pupils')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->actingAs($senco)->postJson('/api/v1/pupils/'.$pupilId.'/assignments', [
+            'user_id' => $teacher->id,
+        ])->assertOk();
+
+        $this->actingAs($teacher)->getJson('/api/v1/pupils')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $pupilId);
+    }
+
     /**
      * @return array<string, array{0: string}>
      */

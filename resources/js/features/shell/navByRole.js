@@ -52,6 +52,7 @@ export const NAV_BY_ROLE = {
     tenant_admin: [
         { key: 'users', label: 'Users', to: '/users' },
         { key: 'schools', label: 'Schools', to: '/schools' },
+        { key: 'pupils', label: 'Pupils', to: '/pupils' },
         { key: 'import', label: 'Import', to: '/import' },
         { key: 'connectors', label: 'Connectors', to: '/connectors' },
         { key: 'feature-flags', label: 'Feature flags', to: '/feature-flags' },
