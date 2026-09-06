@@ -24,6 +24,7 @@ use InvalidArgumentException;
     'date_of_birth',
     'year_group',
     'send_status',
+    'notes',
     'primary_need_term_id',
     'primary_need_notes',
     'secondary_need_term_id',

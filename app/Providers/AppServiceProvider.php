@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Identity\Role;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
@@ -39,6 +40,14 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('create-pilot-tenant', fn (User $user): bool => $user->isPlatformOperator() && ! $user->isDeactivated());
         Gate::define('view-pilot-toolkit', fn (User $user): bool => $user->isActiveTenantStaff() && $user->isTenantAdmin());
+        Gate::define('import-pupils', function (User $user): bool {
+            if (! $user->isActiveTenantStaff()) {
+                return false;
+            }
+
+            return $user->role === Role::Senco
+                || $user->role === Role::TenantAdmin;
+        });
 
         // Future addendum rows — deny by default until those domains ship.
         Gate::define('capture-evidence', fn (): bool => false);

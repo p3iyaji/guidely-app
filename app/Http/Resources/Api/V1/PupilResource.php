@@ -27,6 +27,7 @@ class PupilResource extends JsonResource
             'date_of_birth' => $this->date_of_birth?->format('Y-m-d'),
             'year_group' => $this->year_group,
             'send_status' => $this->send_status?->value,
+            'notes' => $this->notes,
             'documentation_status' => $this->documentation_status?->value,
             'primary_need' => $this->needPayload($this->primaryNeedTerm, $this->primary_need_notes),
             'secondary_need' => $this->needPayload($this->secondaryNeedTerm, $this->secondary_need_notes),

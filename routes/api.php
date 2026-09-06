@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
+use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\PilotTenantController;
 use App\Http\Controllers\Api\V1\PilotToolkitController;
@@ -54,6 +55,11 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.pupils.assignments.store');
         Route::delete('/pupils/{pupil}/assignments/{user}', [PupilAssignmentController::class, 'destroy'])
             ->name('api.v1.pupils.assignments.destroy');
+
+        Route::get('/import/template', [ImportController::class, 'template'])
+            ->name('api.v1.import.template');
+        Route::post('/import/pupils', [ImportController::class, 'uploadPupils'])
+            ->name('api.v1.import.pupils');
 
         Route::apiResource('users', UserController::class)
             ->except(['destroy'])

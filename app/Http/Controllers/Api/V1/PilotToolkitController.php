@@ -52,8 +52,8 @@ class PilotToolkitController extends Controller
                     ],
                     [
                         'id' => 'import-template',
-                        'heading' => 'Import Template placeholder',
-                        'body' => 'The Import Template download is headers-only. Full parse and upload lands in a later story — do not treat this file as a live MIS Connector.',
+                        'heading' => 'Import Template',
+                        'body' => 'SENCO and Tenant Admin can download the Import Template and upload Pupil CSV via Import (partial success by row). This is not a live MIS Connector.',
                     ],
                 ],
             ],

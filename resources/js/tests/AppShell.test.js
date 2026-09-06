@@ -25,6 +25,7 @@ import TopBar from '../shared/ui/TopBar.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
+import ImportPage from '../pages/ImportPage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
@@ -99,6 +100,7 @@ describe('Role nav IA', () => {
         expect(navLabelsForRole('tenant_admin')).toEqual([
             'Users',
             'Schools',
+            'Import',
             'Connectors',
             'Feature flags',
             'Pilot toolkit',
@@ -172,6 +174,19 @@ describe('Role nav IA', () => {
         const detailLeaf = detail.matched[detail.matched.length - 1];
 
         expect(detailLeaf?.components?.default ?? detailLeaf?.component).toBe(ComingSoonPage);
+    });
+
+    it('uses ImportPage for production import route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/import');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(ImportPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 });
 

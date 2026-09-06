@@ -52,6 +52,7 @@ class StorePupilRequest extends FormRequest
             'date_of_birth' => ['nullable', 'date', 'before:today'],
             'year_group' => ['required', 'string', 'max:50'],
             'send_status' => ['required', 'string', Rule::in(SendStatus::values())],
+            'notes' => ['nullable', 'string'],
         ], $this->needFieldRules());
     }
 
@@ -101,13 +102,15 @@ class StorePupilRequest extends FormRequest
     {
         $merge = [];
 
-        foreach (['given_name', 'family_name', 'year_group', 'mis_key'] as $field) {
+        foreach (['given_name', 'family_name', 'year_group', 'mis_key', 'notes'] as $field) {
             if (! $this->exists($field) || ! is_string($this->input($field))) {
                 continue;
             }
 
             $trimmed = Str::of($this->input($field))->trim()->toString();
-            $merge[$field] = $field === 'mis_key' && $trimmed === '' ? null : $trimmed;
+            $merge[$field] = in_array($field, ['mis_key', 'notes'], true) && $trimmed === ''
+                ? null
+                : $trimmed;
         }
 
         if ($merge !== []) {

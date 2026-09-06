@@ -95,7 +95,7 @@
             <Card>
                 <h2 class="text-body font-semibold text-text">Import Template</h2>
                 <p class="mt-1 text-body text-text-muted">
-                    Headers-only CSV placeholder. Full parse and upload lands later.
+                    Download the Pupil Import Template. Upload and partial-success results live on Import.
                 </p>
                 <p
                     v-if="templateError"

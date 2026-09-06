@@ -34,6 +34,7 @@ class PupilFactory extends Factory
             'date_of_birth' => fake()->optional()->date(),
             'year_group' => 'Year '.fake()->numberBetween(7, 11),
             'send_status' => SendStatus::Neither,
+            'notes' => null,
             'documentation_status' => DocumentationStatus::NotStarted,
             'primary_need_term_id' => null,
             'primary_need_notes' => null,

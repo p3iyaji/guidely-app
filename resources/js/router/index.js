@@ -8,6 +8,7 @@ import HomeDashboard from '../pages/HomeDashboard.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
+import ImportPage from '../pages/ImportPage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -105,7 +106,8 @@ const routes = [
             {
                 path: 'import',
                 name: 'import',
-                ...stub('Import'),
+                component: ImportPage,
+                meta: { title: 'Import', requiresAuth: true },
             },
             {
                 // Coming soon stub is OK for 1.8; FeatureFlaggedEmpty when flag off lands with later Trust work / API 403.
