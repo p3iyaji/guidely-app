@@ -2,6 +2,8 @@
  * Thin credentialed API helpers for Sanctum SPA auth.
  */
 
+import { apiFetch } from './client';
+
 function readCookie(name) {
     const encoded = document.cookie
         .split('; ')
@@ -80,4 +82,25 @@ export async function logout() {
     if (!response.ok) {
         throw new Error('Unable to sign out. Please try again.');
     }
+}
+
+/**
+ * Session bootstrap for the authenticated app shell.
+ *
+ * @returns {Promise<{ ok: true, user: object } | { ok: false, status: number }>}
+ */
+export async function fetchMe() {
+    const response = await apiFetch('/api/v1/me');
+
+    if (response.status === 401) {
+        return { ok: false, status: 401 };
+    }
+
+    if (!response.ok) {
+        return { ok: false, status: response.status };
+    }
+
+    const payload = await response.json();
+
+    return { ok: true, user: payload.data };
 }

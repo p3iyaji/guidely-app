@@ -62,6 +62,9 @@
     --spacing-gutter: 24px;
     --spacing-sidebar-width: 240px;
     --spacing-topbar-height: 56px;
+    /* Shorthand aliases used by shell chrome (w-sidebar, h-topbar) */
+    --spacing-sidebar: 240px;
+    --spacing-topbar: 56px;
 }
 
 @layer base {

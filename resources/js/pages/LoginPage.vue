@@ -77,6 +77,8 @@ async function onSubmit() {
             return;
         }
 
+        const { useSession } = await import('../features/auth/session');
+        await useSession().bootstrap();
         await router.push({ name: 'home' });
     } catch (error) {
         errorMessage.value = error instanceof Error && error.message.includes('CSRF')

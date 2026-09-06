@@ -1,0 +1,392 @@
+/** @vitest-environment jsdom */
+
+import { flushPromises, mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMemoryHistory, createRouter } from 'vue-router';
+import { useSession } from '../features/auth/session.js';
+import { isNavItemActive } from '../features/shell/isNavItemActive.js';
+import {
+    allNavTargets,
+    navItemsForRole,
+    navLabelsForRole,
+    TEACHER_SUPPORT_BOTTOM_NAV,
+    usesTeacherSupportBottomNav,
+} from '../features/shell/navByRole.js';
+import AppShell from '../layouts/AppShell.vue';
+import BottomNav from '../shared/ui/BottomNav.vue';
+import ButtonOutline from '../shared/ui/ButtonOutline.vue';
+import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
+import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
+import Card from '../shared/ui/Card.vue';
+import KpiCard from '../shared/ui/KpiCard.vue';
+import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
+import StatusPill from '../shared/ui/StatusPill.vue';
+import TopBar from '../shared/ui/TopBar.vue';
+import HomeDashboard from '../pages/HomeDashboard.vue';
+import { routes as productionRoutes } from '../router/index.js';
+
+describe('Role nav IA', () => {
+    it('lists Teacher sidebar items without Messages', () => {
+        const labels = navLabelsForRole('teacher');
+
+        expect(labels).toEqual([
+            'Dashboard',
+            'My Pupils',
+            'Capture',
+            'Drafts',
+            'Settings',
+        ]);
+        expect(labels.join(' ')).not.toMatch(/messages/i);
+    });
+
+    it('lists Support Staff the same as Teacher without Messages', () => {
+        expect(navLabelsForRole('support_staff')).toEqual(navLabelsForRole('teacher'));
+        expect(navLabelsForRole('support_staff').join(' ')).not.toMatch(/messages/i);
+    });
+
+    it('lists SENCO sidebar items from EXPERIENCE', () => {
+        expect(navLabelsForRole('senco')).toEqual([
+            'Dashboard',
+            'Pupils',
+            'Review Cycles',
+            'Gaps',
+            'Outputs',
+            'School Report',
+            'Import',
+            'Settings',
+        ]);
+    });
+
+    it('lists School Leader sidebar items', () => {
+        expect(navLabelsForRole('school_leader')).toEqual([
+            'Dashboard',
+            'School Report',
+            'Review Cycles',
+            'Settings',
+        ]);
+    });
+
+    it('lists Trust SEND Lead sidebar items', () => {
+        expect(navLabelsForRole('trust_send_lead')).toEqual([
+            'Trust Dashboard',
+            'Schools',
+            'Alerts',
+            'Settings',
+        ]);
+    });
+
+    it('lists Trust Executive sidebar items', () => {
+        expect(navLabelsForRole('trust_executive')).toEqual([
+            'Trust Dashboard',
+            'Schools',
+            'Alerts',
+            'Settings',
+        ]);
+    });
+
+    it('lists Platform Operator sidebar items', () => {
+        expect(navLabelsForRole('platform_operator')).toEqual([
+            'Dashboard',
+            'Settings',
+        ]);
+    });
+
+    it('lists Tenant Admin sidebar items', () => {
+        expect(navLabelsForRole('tenant_admin')).toEqual([
+            'Users',
+            'Schools',
+            'Connectors',
+            'Feature flags',
+            'Pilot toolkit',
+            'Settings',
+        ]);
+    });
+
+    it('normalises Role casing when resolving nav', () => {
+        expect(navLabelsForRole('Teacher')).toEqual(navLabelsForRole('teacher'));
+        expect(navItemsForRole('SENCO')).toEqual(navItemsForRole('senco'));
+        expect(usesTeacherSupportBottomNav('Support_Staff')).toBe(true);
+    });
+
+    it('enables Teacher/Support bottom nav Home My Pupils Capture Drafts More', () => {
+        expect(usesTeacherSupportBottomNav('teacher')).toBe(true);
+        expect(usesTeacherSupportBottomNav('support_staff')).toBe(true);
+        expect(usesTeacherSupportBottomNav('senco')).toBe(false);
+
+        expect(TEACHER_SUPPORT_BOTTOM_NAV.map((item) => item.label)).toEqual([
+            'Home',
+            'My Pupils',
+            'Capture',
+            'Drafts',
+            'More',
+        ]);
+    });
+
+    it('returns empty nav for unknown roles', () => {
+        expect(navItemsForRole('unknown')).toEqual([]);
+        expect(navItemsForRole(null)).toEqual([]);
+    });
+
+    it('registers every nav to on production routes', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        for (const to of allNavTargets()) {
+            const resolved = router.resolve(to);
+            expect(resolved.matched.length, `missing production route for nav target ${to}`).toBeGreaterThan(0);
+        }
+    });
+});
+
+describe('isNavItemActive', () => {
+    it('guards empty to and matches exact / nested paths', () => {
+        expect(isNavItemActive({ path: '/pupils' }, '')).toBe(false);
+        expect(isNavItemActive({ path: '/pupils' }, null)).toBe(false);
+        expect(isNavItemActive({ path: '/' }, '/')).toBe(true);
+        expect(isNavItemActive({ path: '/pupils' }, '/')).toBe(false);
+        expect(isNavItemActive({ path: '/pupils' }, '/pupils')).toBe(true);
+        expect(isNavItemActive({ path: '/pupils/1' }, '/pupils')).toBe(true);
+    });
+});
+
+describe('shared primitives smoke', () => {
+    it('renders Card, KpiCard placeholders, buttons, StatusPill, and LoadingSkeleton', () => {
+        expect(mount(Card, { slots: { default: 'Body' } }).text()).toContain('Body');
+
+        const kpi = mount(KpiCard, { props: { label: 'Open gaps', value: null } });
+        expect(kpi.find('[data-testid="kpi-value"]').text()).toBe('—');
+        expect(kpi.text()).toContain('Open gaps');
+
+        expect(mount(ButtonPrimary, { slots: { default: 'Save' } }).text()).toBe('Save');
+        expect(mount(ButtonSecondary, { slots: { default: 'Learn more' } }).text()).toBe('Learn more');
+        expect(mount(ButtonOutline, { slots: { default: 'Cancel' } }).text()).toBe('Cancel');
+
+        const pill = mount(StatusPill, { props: { status: 'gaps' } });
+        expect(pill.text()).toContain('Gaps');
+
+        expect(mount(LoadingSkeleton).attributes('role')).toBe('status');
+    });
+
+    it('TopBar exposes scoped search stub for Pupils / Review Cycles', () => {
+        const wrapper = mount(TopBar, {
+            props: { userName: 'Ada Lovelace' },
+        });
+
+        const search = wrapper.find('[data-testid="search-stub"] input');
+        expect(search.exists()).toBe(true);
+        expect(search.attributes('placeholder')).toMatch(/Pupils|Review Cycles/i);
+        expect(search.attributes('readonly')).toBeDefined();
+        expect(wrapper.find('[data-testid="avatar"]').text()).toBe('AL');
+    });
+});
+
+describe('AppShell smoke', () => {
+    afterEach(() => {
+        useSession().setUser(null);
+    });
+
+    beforeEach(() => {
+        Object.defineProperty(window, 'matchMedia', {
+            writable: true,
+            configurable: true,
+            value: vi.fn().mockImplementation((query) => ({
+                matches: false,
+                media: query,
+                onchange: null,
+                addEventListener: vi.fn(),
+                removeEventListener: vi.fn(),
+                addListener: vi.fn(),
+                removeListener: vi.fn(),
+                dispatchEvent: vi.fn(),
+            })),
+        });
+    });
+
+    async function createShellRouter(extraChildren = []) {
+        const stub = { template: '<div />' };
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: [
+                {
+                    path: '/',
+                    component: AppShell,
+                    children: [
+                        { path: '', component: { template: '<div>home</div>' } },
+                        { path: 'pupils', component: stub },
+                        { path: 'capture', component: stub },
+                        { path: 'drafts', component: stub },
+                        { path: 'settings', component: stub },
+                        { path: 'review-cycles', component: stub },
+                        { path: 'gaps', component: stub },
+                        { path: 'outputs', component: stub },
+                        { path: 'school-report', component: stub },
+                        { path: 'import', component: stub },
+                        ...extraChildren,
+                    ],
+                },
+            ],
+        });
+
+        await router.push('/');
+        await router.isReady();
+
+        return router;
+    }
+
+    async function mountShell(role, userName = 'Test User') {
+        const router = await createShellRouter();
+
+        return mount(AppShell, {
+            props: { role, userName },
+            global: {
+                plugins: [router],
+                stubs: {
+                    BrandWordmark: { template: '<span>GuidelyEdu</span>' },
+                },
+            },
+        });
+    }
+
+    it('renders top bar and Role sidebar for Teacher', async () => {
+        const wrapper = await mountShell('teacher');
+
+        expect(wrapper.find('[data-testid="app-shell"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="top-bar"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="sidebar"]').exists()).toBe(true);
+
+        const labels = wrapper.findAll('[data-testid="sidebar-item"]').map((node) => node.text());
+        expect(labels).toContain('My Pupils');
+        expect(labels.join(' ')).not.toMatch(/messages/i);
+        expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(true);
+    });
+
+    it('hides Teacher bottom nav pattern for SENCO', async () => {
+        const wrapper = await mountShell('senco');
+
+        expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(false);
+        const labels = wrapper.findAll('[data-testid="sidebar-item"]').map((node) => node.text());
+        expect(labels).toContain('Review Cycles');
+        expect(labels).toContain('Gaps');
+    });
+
+    it('derives Role sidebar and avatar initials from session when props empty', async () => {
+        useSession().setUser({
+            id: 'usr_1',
+            name: 'Ada Lovelace',
+            email: 'ada@example.com',
+            role: 'senco',
+            tenant_id: 'ten_1',
+        });
+
+        const router = await createShellRouter();
+        const wrapper = mount(AppShell, {
+            global: {
+                plugins: [router],
+                stubs: {
+                    BrandWordmark: { template: '<span>GuidelyEdu</span>' },
+                },
+            },
+        });
+
+        const sidebarLabels = wrapper
+            .findAll('[data-testid="sidebar"]')[0]
+            .findAll('[data-testid="sidebar-item"]')
+            .map((node) => node.text());
+        expect(sidebarLabels).toEqual([
+            'Dashboard',
+            'Pupils',
+            'Review Cycles',
+            'Gaps',
+            'Outputs',
+            'School Report',
+            'Import',
+            'Settings',
+        ]);
+        expect(wrapper.find('[data-testid="avatar"]').text()).toBe('AL');
+    });
+
+    it('opens mobile panel on nav-toggle and closes on Escape or route change', async () => {
+        const router = await createShellRouter();
+        const wrapper = mount(AppShell, {
+            props: { role: 'senco', userName: 'Test User' },
+            attachTo: document.body,
+            global: {
+                plugins: [router],
+                stubs: {
+                    BrandWordmark: { template: '<span>GuidelyEdu</span>' },
+                },
+            },
+        });
+
+        const panel = wrapper.find('[data-testid="mobile-nav-panel"]');
+        expect(panel.attributes('aria-hidden')).toBe('true');
+        expect(wrapper.find('[data-testid="nav-toggle"]').attributes('aria-expanded')).toBe('false');
+
+        await wrapper.find('[data-testid="nav-toggle"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="nav-toggle"]').attributes('aria-expanded')).toBe('true');
+        expect(wrapper.find('[data-testid="mobile-nav-panel"]').attributes('aria-hidden')).toBe('false');
+        expect(wrapper.find('[data-testid="nav-backdrop"]').exists()).toBe(true);
+
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="mobile-nav-panel"]').attributes('aria-hidden')).toBe('true');
+        expect(wrapper.find('[data-testid="nav-toggle"]').attributes('aria-expanded')).toBe('false');
+
+        await wrapper.find('[data-testid="nav-toggle"]').trigger('click');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="mobile-nav-panel"]').attributes('aria-hidden')).toBe('false');
+
+        await router.push('/settings');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="mobile-nav-panel"]').attributes('aria-hidden')).toBe('true');
+
+        wrapper.unmount();
+    });
+});
+
+describe('HomeDashboard KPI placeholders', () => {
+    it('shows placeholder KPI row', () => {
+        const wrapper = mount(HomeDashboard);
+
+        expect(wrapper.find('[data-testid="kpi-row"]').exists()).toBe(true);
+        expect(wrapper.findAll('[data-testid="kpi-card"]').length).toBeGreaterThanOrEqual(3);
+        expect(wrapper.findAll('[data-testid="kpi-value"]').every((node) => node.text() === '—')).toBe(true);
+    });
+});
+
+describe('BottomNav labels', () => {
+    it('renders Home My Pupils Capture Drafts More', async () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: [
+                { path: '/', component: { template: '<div />' } },
+                { path: '/pupils', component: { template: '<div />' } },
+                { path: '/capture', component: { template: '<div />' } },
+                { path: '/drafts', component: { template: '<div />' } },
+                { path: '/settings', component: { template: '<div />' } },
+            ],
+        });
+
+        await router.push('/');
+        await router.isReady();
+
+        const wrapper = mount(BottomNav, {
+            props: { items: TEACHER_SUPPORT_BOTTOM_NAV },
+            global: { plugins: [router] },
+        });
+
+        expect(wrapper.findAll('[data-testid="bottom-nav-item"]').map((n) => n.text())).toEqual([
+            'Home',
+            'My Pupils',
+            'Capture',
+            'Drafts',
+            'More',
+        ]);
+    });
+});

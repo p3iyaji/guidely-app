@@ -35,3 +35,6 @@ Claude.md
 # BMAD Method (local agent tooling / planning artifacts — keep off remote)
 /_bmad/
 /_bmad-output/
+
+# Local superseded scaffolds (keep off remote)
+/_archive/

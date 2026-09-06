@@ -104,9 +104,11 @@ describe('LoginPage', () => {
         await router.isReady();
     });
 
-    afterEach(() => {
+    afterEach(async () => {
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
+        const { useSession } = await import('../features/auth/session.js');
+        useSession().setUser(null);
     });
 
     it('shows a generic error when credentials fail', async () => {
@@ -168,6 +170,30 @@ describe('LoginPage', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 json: async () => ({ message: 'Authenticated.' }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                clone: () => ({
+                    json: async () => ({
+                        data: {
+                            id: 'usr_1',
+                            name: 'Staff User',
+                            email: 'staff@example.com',
+                            role: 'teacher',
+                            tenant_id: 'ten_1',
+                        },
+                    }),
+                }),
+                json: async () => ({
+                    data: {
+                        id: 'usr_1',
+                        name: 'Staff User',
+                        email: 'staff@example.com',
+                        role: 'teacher',
+                        tenant_id: 'ten_1',
+                    },
+                }),
             });
 
         vi.stubGlobal('fetch', fetchMock);
@@ -187,5 +213,8 @@ describe('LoginPage', () => {
 
         expect(push).toHaveBeenCalledWith({ name: 'home' });
         expect(wrapper.find('[data-testid="login-error"]').exists()).toBe(false);
+
+        const { useSession } = await import('../features/auth/session.js');
+        expect(useSession().role.value).toBe('teacher');
     });
 });

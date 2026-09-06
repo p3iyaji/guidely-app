@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
+use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantSsoController;
@@ -27,6 +28,7 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('api.v1.logout');
+        Route::get('/me', MeController::class)->name('api.v1.me');
 
         Route::get('/tenant', [TenantController::class, 'show'])->name('api.v1.tenant.show');
         Route::patch('/tenant', [TenantController::class, 'update'])->name('api.v1.tenant.update');
