@@ -67,6 +67,28 @@ npm run test:e2e
 
 Credentials are seeded by `E2eSeeder` (`e2e.admin@example.sch.uk` / `password`). Uses port `8010` and `database/e2e.sqlite` so local app data is untouched.
 
+**Local demo data** (Epics 1–2):
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+Password for all demo Users: `password`.
+
+| Role | Email |
+|------|-------|
+| Tenant Admin | `admin@demo.sch.uk` |
+| SENCO | `senco@demo.sch.uk` |
+| Teacher (2 assigned Pupils) | `teacher@demo.sch.uk` |
+| Support Staff | `support@demo.sch.uk` |
+| School Leader | `leader@demo.sch.uk` |
+| Platform Operator | `operator@demo.guidely.edu` |
+| Trust SEND Lead | `send.lead@demo.trust.uk` |
+| Trust Executive | `executive@demo.trust.uk` |
+| Trust Tenant Admin | `trust.admin@demo.trust.uk` |
+
+Pilot-only: `php artisan db:seed --class=DemoPilotSeeder`. Trust-only: `--class=DemoTrustSeeder`.
+
 ## Layout
 
 | Path | Role |
