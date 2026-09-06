@@ -9,6 +9,7 @@ import LoginPage from '../pages/LoginPage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
+import CapturePage from '../pages/CapturePage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -71,7 +72,8 @@ const routes = [
             {
                 path: 'capture',
                 name: 'capture',
-                ...stub('Capture'),
+                component: CapturePage,
+                meta: { title: 'Capture Observation', requiresAuth: true },
             },
             {
                 path: 'drafts',

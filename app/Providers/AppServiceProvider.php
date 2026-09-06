@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Identity\Role;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
+use App\Policies\EvidenceRecordPolicy;
 use App\Policies\PupilPolicy;
 use App\Policies\SchoolPolicy;
 use App\Policies\TenantPolicy;
@@ -37,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Pupil::class, PupilPolicy::class);
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(EvidenceRecord::class, EvidenceRecordPolicy::class);
 
         Gate::define('create-pilot-tenant', fn (User $user): bool => $user->isPlatformOperator() && ! $user->isDeactivated());
         Gate::define('view-pilot-toolkit', fn (User $user): bool => $user->isActiveTenantStaff() && $user->isTenantAdmin());
@@ -49,8 +52,11 @@ class AppServiceProvider extends ServiceProvider
                 || $user->role === Role::TenantAdmin;
         });
 
+        Gate::define('capture-evidence', function (User $user): bool {
+            return $user->can('create', EvidenceRecord::class);
+        });
+
         // Future addendum rows — deny by default until those domains ship.
-        Gate::define('capture-evidence', fn (): bool => false);
         Gate::define('view-evidence', fn (): bool => false);
         Gate::define('run-determinations', fn (): bool => false);
         Gate::define('override-determination', fn (): bool => false);

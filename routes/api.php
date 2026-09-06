@@ -5,11 +5,13 @@ use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\MeController;
+use App\Http\Controllers\Api\V1\ObservationController;
 use App\Http\Controllers\Api\V1\PilotTenantController;
 use App\Http\Controllers\Api\V1\PilotToolkitController;
 use App\Http\Controllers\Api\V1\PupilAssignmentController;
 use App\Http\Controllers\Api\V1\PupilController;
 use App\Http\Controllers\Api\V1\SchoolController;
+use App\Http\Controllers\Api\V1\SettingTermController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantSsoController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -55,6 +57,11 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.pupils.assignments.store');
         Route::delete('/pupils/{pupil}/assignments/{user}', [PupilAssignmentController::class, 'destroy'])
             ->name('api.v1.pupils.assignments.destroy');
+
+        Route::post('/observations', [ObservationController::class, 'store'])
+            ->name('api.v1.observations.store');
+        Route::get('/ontology/setting-terms', [SettingTermController::class, 'index'])
+            ->name('api.v1.ontology.setting-terms.index');
 
         Route::get('/import/template', [ImportController::class, 'template'])
             ->name('api.v1.import.template');

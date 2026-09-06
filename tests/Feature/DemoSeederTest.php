@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Identity\Role;
+use App\Domain\Ontology\SettingTerm;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\FeatureFlagKey;
 use App\Domain\Tenancy\FeatureFlagResolver;
@@ -10,6 +11,7 @@ use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use Database\Seeders\DemoPilotSeeder;
 use Database\Seeders\DemoTrustSeeder;
+use Database\Seeders\SettingOntologySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -64,6 +66,15 @@ class DemoSeederTest extends TestCase
         $this->actingAs($teacher)->getJson('/api/v1/pupils')
             ->assertOk()
             ->assertJsonCount(2, 'data');
+
+        $this->assertTrue(
+            SettingTerm::query()->fromPublishedStub()->exists(),
+            'DemoPilotSeeder should seed the Setting Ontology stub.',
+        );
+        $this->assertDatabaseHas('ontology_versions', [
+            'code' => SettingOntologySeeder::STUB_VERSION_CODE,
+            'status' => 'published',
+        ]);
     }
 
     public function test_demo_trust_seeder_enables_trust_dashboard_for_trust_roles(): void
@@ -85,5 +96,9 @@ class DemoSeederTest extends TestCase
 
         $this->assertDatabaseHas('users', ['email' => DemoPilotSeeder::USERS['senco']]);
         $this->assertDatabaseHas('users', ['email' => DemoTrustSeeder::USERS['send_lead']]);
+        $this->assertTrue(
+            SettingTerm::query()->fromPublishedStub()->exists(),
+            'DatabaseSeeder should leave the Setting Ontology stub available.',
+        );
     }
 }

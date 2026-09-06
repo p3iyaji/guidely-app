@@ -24,6 +24,7 @@ export const NAV_BY_ROLE = {
     senco: [
         { key: 'dashboard', label: 'Dashboard', to: '/' },
         { key: 'pupils', label: 'Pupils', to: '/pupils' },
+        { key: 'capture', label: 'Capture', to: '/capture' },
         { key: 'review-cycles', label: 'Review Cycles', to: '/review-cycles' },
         { key: 'gaps', label: 'Gaps', to: '/gaps' },
         { key: 'outputs', label: 'Outputs', to: '/outputs' },

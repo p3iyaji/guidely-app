@@ -1,0 +1,60 @@
+<?php
+
+namespace Database\Factories;
+
+use App\Domain\Evidence\EvidenceLifecycle;
+use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceType;
+use App\Domain\Ontology\SettingTerm;
+use App\Domain\Pupils\Pupil;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory<EvidenceRecord>
+ */
+class EvidenceRecordFactory extends Factory
+{
+    protected $model = EvidenceRecord::class;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'pupil_id' => Pupil::factory(),
+            'tenant_id' => fn (array $attributes): string => Pupil::query()
+                ->findOrFail($attributes['pupil_id'])
+                ->tenant_id,
+            'author_id' => User::factory(),
+            'type' => EvidenceType::Observation,
+            'lifecycle' => EvidenceLifecycle::Submitted,
+            'occurred_at' => now()->utc(),
+            'setting_term_id' => SettingTerm::factory(),
+            'body' => fake()->sentence(),
+        ];
+    }
+
+    public function forPupil(Pupil $pupil): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'tenant_id' => $pupil->tenant_id,
+            'pupil_id' => $pupil->id,
+        ]);
+    }
+
+    public function authoredBy(User $user): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'author_id' => $user->id,
+        ]);
+    }
+
+    public function withSetting(SettingTerm $term): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'setting_term_id' => $term->id,
+        ]);
+    }
+}
