@@ -38,6 +38,9 @@ AGENTS.md
 CLAUDE.md
 Claude.md
 
+# Agent rules / local AI guidance (keep off remote)
+/.ai/
+
 # BMAD Method (local agent tooling / planning artifacts — keep off remote)
 /_bmad/
 /_bmad-output/
