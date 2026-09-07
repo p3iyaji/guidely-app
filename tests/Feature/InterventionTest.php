@@ -136,6 +136,23 @@ class InterventionTest extends TestCase
             ->assertJsonValidationErrors(['setting_term_id']);
     }
 
+    public function test_related_intervention_id_is_rejected_on_intervention_create(): void
+    {
+        [, , $teacher, $pupil] = $this->tenantSchoolTeacherWithAssignedPupil();
+        $provision = $this->provisionTerm('UNIVERSAL');
+
+        $response = $this->actingAs($teacher)->postJson('/api/v1/interventions', [
+            'pupil_id' => $pupil->id,
+            'occurred_at' => now()->subHour()->utc()->toIso8601String(),
+            'provision_term_id' => $provision->id,
+            'related_intervention_id' => '01hintervention00000000000',
+            'body' => 'Used visual timetable.',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['related_intervention_id']);
+    }
+
     public function test_inactive_or_non_stub_provision_term_is_rejected(): void
     {
         [, , $teacher, $pupil] = $this->tenantSchoolTeacherWithAssignedPupil();

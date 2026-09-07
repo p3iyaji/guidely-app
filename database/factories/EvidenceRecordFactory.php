@@ -34,6 +34,7 @@ class EvidenceRecordFactory extends Factory
             'occurred_at' => now()->utc(),
             'setting_term_id' => SettingTerm::factory(),
             'provision_term_id' => null,
+            'related_intervention_id' => null,
             'body' => fake()->sentence(),
         ];
     }
@@ -75,6 +76,16 @@ class EvidenceRecordFactory extends Factory
             'type' => EvidenceType::Intervention,
             'setting_term_id' => null,
             'provision_term_id' => $term->id,
+        ]);
+    }
+
+    public function response(?EvidenceRecord $intervention = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => EvidenceType::Response,
+            'setting_term_id' => null,
+            'provision_term_id' => null,
+            'related_intervention_id' => $intervention?->id,
         ]);
     }
 }

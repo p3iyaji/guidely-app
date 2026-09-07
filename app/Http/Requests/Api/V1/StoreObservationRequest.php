@@ -36,9 +36,10 @@ class StoreObservationRequest extends FormRequest
         return [
             // Free-text setting labels are never accepted — Ontology term ids only.
             'setting' => ['prohibited'],
-            // Intervention fields must not be submitted on Observation create.
+            // Intervention / Response fields must not be submitted on Observation create.
             'provision' => ['prohibited'],
             'provision_term_id' => ['prohibited'],
+            'related_intervention_id' => ['prohibited'],
             'pupil_id' => [
                 'required',
                 'ulid',
@@ -67,6 +68,7 @@ class StoreObservationRequest extends FormRequest
             'setting.prohibited' => 'Setting must use an Ontology term id, not a free-text label.',
             'provision.prohibited' => 'Provision is not used for Observations.',
             'provision_term_id.prohibited' => 'Provision is not used for Observations.',
+            'related_intervention_id.prohibited' => 'Related Intervention is not used for Observations.',
             'setting_term_id.required' => 'A Setting Ontology term is required.',
             'setting_term_id.exists' => 'The selected Setting must be an active published Ontology term.',
             'body.required' => 'What was observed is required.',

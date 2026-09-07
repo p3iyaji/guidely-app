@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'occurred_at',
     'setting_term_id',
     'provision_term_id',
+    'related_intervention_id',
     'body',
 ])]
 class EvidenceRecord extends Model
@@ -70,5 +71,10 @@ class EvidenceRecord extends Model
     public function provisionTerm(): BelongsTo
     {
         return $this->belongsTo(ProvisionTerm::class, 'provision_term_id');
+    }
+
+    public function relatedIntervention(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'related_intervention_id');
     }
 }

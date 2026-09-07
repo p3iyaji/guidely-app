@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\V1\PilotToolkitController;
 use App\Http\Controllers\Api\V1\ProvisionTermController;
 use App\Http\Controllers\Api\V1\PupilAssignmentController;
 use App\Http\Controllers\Api\V1\PupilController;
+use App\Http\Controllers\Api\V1\PupilInterventionController;
+use App\Http\Controllers\Api\V1\ResponseController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\SettingTermController;
 use App\Http\Controllers\Api\V1\TenantController;
@@ -64,6 +66,10 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.observations.store');
         Route::post('/interventions', [InterventionController::class, 'store'])
             ->name('api.v1.interventions.store');
+        Route::post('/responses', [ResponseController::class, 'store'])
+            ->name('api.v1.responses.store');
+        Route::get('/pupils/{pupil}/interventions', [PupilInterventionController::class, 'index'])
+            ->name('api.v1.pupils.interventions.index');
         Route::get('/ontology/setting-terms', [SettingTermController::class, 'index'])
             ->name('api.v1.ontology.setting-terms.index');
         Route::get('/ontology/provision-terms', [ProvisionTermController::class, 'index'])

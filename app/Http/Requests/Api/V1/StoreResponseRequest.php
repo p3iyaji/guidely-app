@@ -2,14 +2,15 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceType;
 use App\Domain\Tenancy\CurrentTenant;
-use Database\Seeders\ProvisionOntologySeeder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
-class StoreInterventionRequest extends FormRequest
+class StoreResponseRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -22,24 +23,24 @@ class StoreInterventionRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = CurrentTenant::id();
+        $pupilId = $this->input('pupil_id');
 
-        $activePublishedStubTerm = Rule::exists('provision_terms', 'id')->where(function ($query): void {
-            $query->where('is_active', true)
-                ->whereIn('ontology_version_id', function ($versionQuery): void {
-                    $versionQuery->select('id')
-                        ->from('ontology_versions')
-                        ->where('status', 'published')
-                        ->where('code', ProvisionOntologySeeder::STUB_VERSION_CODE);
-                });
+        $sameTenantPupilIntervention = Rule::exists('evidence_records', 'id')->where(function ($query) use ($tenantId, $pupilId): void {
+            $query->where('tenant_id', $tenantId)
+                ->where('type', EvidenceType::Intervention->value)
+                ->where('lifecycle', EvidenceLifecycle::Submitted->value);
+
+            if (is_string($pupilId) && $pupilId !== '') {
+                $query->where('pupil_id', $pupilId);
+            }
         });
 
         return [
-            // Free-text provision labels are never accepted — Ontology term ids only.
-            'provision' => ['prohibited'],
-            // Observation / Response fields must not be submitted on Intervention create.
+            // Setting/Provision FKs and free-text labels are prohibited on Response create.
             'setting' => ['prohibited'],
             'setting_term_id' => ['prohibited'],
-            'related_intervention_id' => ['prohibited'],
+            'provision' => ['prohibited'],
+            'provision_term_id' => ['prohibited'],
             'pupil_id' => [
                 'required',
                 'ulid',
@@ -49,12 +50,12 @@ class StoreInterventionRequest extends FormRequest
                 }),
             ],
             'occurred_at' => ['required', 'date', 'before_or_equal:now'],
-            'provision_term_id' => [
-                'required',
+            'related_intervention_id' => [
+                'nullable',
                 'ulid',
-                $activePublishedStubTerm,
+                $sameTenantPupilIntervention,
             ],
-            'body' => ['nullable', 'string', 'max:5000'],
+            'body' => ['required', 'string', 'max:5000'],
             'client_type' => ['sometimes', 'string', Rule::in(['web', 'hybrid'])],
         ];
     }
@@ -65,13 +66,13 @@ class StoreInterventionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'provision.prohibited' => 'Provision must use an Ontology term id, not a free-text label.',
-            'setting.prohibited' => 'Setting is not used for Interventions.',
-            'setting_term_id.prohibited' => 'Setting is not used for Interventions.',
-            'related_intervention_id.prohibited' => 'Related Intervention is not used for Interventions.',
-            'provision_term_id.required' => 'A Provision Ontology term is required.',
-            'provision_term_id.exists' => 'The selected Provision must be an active published Ontology term.',
+            'setting.prohibited' => 'Setting is not used for Pupil Responses.',
+            'setting_term_id.prohibited' => 'Setting is not used for Pupil Responses.',
+            'provision.prohibited' => 'Provision is not used for Pupil Responses.',
+            'provision_term_id.prohibited' => 'Provision is not used for Pupil Responses.',
+            'body.required' => 'Pupil Response notes are required.',
             'pupil_id.exists' => 'The selected Pupil could not be found.',
+            'related_intervention_id.exists' => 'The selected Intervention must belong to the same Pupil and be a submitted Intervention record.',
             'occurred_at.before_or_equal' => 'Session date and time cannot be in the future.',
             'client_type.in' => 'Client type must be web or hybrid.',
         ];
@@ -82,8 +83,11 @@ class StoreInterventionRequest extends FormRequest
         $merge = [];
 
         if ($this->exists('body') && is_string($this->input('body'))) {
-            $trimmed = Str::of($this->input('body'))->trim()->toString();
-            $merge['body'] = $trimmed === '' ? null : $trimmed;
+            $merge['body'] = Str::of($this->input('body'))->trim()->toString();
+        }
+
+        if ($this->exists('related_intervention_id') && $this->input('related_intervention_id') === '') {
+            $merge['related_intervention_id'] = null;
         }
 
         $clientType = $this->input('client_type')
@@ -102,18 +106,18 @@ class StoreInterventionRequest extends FormRequest
     }
 
     /**
-     * @return array{pupil_id: string, occurred_at: string, provision_term_id: string, body: ?string, client_type: string}
+     * @return array{pupil_id: string, occurred_at: string, related_intervention_id: ?string, body: string, client_type: string}
      */
-    public function interventionPayload(): array
+    public function responsePayload(): array
     {
-        /** @var array{pupil_id: string, occurred_at: string, provision_term_id: string, body?: ?string, client_type?: string} $validated */
+        /** @var array{pupil_id: string, occurred_at: string, related_intervention_id?: ?string, body: string, client_type?: string} $validated */
         $validated = $this->validated();
 
         return [
             'pupil_id' => $validated['pupil_id'],
             'occurred_at' => $validated['occurred_at'],
-            'provision_term_id' => $validated['provision_term_id'],
-            'body' => $validated['body'] ?? null,
+            'related_intervention_id' => $validated['related_intervention_id'] ?? null,
+            'body' => $validated['body'],
             'client_type' => $validated['client_type'] ?? 'web',
         ];
     }

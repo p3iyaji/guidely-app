@@ -28,6 +28,8 @@ class EvidenceRecordResource extends JsonResource
             'occurred_at' => $this->occurred_at?->utc()->toIso8601String(),
             'setting' => $this->termPayload($this->settingTerm),
             'provision' => $this->termPayload($this->provisionTerm),
+            'related_intervention' => $this->relatedInterventionPayload(),
+            'related_intervention_id' => $this->related_intervention_id,
             'body' => $this->body,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
@@ -47,6 +49,25 @@ class EvidenceRecordResource extends JsonResource
             'id' => $term->id,
             'code' => $term->code,
             'label' => $term->label,
+        ];
+    }
+
+    /**
+     * @return array{id: string, type: string, occurred_at: ?string, provision: array{id: string, code: string, label: string}|null}|null
+     */
+    private function relatedInterventionPayload(): ?array
+    {
+        $related = $this->relatedIntervention;
+
+        if ($related === null) {
+            return null;
+        }
+
+        return [
+            'id' => $related->id,
+            'type' => $related->type?->value,
+            'occurred_at' => $related->occurred_at?->utc()->toIso8601String(),
+            'provision' => $this->termPayload($related->provisionTerm),
         ];
     }
 }

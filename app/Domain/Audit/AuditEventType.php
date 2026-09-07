@@ -29,4 +29,5 @@ enum AuditEventType: string
 
     case EvidenceObservationCreated = 'evidence.observation.created';
     case EvidenceInterventionCreated = 'evidence.intervention.created';
+    case EvidenceResponseCreated = 'evidence.response.created';
 }

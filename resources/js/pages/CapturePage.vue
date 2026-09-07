@@ -41,6 +41,20 @@
             >
                 Intervention
             </button>
+            <button
+                type="button"
+                role="tab"
+                class="min-h-11 rounded-md border px-4 py-2 text-body focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-60"
+                :class="mode === 'response'
+                    ? 'border-border bg-surface-muted text-text font-semibold'
+                    : 'border-border bg-surface text-text-muted'"
+                :aria-selected="mode === 'response' ? 'true' : 'false'"
+                :disabled="submitting"
+                data-testid="capture-mode-response"
+                @click="setMode('response')"
+            >
+                Pupil Response
+            </button>
         </div>
 
         <Card
@@ -68,6 +82,13 @@
                 data-testid="capture-confirmation-provision"
             >
                 Provision: {{ confirmation.provision.label }}
+            </p>
+            <p
+                v-if="confirmation.related_intervention"
+                class="mt-1 text-meta text-text-muted"
+                data-testid="capture-confirmation-related-intervention"
+            >
+                Linked Intervention: {{ interventionLabel(confirmation.related_intervention) }}
             </p>
             <div class="mt-4">
                 <ButtonPrimary
@@ -202,7 +223,7 @@
                         </p>
                     </div>
 
-                    <div v-else>
+                    <div v-else-if="mode === 'intervention'">
                         <label class="block text-body text-text" for="capture-provision">Provision</label>
                         <select
                             id="capture-provision"
@@ -242,12 +263,62 @@
                         </p>
                     </div>
 
+                    <div v-else>
+                        <label class="block text-body text-text" for="capture-related-intervention">
+                            Related Intervention (optional)
+                        </label>
+                        <select
+                            id="capture-related-intervention"
+                            v-model="form.related_intervention_id"
+                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            data-testid="capture-related-intervention"
+                            :disabled="!form.pupil_id || interventionsLoading"
+                            :aria-busy="interventionsLoading ? 'true' : 'false'"
+                            :aria-describedby="relatedInterventionDescribedBy"
+                            :aria-invalid="fieldErrors.related_intervention_id ? 'true' : undefined"
+                        >
+                            <option value="">No linked Intervention</option>
+                            <option
+                                v-for="item in interventions"
+                                :key="item.id"
+                                :value="item.id"
+                            >
+                                {{ interventionLabel(item) }}
+                            </option>
+                        </select>
+                        <p
+                            v-if="fieldErrors.related_intervention_id"
+                            id="capture-related-intervention-error"
+                            class="mt-1 text-body text-danger"
+                            data-testid="capture-related-intervention-error"
+                            role="alert"
+                        >
+                            {{ fieldErrors.related_intervention_id }}
+                        </p>
+                        <p
+                            v-else-if="interventionsLoading"
+                            id="capture-interventions-loading"
+                            class="mt-1 text-body text-text-muted"
+                            data-testid="capture-interventions-loading"
+                        >
+                            Loading Interventions…
+                        </p>
+                        <p
+                            v-else-if="interventionsEmptyMessage"
+                            id="capture-interventions-empty"
+                            class="mt-1 text-body text-text-muted"
+                            data-testid="capture-interventions-empty"
+                        >
+                            {{ interventionsEmptyMessage }}
+                        </p>
+                    </div>
+
                     <div>
                         <label class="block text-body text-text" for="capture-body">{{ bodyLabel }}</label>
                         <textarea
                             id="capture-body"
                             v-model="form.body"
-                            :required="mode === 'observation'"
+                            :required="mode !== 'intervention'"
                             rows="4"
                             maxlength="5000"
                             class="mt-1 w-full max-w-2xl rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -303,6 +374,11 @@ const mode = ref('observation');
 const pupils = ref([]);
 const settingTerms = ref([]);
 const provisionTerms = ref([]);
+const interventions = ref([]);
+const interventionsLoading = ref(false);
+const interventionsEmptyMessage = ref('');
+/** Bumped to ignore stale Intervention list responses when pupil/mode changes. */
+let interventionsLoadToken = 0;
 const loading = ref(true);
 const loadError = ref('');
 const settingsEmptyError = ref('');
@@ -316,6 +392,7 @@ const form = reactive({
     occurred_at_local: defaultLocalDateTime(),
     setting_term_id: '',
     provision_term_id: '',
+    related_intervention_id: '',
     body: '',
 });
 
@@ -324,44 +401,95 @@ const fieldErrors = reactive({
     occurred_at: '',
     setting_term_id: '',
     provision_term_id: '',
+    related_intervention_id: '',
     body: '',
 });
 
-const pageTitle = computed(() => (
-    mode.value === 'intervention' ? 'Capture Intervention' : 'Capture Observation'
-));
+const pageTitle = computed(() => {
+    if (mode.value === 'intervention') {
+        return 'Capture Intervention';
+    }
 
-const pageDescription = computed(() => (
-    mode.value === 'intervention'
-        ? 'Record provision delivered for a Pupil. Required fields use Ontology terms for Provision.'
-        : 'Record what was observed for a Pupil. Required fields use Ontology terms for Setting.'
-));
+    if (mode.value === 'response') {
+        return 'Capture Pupil Response';
+    }
 
-const bodyLabel = computed(() => (
-    mode.value === 'intervention' ? 'Notes (optional)' : 'What was observed'
-));
+    return 'Capture Observation';
+});
 
-const submitLabel = computed(() => (
-    mode.value === 'intervention' ? 'Submit Intervention' : 'Submit Observation'
-));
+const pageDescription = computed(() => {
+    if (mode.value === 'intervention') {
+        return 'Record provision delivered for a Pupil. Required fields use Ontology terms for Provision.';
+    }
 
-const confirmationIsIntervention = computed(
-    () => confirmation.value?.type === 'intervention',
-);
+    if (mode.value === 'response') {
+        return 'Record how a Pupil responded. Link an Intervention when available, or use the session date and time as context.';
+    }
 
-const confirmationTitle = computed(() => (
-    confirmationIsIntervention.value ? 'Intervention submitted' : 'Observation submitted'
-));
+    return 'Record what was observed for a Pupil. Required fields use Ontology terms for Setting.';
+});
 
-const confirmationBlurb = computed(() => (
-    confirmationIsIntervention.value
-        ? 'The Intervention is on the Evidence Base path as a submitted record.'
-        : 'The Observation is on the Evidence Base path as a submitted record.'
-));
+const bodyLabel = computed(() => {
+    if (mode.value === 'intervention') {
+        return 'Notes (optional)';
+    }
 
-const captureAnotherLabel = computed(() => (
-    confirmationIsIntervention.value ? 'Capture another Intervention' : 'Capture another Observation'
-));
+    if (mode.value === 'response') {
+        return 'How the Pupil responded';
+    }
+
+    return 'What was observed';
+});
+
+const submitLabel = computed(() => {
+    if (mode.value === 'intervention') {
+        return 'Submit Intervention';
+    }
+
+    if (mode.value === 'response') {
+        return 'Submit Pupil Response';
+    }
+
+    return 'Submit Observation';
+});
+
+const confirmationType = computed(() => confirmation.value?.type ?? '');
+
+const confirmationTitle = computed(() => {
+    if (confirmationType.value === 'intervention') {
+        return 'Intervention submitted';
+    }
+
+    if (confirmationType.value === 'response') {
+        return 'Pupil Response submitted';
+    }
+
+    return 'Observation submitted';
+});
+
+const confirmationBlurb = computed(() => {
+    if (confirmationType.value === 'intervention') {
+        return 'The Intervention is on the Evidence Base path as a submitted record.';
+    }
+
+    if (confirmationType.value === 'response') {
+        return 'The Pupil Response is on the Evidence Base path as a submitted record.';
+    }
+
+    return 'The Observation is on the Evidence Base path as a submitted record.';
+});
+
+const captureAnotherLabel = computed(() => {
+    if (confirmationType.value === 'intervention') {
+        return 'Capture another Intervention';
+    }
+
+    if (confirmationType.value === 'response') {
+        return 'Capture another Pupil Response';
+    }
+
+    return 'Capture another Observation';
+});
 
 const submitDisabled = computed(() => {
     if (submitting.value || pupils.value.length === 0) {
@@ -372,7 +500,11 @@ const submitDisabled = computed(() => {
         return settingTerms.value.length === 0;
     }
 
-    return provisionTerms.value.length === 0;
+    if (mode.value === 'intervention') {
+        return provisionTerms.value.length === 0;
+    }
+
+    return false;
 });
 
 const settingDescribedBy = computed(() => {
@@ -399,17 +531,48 @@ const provisionDescribedBy = computed(() => {
     return undefined;
 });
 
+const relatedInterventionDescribedBy = computed(() => {
+    if (fieldErrors.related_intervention_id) {
+        return 'capture-related-intervention-error';
+    }
+
+    if (interventionsLoading.value) {
+        return 'capture-interventions-loading';
+    }
+
+    if (interventionsEmptyMessage.value) {
+        return 'capture-interventions-empty';
+    }
+
+    return undefined;
+});
+
 watch(pageTitle, (title) => {
     document.title = title;
     route.meta.title = title;
 }, { immediate: true });
+
+watch(() => form.pupil_id, async (pupilId) => {
+    form.related_intervention_id = '';
+    fieldErrors.related_intervention_id = '';
+
+    if (mode.value !== 'response') {
+        invalidateInterventionsLoad();
+        interventions.value = [];
+        interventionsEmptyMessage.value = '';
+
+        return;
+    }
+
+    await loadInterventionsForPupil(pupilId);
+});
 
 onMounted(async () => {
     await loadFormData();
 });
 
 /**
- * @param {'observation'|'intervention'} nextMode
+ * @param {'observation'|'intervention'|'response'} nextMode
  */
 function setMode(nextMode) {
     if (submitting.value || mode.value === nextMode) {
@@ -422,7 +585,16 @@ function setMode(nextMode) {
     clearFieldErrors();
     form.setting_term_id = '';
     form.provision_term_id = '';
+    form.related_intervention_id = '';
     form.body = '';
+
+    if (nextMode === 'response' && form.pupil_id) {
+        loadInterventionsForPupil(form.pupil_id);
+    } else if (nextMode !== 'response') {
+        invalidateInterventionsLoad();
+        interventions.value = [];
+        interventionsEmptyMessage.value = '';
+    }
 }
 
 /**
@@ -430,6 +602,41 @@ function setMode(nextMode) {
  */
 function displayName(pupil) {
     return `${pupil.given_name ?? ''} ${pupil.family_name ?? ''}`.trim() || 'Pupil';
+}
+
+/**
+ * @param {{ occurred_at?: string, provision?: { label?: string }, id?: string }} item
+ */
+function interventionLabel(item) {
+    const when = formatOccurredAt(item.occurred_at);
+    const provision = item.provision?.label;
+
+    if (when && provision) {
+        return `${when} — ${provision}`;
+    }
+
+    return when || provision || item.id || 'Intervention';
+}
+
+/**
+ * @param {string|undefined} iso
+ */
+function formatOccurredAt(iso) {
+    if (!iso) {
+        return '';
+    }
+
+    const parsed = new Date(iso);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return iso;
+    }
+
+    return parsed.toLocaleString('en-GB', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'Europe/London',
+    });
 }
 
 function defaultLocalDateTime() {
@@ -465,6 +672,7 @@ function clearFieldErrors() {
     fieldErrors.occurred_at = '';
     fieldErrors.setting_term_id = '';
     fieldErrors.provision_term_id = '';
+    fieldErrors.related_intervention_id = '';
     fieldErrors.body = '';
 }
 
@@ -476,7 +684,16 @@ function resetForm() {
     form.occurred_at_local = defaultLocalDateTime();
     form.setting_term_id = '';
     form.provision_term_id = '';
+    form.related_intervention_id = '';
     form.body = '';
+    invalidateInterventionsLoad();
+    interventions.value = [];
+    interventionsEmptyMessage.value = '';
+}
+
+function invalidateInterventionsLoad() {
+    interventionsLoadToken += 1;
+    interventionsLoading.value = false;
 }
 
 async function loadFormData() {
@@ -531,9 +748,68 @@ async function loadFormData() {
     }
 }
 
+/**
+ * @param {string} pupilId
+ */
+async function loadInterventionsForPupil(pupilId) {
+    const token = ++interventionsLoadToken;
+    interventions.value = [];
+    interventionsEmptyMessage.value = '';
+
+    if (!pupilId) {
+        interventionsLoading.value = false;
+
+        return;
+    }
+
+    interventionsLoading.value = true;
+
+    try {
+        const response = await apiFetch(`/api/v1/pupils/${pupilId}/interventions`);
+
+        if (token !== interventionsLoadToken) {
+            return;
+        }
+
+        if (!response.ok) {
+            interventionsEmptyMessage.value = 'Unable to load Interventions for this Pupil.';
+
+            return;
+        }
+
+        const payload = await response.json();
+
+        if (token !== interventionsLoadToken) {
+            return;
+        }
+
+        interventions.value = asArray(payload.data);
+
+        if (interventions.value.length === 0) {
+            interventionsEmptyMessage.value = 'No Interventions recorded for this Pupil yet. You can still submit with the session date and time.';
+        }
+    } catch {
+        if (token !== interventionsLoadToken) {
+            return;
+        }
+
+        interventionsEmptyMessage.value = 'Unable to load Interventions for this Pupil.';
+    } finally {
+        if (token === interventionsLoadToken) {
+            interventionsLoading.value = false;
+        }
+    }
+}
+
 async function submitCapture() {
     if (mode.value === 'intervention') {
         await submitIntervention();
+
+        return;
+    }
+
+    if (mode.value === 'response') {
+        await submitResponse();
 
         return;
     }
@@ -670,6 +946,73 @@ async function submitIntervention() {
         confirmation.value = payload.data;
     } catch {
         submitError.value = 'Unable to submit Intervention.';
+    } finally {
+        submitting.value = false;
+    }
+}
+
+async function submitResponse() {
+    if (submitting.value || submitDisabled.value) {
+        return;
+    }
+
+    clearFieldErrors();
+    submitError.value = '';
+
+    const occurredAt = toUtcIso(form.occurred_at_local);
+
+    if (!occurredAt) {
+        fieldErrors.occurred_at = 'Enter a valid session date and time.';
+
+        return;
+    }
+
+    submitting.value = true;
+
+    try {
+        const response = await apiFetch('/api/v1/responses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Client-Type': 'web',
+            },
+            body: JSON.stringify({
+                pupil_id: form.pupil_id,
+                occurred_at: occurredAt,
+                related_intervention_id: form.related_intervention_id || null,
+                body: form.body,
+                client_type: 'web',
+            }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (response.status === 422) {
+            const errors = payload.errors ?? {};
+            fieldErrors.pupil_id = errors.pupil_id?.[0] ?? '';
+            fieldErrors.occurred_at = errors.occurred_at?.[0] ?? '';
+            fieldErrors.related_intervention_id = errors.related_intervention_id?.[0] ?? '';
+            fieldErrors.body = errors.body?.[0] ?? '';
+            submitError.value = payload.message ?? 'Please correct the highlighted fields.';
+
+            return;
+        }
+
+        if (!response.ok) {
+            submitError.value = payload.message ?? 'Unable to submit Pupil Response.';
+
+            return;
+        }
+
+        if (!payload.data?.id) {
+            submitError.value = 'Pupil Response was accepted but no record reference was returned.';
+
+            return;
+        }
+
+        confirmation.value = payload.data;
+    } catch {
+        submitError.value = 'Unable to submit Pupil Response.';
     } finally {
         submitting.value = false;
     }
