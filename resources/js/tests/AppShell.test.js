@@ -36,6 +36,7 @@ import CapturePage from '../pages/CapturePage.vue';
 import DraftsPage from '../pages/DraftsPage.vue';
 import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
 import GapsPage from '../pages/GapsPage.vue';
+import ReviewCyclesPage from '../pages/ReviewCyclesPage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
@@ -240,6 +241,19 @@ describe('Role nav IA', () => {
         expect(leaf?.components?.default ?? leaf?.component).toBe(GapsPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
+
+    it('uses ReviewCyclesPage for production review-cycles route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/review-cycles');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(ReviewCyclesPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
 });
 
 describe('isNavItemActive', () => {
@@ -274,22 +288,51 @@ describe('shared primitives smoke', () => {
         expect(mount(LoadingSkeleton).attributes('role')).toBe('status');
     });
 
-    it('TopBar exposes scoped search stub for Pupils / Review Cycles', () => {
+    it('TopBar submits scoped search to the Review Cycles due list', async () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: [
+                { path: '/', component: { template: '<div />' } },
+                { path: '/review-cycles', name: 'review-cycles', component: { template: '<div />' } },
+            ],
+        });
+        await router.push('/');
+        await router.isReady();
+
         const wrapper = mount(TopBar, {
             props: { userName: 'Ada Lovelace' },
+            global: { plugins: [router] },
         });
 
         const search = wrapper.find('[data-testid="search-stub"] input');
         expect(search.exists()).toBe(true);
-        expect(search.attributes('placeholder')).toMatch(/Pupils|Review Cycles/i);
-        expect(search.attributes('readonly')).toBeDefined();
+        expect(search.attributes('placeholder')).toMatch(/Review Cycles/i);
+        expect(search.attributes('readonly')).toBeUndefined();
         expect(wrapper.find('[data-testid="avatar"]').text()).toBe('AL');
+
+        await search.setValue('Maya');
+        await wrapper.find('[data-testid="search-stub"]').trigger('submit');
+        await flushPromises();
+
+        expect(router.currentRoute.value.path).toBe('/review-cycles');
+        expect(router.currentRoute.value.query.q).toBe('Maya');
     });
 
     it('TopBar account menu emits sign-out', async () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: [
+                { path: '/', component: { template: '<div />' } },
+                { path: '/review-cycles', name: 'review-cycles', component: { template: '<div />' } },
+            ],
+        });
+        await router.push('/');
+        await router.isReady();
+
         const wrapper = mount(TopBar, {
             props: { userName: 'Ada Lovelace' },
             attachTo: document.body,
+            global: { plugins: [router] },
         });
 
         expect(wrapper.find('[data-testid="account-menu-panel"]').exists()).toBe(false);

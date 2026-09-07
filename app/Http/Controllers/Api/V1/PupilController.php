@@ -45,7 +45,7 @@ class PupilController extends Controller
         $user = $request->user();
 
         $query = Pupil::query()
-            ->with(['primaryNeedTerm', 'secondaryNeedTerm'])
+            ->with(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles'])
             ->orderBy('family_name')
             ->orderBy('given_name')
             ->orderBy('id');
@@ -82,7 +82,7 @@ class PupilController extends Controller
             ]);
         }
 
-        $pupil->load(['primaryNeedTerm', 'secondaryNeedTerm']);
+        $pupil->load(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles']);
 
         $hasNeedValues = $this->pupilHasNeedValues($pupil);
 
@@ -106,7 +106,7 @@ class PupilController extends Controller
     {
         $this->authorize('view', $pupil);
 
-        $pupil->loadMissing(['primaryNeedTerm', 'secondaryNeedTerm']);
+        $pupil->loadMissing(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles']);
 
         return new PupilResource($pupil);
     }
@@ -123,7 +123,7 @@ class PupilController extends Controller
             ]);
         }
 
-        $pupil->refresh()->load(['primaryNeedTerm', 'secondaryNeedTerm']);
+        $pupil->refresh()->load(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles']);
 
         $this->audit->record(
             AuditEventType::PupilUpdated,

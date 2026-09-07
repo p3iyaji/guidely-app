@@ -3,9 +3,12 @@
 namespace App\Domain\Pupils;
 
 use App\Domain\Ontology\NeedTerm;
+use App\Domain\Reviews\ReviewCycle;
+use App\Domain\Reviews\ReviewCycleStatus;
 use App\Domain\Tenancy\Concerns\BelongsToTenant;
 use App\Domain\Tenancy\School;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Database\Factories\PupilFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -13,6 +16,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use InvalidArgumentException;
 
@@ -87,6 +91,42 @@ class Pupil extends Model
     public function school(): BelongsTo
     {
         return $this->belongsTo(School::class);
+    }
+
+    /**
+     * @return HasMany<ReviewCycle, $this>
+     */
+    public function reviewCycles(): HasMany
+    {
+        return $this->hasMany(ReviewCycle::class);
+    }
+
+    /**
+     * Open Review Cycles, earliest due first (for next_review_at).
+     *
+     * @return HasMany<ReviewCycle, $this>
+     */
+    public function openReviewCycles(): HasMany
+    {
+        return $this->hasMany(ReviewCycle::class)
+            ->where('status', ReviewCycleStatus::Open)
+            ->orderBy('due_on')
+            ->orderBy('id');
+    }
+
+    public function nextOpenReviewDueOn(): ?string
+    {
+        $dueOn = $this->relationLoaded('openReviewCycles')
+            ? $this->openReviewCycles->first()?->due_on
+            : $this->openReviewCycles()->value('due_on');
+
+        if ($dueOn === null) {
+            return null;
+        }
+
+        return $dueOn instanceof CarbonInterface
+            ? $dueOn->toDateString()
+            : (string) $dueOn;
     }
 
     public function primaryNeedTerm(): BelongsTo

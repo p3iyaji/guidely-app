@@ -58,7 +58,7 @@ class PupilAssignmentController extends Controller
             ],
         );
 
-        $pupil->load(['primaryNeedTerm', 'secondaryNeedTerm']);
+        $pupil->load(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles']);
 
         return new PupilResource($pupil);
     }

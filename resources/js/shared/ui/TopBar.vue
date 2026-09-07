@@ -19,17 +19,21 @@
         </div>
 
         <div class="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3 sm:gap-4">
-            <label class="sr-only" for="shell-search">Search</label>
-            <div class="relative hidden min-w-0 max-w-xs flex-1 sm:block md:max-w-sm" data-testid="search-stub">
+            <form
+                class="relative hidden min-w-0 max-w-xs flex-1 sm:block md:max-w-sm"
+                data-testid="search-stub"
+                @submit.prevent="onSearch"
+            >
+                <label class="sr-only" for="shell-search">Search</label>
                 <input
                     id="shell-search"
+                    v-model="searchQuery"
                     type="search"
-                    readonly
-                    placeholder="Search Pupils or Review Cycles"
+                    placeholder="Search Review Cycles"
                     class="w-full rounded-sm border-0 bg-white/95 px-3 py-1.5 text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-white"
-                    title="Search is limited to Pupils and Review Cycles within your scope"
+                    title="Search is limited to Review Cycles within your scope"
                 >
-            </div>
+            </form>
 
             <div ref="accountMenuRoot" class="relative" data-testid="account-menu">
                 <button
@@ -77,6 +81,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import BrandWordmark from './BrandWordmark.vue';
 
 const props = defineProps({
@@ -100,7 +105,9 @@ const props = defineProps({
 
 const emit = defineEmits(['toggle-nav', 'sign-out']);
 
+const router = useRouter();
 const accountMenuOpen = ref(false);
+const searchQuery = ref('');
 /** @type {import('vue').Ref<HTMLElement|null>} */
 const accountMenuRoot = ref(null);
 
@@ -121,6 +128,15 @@ const initials = computed(() => {
 function onSignOut() {
     accountMenuOpen.value = false;
     emit('sign-out');
+}
+
+function onSearch() {
+    const q = searchQuery.value.trim();
+
+    router.push({
+        path: '/review-cycles',
+        query: q === '' ? {} : { q },
+    });
 }
 
 function onDocumentPointerDown(event) {

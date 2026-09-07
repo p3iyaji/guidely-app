@@ -190,6 +190,22 @@ describe('PupilsPage', () => {
         expect(wrapper.text()).not.toMatch(/never colour alone/i);
     });
 
+    it('formats next_review_at from the earliest open Review Cycle', async () => {
+        const { wrapper } = await mountPage('senco', [
+            {
+                id: 'pup_1',
+                given_name: 'Alex',
+                family_name: 'Rivera',
+                year_group: 'Year 8',
+                documentation_status: 'not-started',
+                next_review_at: '2026-10-15',
+            },
+        ]);
+
+        expect(wrapper.find('[data-testid="pupil-next-review"]').text()).toContain('15 Oct 2026');
+        expect(wrapper.find('[data-testid="pupil-next-review"]').text()).not.toContain('—');
+    });
+
     it('titles SENCO page Pupils and Support Staff My Pupils (document title too)', async () => {
         const senco = await mountPage('senco');
         expect(senco.wrapper.find('h1').text()).toBe('Pupils');

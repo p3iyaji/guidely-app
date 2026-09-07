@@ -452,7 +452,7 @@ function displayName(pupil) {
 }
 
 /**
- * Next Review Cycle is Epic 5 — show em dash until present on the resource.
+ * Next open Review Cycle due date, displayed Europe/London en-GB.
  *
  * @param {{ next_review_at?: string|null, next_review_cycle_date?: string|null }} pupil
  */
@@ -463,7 +463,16 @@ function formatNextReview(pupil) {
         return '—';
     }
 
-    return value;
+    const parsed = new Date(`${value}T00:00:00Z`);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return String(value);
+    }
+
+    return parsed.toLocaleDateString('en-GB', {
+        dateStyle: 'medium',
+        timeZone: 'Europe/London',
+    });
 }
 
 function clearFieldErrors() {

@@ -29,6 +29,7 @@ class PupilResource extends JsonResource
             'send_status' => $this->send_status?->value,
             'notes' => $this->notes,
             'documentation_status' => $this->documentation_status?->value,
+            'next_review_at' => $this->nextOpenReviewDueOn(),
             'primary_need' => $this->needPayload($this->primaryNeedTerm, $this->primary_need_notes),
             'secondary_need' => $this->needPayload($this->secondaryNeedTerm, $this->secondary_need_notes),
             'created_at' => $this->created_at?->toIso8601String(),

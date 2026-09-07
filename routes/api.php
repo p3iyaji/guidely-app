@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\PupilEvidenceController;
 use App\Http\Controllers\Api\V1\PupilInterventionController;
 use App\Http\Controllers\Api\V1\RelationshipMappingController;
 use App\Http\Controllers\Api\V1\ResponseController;
+use App\Http\Controllers\Api\V1\ReviewCycleController;
 use App\Http\Controllers\Api\V1\ReviewNoteController;
 use App\Http\Controllers\Api\V1\RuleController;
 use App\Http\Controllers\Api\V1\SchoolController;
@@ -100,6 +101,14 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.determinations.overrides.store');
         Route::get('/gaps', [GapController::class, 'index'])
             ->name('api.v1.gaps.index');
+        Route::get('/review-cycles', [ReviewCycleController::class, 'index'])
+            ->name('api.v1.review-cycles.index');
+        Route::post('/review-cycles', [ReviewCycleController::class, 'store'])
+            ->name('api.v1.review-cycles.store');
+        Route::post('/pupils/{pupil}/review-cycles', [ReviewCycleController::class, 'store'])
+            ->name('api.v1.pupils.review-cycles.store');
+        Route::post('/review-cycles/{reviewCycle}/close', [ReviewCycleController::class, 'close'])
+            ->name('api.v1.review-cycles.close');
         Route::patch('/evidence/{evidence}', [EvidenceController::class, 'update'])
             ->name('api.v1.evidence.update');
         Route::get('/evidence/{evidence}/versions', [EvidenceController::class, 'versions'])
