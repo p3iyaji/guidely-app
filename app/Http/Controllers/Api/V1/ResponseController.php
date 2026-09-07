@@ -9,17 +9,19 @@ use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Evidence\EvidenceSource;
 use App\Domain\Evidence\EvidenceType;
 use App\Domain\Pupils\Pupil;
+use App\Domain\Sre\EnqueueSreReevaluation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreResponseRequest;
 use App\Http\Resources\Api\V1\EvidenceRecordResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Throwable;
 
 class ResponseController extends Controller
 {
-    public function __construct(private AuditWriter $audit) {}
+    public function __construct(
+        private AuditWriter $audit,
+        private EnqueueSreReevaluation $enqueueSreReevaluation,
+    ) {}
 
     public function store(StoreResponseRequest $request): JsonResponse
     {
@@ -69,30 +71,11 @@ class ResponseController extends Controller
         });
 
         if ($lifecycle === EvidenceLifecycle::Submitted) {
-            $this->enqueueSreReevaluation($pupil);
+            $this->enqueueSreReevaluation->handle($pupil, 'evidence_submitted', 'response');
         }
 
         return (new EvidenceRecordResource($record))
             ->response()
             ->setStatusCode(201);
-    }
-
-    private function enqueueSreReevaluation(Pupil $pupil): void
-    {
-        $jobClass = 'App\\Jobs\\SreReevaluatePupil';
-
-        if (! class_exists($jobClass)) {
-            return;
-        }
-
-        try {
-            dispatch(new $jobClass($pupil->tenant_id, $pupil->id, 'evidence_submitted'));
-        } catch (Throwable $e) {
-            Log::warning('response.sre_dispatch_failed', [
-                'tenant_id' => $pupil->tenant_id,
-                'pupil_id' => $pupil->id,
-                'message' => $e->getMessage(),
-            ]);
-        }
     }
 }

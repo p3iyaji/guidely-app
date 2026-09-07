@@ -268,7 +268,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
@@ -277,6 +277,9 @@ import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
 import Card from '../shared/ui/Card.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 import StatusPill from '../shared/ui/StatusPill.vue';
+
+const EVALUATING_POLL_MS = 2000;
+const EVALUATING_POLL_MAX_ATTEMPTS = 30;
 
 const session = useSession();
 const route = useRoute();
@@ -347,8 +350,28 @@ const filteredPupils = computed(() => {
     });
 });
 
+const hasEvaluatingPupils = computed(() =>
+    pupils.value.some((pupil) => pupil.documentation_status === 'evaluating'),
+);
+
+/** @type {ReturnType<typeof setInterval>|null} */
+let evaluatingPollTimer = null;
+let evaluatingPollAttempts = 0;
+
 onMounted(async () => {
     await loadPupils();
+});
+
+onUnmounted(() => {
+    stopEvaluatingPoll();
+});
+
+watch(hasEvaluatingPupils, (shouldPoll) => {
+    if (shouldPoll) {
+        startEvaluatingPoll();
+    } else {
+        stopEvaluatingPoll();
+    }
 });
 
 /**
@@ -357,6 +380,68 @@ onMounted(async () => {
  */
 function isRecord(value) {
     return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function startEvaluatingPoll() {
+    if (evaluatingPollTimer !== null) {
+        return;
+    }
+
+    evaluatingPollAttempts = 0;
+    evaluatingPollTimer = setInterval(() => {
+        void refreshPupilsQuietly();
+    }, EVALUATING_POLL_MS);
+}
+
+function stopEvaluatingPoll() {
+    if (evaluatingPollTimer === null) {
+        return;
+    }
+
+    clearInterval(evaluatingPollTimer);
+    evaluatingPollTimer = null;
+    evaluatingPollAttempts = 0;
+}
+
+/**
+ * Soft refetch while evaluating — does not flip the full-page loading skeleton.
+ */
+async function refreshPupilsQuietly() {
+    if (typeof document !== 'undefined' && document.hidden) {
+        return;
+    }
+
+    if (evaluatingPollAttempts >= EVALUATING_POLL_MAX_ATTEMPTS) {
+        stopEvaluatingPoll();
+
+        return;
+    }
+
+    evaluatingPollAttempts += 1;
+
+    try {
+        const response = await apiFetch('/api/v1/pupils');
+
+        if (response.status === 401 || response.status === 403) {
+            stopEvaluatingPoll();
+
+            return;
+        }
+
+        if (!response.ok) {
+            return;
+        }
+
+        const payload = await response.json();
+
+        if (!Array.isArray(payload?.data)) {
+            return;
+        }
+
+        pupils.value = payload.data.filter(isRecord);
+    } catch {
+        // Keep showing the last known list; next poll retries.
+    }
 }
 
 /**

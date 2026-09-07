@@ -9,6 +9,7 @@ use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Evidence\EvidenceType;
 use App\Domain\Identity\Role;
 use App\Domain\Pupils\Pupil;
+use App\Domain\Sre\EnqueueSreReevaluation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SubmitDraftRequest;
 use App\Http\Requests\Api\V1\UpdateDraftRequest;
@@ -17,13 +18,14 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\HttpException;
-use Throwable;
 
 class DraftController extends Controller
 {
-    public function __construct(private AuditWriter $audit) {}
+    public function __construct(
+        private AuditWriter $audit,
+        private EnqueueSreReevaluation $enqueueSreReevaluation,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -181,7 +183,7 @@ class DraftController extends Controller
             return $locked;
         });
 
-        $this->enqueueSreReevaluation($pupil);
+        $this->enqueueSreReevaluation->handle($pupil, 'evidence_submitted', 'draft');
 
         return new EvidenceRecordResource($record);
     }
@@ -245,24 +247,5 @@ class DraftController extends Controller
             EvidenceType::Response => AuditEventType::EvidenceResponseSubmitted,
             EvidenceType::ReviewNote => throw new \LogicException('Review notes do not support drafts.'),
         };
-    }
-
-    private function enqueueSreReevaluation(Pupil $pupil): void
-    {
-        $jobClass = 'App\\Jobs\\SreReevaluatePupil';
-
-        if (! class_exists($jobClass)) {
-            return;
-        }
-
-        try {
-            dispatch(new $jobClass($pupil->tenant_id, $pupil->id, 'evidence_submitted'));
-        } catch (Throwable $e) {
-            Log::warning('draft.sre_dispatch_failed', [
-                'tenant_id' => $pupil->tenant_id,
-                'pupil_id' => $pupil->id,
-                'message' => $e->getMessage(),
-            ]);
-        }
     }
 }

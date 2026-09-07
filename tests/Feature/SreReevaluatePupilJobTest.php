@@ -11,9 +11,12 @@ use App\Domain\Ontology\PilotRuleLibrary;
 use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Ontology\SettingTerm;
 use App\Domain\Ontology\SreDimension;
+use App\Domain\Pupils\DocumentationStatus;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Sre\Determination;
 use App\Domain\Sre\DeterminationResult;
+use App\Domain\Sre\DocumentationStatusDeriver;
+use App\Domain\Sre\GapMaterialiser;
 use App\Domain\Sre\SreEvaluator;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
@@ -55,7 +58,11 @@ class SreReevaluatePupilJobTest extends TestCase
         $this->seedHappyPathEvidence($pupil, $teacher);
 
         $job = new SreReevaluatePupil($tenant->id, $pupil->id, 'evidence.submitted');
-        $job->handle(app(SreEvaluator::class));
+        $job->handle(
+            app(SreEvaluator::class),
+            app(GapMaterialiser::class),
+            app(DocumentationStatusDeriver::class),
+        );
 
         $currents = Determination::withoutGlobalScope('tenant')->current()->forPupil($pupil->id)->get();
         $this->assertCount(4, $currents);
@@ -89,7 +96,11 @@ class SreReevaluatePupilJobTest extends TestCase
 
         $tenant = Tenant::factory()->create();
         $job = new SreReevaluatePupil($tenant->id, '01MISSINGPUPILID0000000000', 'orphan');
-        $job->handle(app(SreEvaluator::class));
+        $job->handle(
+            app(SreEvaluator::class),
+            app(GapMaterialiser::class),
+            app(DocumentationStatusDeriver::class),
+        );
 
         $this->assertSame(0, Determination::withoutGlobalScope('tenant')->count());
         Log::shouldHaveReceived('warning')->once();
@@ -100,13 +111,34 @@ class SreReevaluatePupilJobTest extends TestCase
         Log::spy();
 
         [$tenant, $pupil] = $this->tenantPupilAndTeacher();
+        $pupil->forceFill(['documentation_status' => DocumentationStatus::Evaluating])->save();
         $otherTenant = Tenant::factory()->create();
 
         $job = new SreReevaluatePupil($otherTenant->id, $pupil->id, 'cross-tenant');
-        $job->handle(app(SreEvaluator::class));
+        $job->handle(
+            app(SreEvaluator::class),
+            app(GapMaterialiser::class),
+            app(DocumentationStatusDeriver::class),
+        );
 
         $this->assertSame(0, Determination::withoutGlobalScope('tenant')->forPupil($pupil->id)->count());
         Log::shouldHaveReceived('warning')->once();
+
+        $pupil->refresh();
+        $this->assertNotSame(DocumentationStatus::Evaluating, $pupil->documentation_status);
+    }
+
+    public function test_job_failed_clears_evaluating_when_still_evaluating(): void
+    {
+        [$tenant, $pupil] = $this->tenantPupilAndTeacher();
+        $pupil->forceFill(['documentation_status' => DocumentationStatus::Evaluating])->save();
+
+        $job = new SreReevaluatePupil($tenant->id, $pupil->id, 'failed-hook');
+        $job->failed(new RuntimeException('queue exhausted'));
+
+        $pupil->refresh();
+        $this->assertNotSame(DocumentationStatus::Evaluating, $pupil->documentation_status);
+        $this->assertSame(DocumentationStatus::NotStarted, $pupil->documentation_status);
     }
 
     public function test_job_handle_rethrows_non_invalid_argument_exceptions(): void
@@ -129,7 +161,7 @@ class SreReevaluatePupilJobTest extends TestCase
         $this->expectExceptionMessage('evaluator boom');
 
         try {
-            $job->handle($stub);
+            $job->handle($stub, app(GapMaterialiser::class), app(DocumentationStatusDeriver::class));
         } finally {
             Log::shouldHaveReceived('error')->once();
         }

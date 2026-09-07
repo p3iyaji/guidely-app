@@ -6,12 +6,12 @@ use App\Domain\Audit\AuditEventType;
 use App\Domain\Audit\AuditWriter;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
+use App\Domain\Sre\EnqueueSreReevaluation;
 use App\Domain\Tenancy\School;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -52,6 +52,7 @@ class PupilCsvImporter
         private ImportCsvParser $parser,
         private ImportSchoolResolver $schools,
         private ImportedInterventionEvidenceUpserter $evidence,
+        private EnqueueSreReevaluation $enqueueSreReevaluation,
     ) {}
 
     /**
@@ -205,7 +206,7 @@ class PupilCsvImporter
         }
 
         if ($needsSre && $pupil !== null) {
-            $this->enqueueSreReevaluation($pupil, $sreReason);
+            $this->enqueueSreReevaluation->handle($pupil, $sreReason, 'import');
         }
 
         $result = [];
@@ -364,26 +365,6 @@ class PupilCsvImporter
         }
 
         return $validated;
-    }
-
-    private function enqueueSreReevaluation(Pupil $pupil, string $reason): void
-    {
-        $jobClass = 'App\\Jobs\\SreReevaluatePupil';
-
-        if (! class_exists($jobClass)) {
-            return;
-        }
-
-        try {
-            dispatch(new $jobClass($pupil->tenant_id, $pupil->id, $reason));
-        } catch (Throwable $e) {
-            Log::warning('import.sre_dispatch_failed', [
-                'tenant_id' => $pupil->tenant_id,
-                'pupil_id' => $pupil->id,
-                'reason' => $reason,
-                'message' => $e->getMessage(),
-            ]);
-        }
     }
 
     /**

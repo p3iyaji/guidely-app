@@ -7,6 +7,7 @@ use App\Domain\Audit\AuditWriter;
 use App\Domain\Identity\Role;
 use App\Domain\Ontology\NeedTerm;
 use App\Domain\Pupils\Pupil;
+use App\Domain\Sre\EnqueueSreReevaluation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StorePupilRequest;
 use App\Http\Requests\Api\V1\UpdatePupilRequest;
@@ -31,7 +32,10 @@ class PupilController extends Controller
         'secondary_need_notes',
     ];
 
-    public function __construct(private AuditWriter $audit) {}
+    public function __construct(
+        private AuditWriter $audit,
+        private EnqueueSreReevaluation $enqueueSreReevaluation,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -227,13 +231,6 @@ class PupilController extends Controller
             return;
         }
 
-        $jobClass = 'App\\Jobs\\SreReevaluatePupil';
-
-        if (! class_exists($jobClass)) {
-            return;
-        }
-
-        // Real job only — never invent a stub. Constructor matches AD-17 shape when present.
-        dispatch(new $jobClass($pupil->tenant_id, $pupil->id, 'need_changed'));
+        $this->enqueueSreReevaluation->handle($pupil, 'need_changed', 'pupil');
     }
 }

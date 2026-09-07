@@ -28,15 +28,18 @@ describe('StatusPill', () => {
     it('renders text and non-empty icon for documented statuses including evaluating', () => {
         const gaps = mount(StatusPill, { props: { status: 'gaps' } });
         expect(gaps.text()).toContain('Gaps');
-        const gapsIcon = gaps.find('[aria-hidden="true"]');
+        const gapsIcon = gaps.find('[data-testid="status-pill-icon"]');
         expect(gapsIcon.exists()).toBe(true);
         expect(gapsIcon.text().trim().length).toBeGreaterThan(0);
+        expect(gaps.find('[data-testid="status-pill-spinner"]').exists()).toBe(false);
 
         const evaluating = mount(StatusPill, { props: { status: 'evaluating' } });
         expect(evaluating.text()).toContain('Evaluating');
-        const evaluatingIcon = evaluating.find('[aria-hidden="true"]');
+        const evaluatingIcon = evaluating.find('[data-testid="status-pill-icon"]');
         expect(evaluatingIcon.exists()).toBe(true);
         expect(evaluatingIcon.text().trim().length).toBeGreaterThan(0);
+        expect(evaluatingIcon.classes()).not.toContain('animate-spin');
+        expect(evaluating.find('[data-testid="status-pill-spinner"]').exists()).toBe(true);
     });
 });
 
@@ -290,6 +293,148 @@ describe('PupilsPage', () => {
         await flushPromises();
 
         expect(wrapper.findAll('[data-testid="pupil-row"]').length).toBe(2);
+    });
+
+    it('shows evaluating StatusPill with spinner and polls until status clears', async () => {
+        vi.useFakeTimers();
+
+        let pollCount = 0;
+        fetchMock.mockImplementation(async (url) => {
+            const path = String(url);
+
+            if (path.includes('/api/v1/pupils')) {
+                pollCount += 1;
+
+                if (pollCount === 1) {
+                    return jsonResponse({
+                        data: [
+                            {
+                                id: 'pup_eval',
+                                given_name: 'Casey',
+                                family_name: 'Ng',
+                                year_group: 'Year 5',
+                                documentation_status: 'evaluating',
+                            },
+                        ],
+                    });
+                }
+
+                return jsonResponse({
+                    data: [
+                        {
+                            id: 'pup_eval',
+                            given_name: 'Casey',
+                            family_name: 'Ng',
+                            year_group: 'Year 5',
+                            documentation_status: 'ready',
+                        },
+                    ],
+                });
+            }
+
+            return jsonResponse({});
+        });
+
+        const { wrapper } = await mountPage('teacher');
+
+        expect(wrapper.find('[data-testid="status-pill"]').text()).toContain('Evaluating');
+        expect(wrapper.find('[data-testid="status-pill-icon"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="status-pill-spinner"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="pupils-loading"]').exists()).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(2000);
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="status-pill"]').text()).toContain('Ready');
+        expect(wrapper.find('[data-testid="status-pill-spinner"]').exists()).toBe(false);
+        expect(pollCount).toBeGreaterThanOrEqual(2);
+
+        wrapper.unmount();
+        vi.useRealTimers();
+    });
+
+    it('stops polling after unmount so further timers do not fetch', async () => {
+        vi.useFakeTimers();
+
+        fetchMock.mockImplementation(async (url) => {
+            if (String(url).includes('/api/v1/pupils')) {
+                return jsonResponse({
+                    data: [
+                        {
+                            id: 'pup_eval',
+                            given_name: 'Casey',
+                            family_name: 'Ng',
+                            year_group: 'Year 5',
+                            documentation_status: 'evaluating',
+                        },
+                    ],
+                });
+            }
+
+            return jsonResponse({});
+        });
+
+        const { wrapper } = await mountPage('teacher');
+        const callsAfterMount = fetchMock.mock.calls.filter(([url]) =>
+            String(url).includes('/api/v1/pupils'),
+        ).length;
+
+        expect(callsAfterMount).toBeGreaterThanOrEqual(1);
+
+        wrapper.unmount();
+
+        await vi.advanceTimersByTimeAsync(10000);
+        await flushPromises();
+
+        const callsAfterUnmount = fetchMock.mock.calls.filter(([url]) =>
+            String(url).includes('/api/v1/pupils'),
+        ).length;
+
+        expect(callsAfterUnmount).toBe(callsAfterMount);
+        vi.useRealTimers();
+    });
+
+    it('does not wipe pupils list when poll payload data is missing', async () => {
+        vi.useFakeTimers();
+
+        let pollCount = 0;
+        fetchMock.mockImplementation(async (url) => {
+            if (String(url).includes('/api/v1/pupils')) {
+                pollCount += 1;
+
+                if (pollCount === 1) {
+                    return jsonResponse({
+                        data: [
+                            {
+                                id: 'pup_eval',
+                                given_name: 'Casey',
+                                family_name: 'Ng',
+                                year_group: 'Year 5',
+                                documentation_status: 'evaluating',
+                            },
+                        ],
+                    });
+                }
+
+                return jsonResponse({ message: 'malformed' });
+            }
+
+            return jsonResponse({});
+        });
+
+        const { wrapper } = await mountPage('teacher');
+
+        expect(wrapper.find('[data-testid="pupil-name"]').text()).toContain('Casey Ng');
+
+        await vi.advanceTimersByTimeAsync(2000);
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="pupils-list"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="pupil-name"]').text()).toContain('Casey Ng');
+        expect(wrapper.find('[data-testid="status-pill"]').text()).toContain('Evaluating');
+
+        wrapper.unmount();
+        vi.useRealTimers();
     });
 
     it('links each pupil row to /pupils/:id', async () => {
