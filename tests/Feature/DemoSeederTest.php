@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Domain\Identity\Role;
 use App\Domain\Ontology\OntologyVersion;
 use App\Domain\Ontology\PilotOntology;
+use App\Domain\Ontology\PilotRuleLibrary;
 use App\Domain\Ontology\ProvisionTerm;
+use App\Domain\Ontology\Rule;
+use App\Domain\Ontology\RuleLibraryVersion;
 use App\Domain\Ontology\SettingTerm;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\FeatureFlagKey;
@@ -90,6 +93,26 @@ class DemoSeederTest extends TestCase
         $this->assertDatabaseMissing('ontology_versions', ['code' => 'pilot-need-stub-v1']);
         $this->assertDatabaseMissing('ontology_versions', ['code' => 'pilot-setting-stub-v1']);
         $this->assertDatabaseMissing('ontology_versions', ['code' => 'pilot-provision-stub-v1']);
+
+        $this->assertDatabaseHas('rule_library_versions', [
+            'code' => PilotRuleLibrary::VERSION_CODE,
+            'status' => 'published',
+        ]);
+        $this->assertSame(
+            1,
+            RuleLibraryVersion::query()
+                ->where('code', PilotRuleLibrary::VERSION_CODE)
+                ->count(),
+        );
+        $this->assertTrue(
+            Rule::query()->forTenant()->exists(),
+            'DemoPilotSeeder should seed the Pilot Rule Library stub.',
+        );
+        $this->assertSame(
+            PilotRuleLibrary::ensurePublishedVersion()->id,
+            $tenant->fresh()->current_rule_library_version_id,
+            'Demo Pilot school Tenant should pin the published Pilot Rule Library version.',
+        );
     }
 
     public function test_demo_trust_seeder_enables_trust_dashboard_for_trust_roles(): void

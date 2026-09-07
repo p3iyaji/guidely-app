@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Domain\Identity\Role;
+use App\Domain\Ontology\PilotRuleLibrary;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Domain\Tenancy\TenantType;
@@ -23,6 +24,10 @@ class E2eSeeder extends Seeder
 
     public function run(): void
     {
+        $this->call([
+            RuleLibrarySeeder::class,
+        ]);
+
         $tenant = Tenant::query()->create([
             'name' => 'E2E Pilot School',
             'type' => TenantType::School,
@@ -47,5 +52,10 @@ class E2eSeeder extends Seeder
         ])->save();
 
         $admin->schools()->sync([$school->id]);
+
+        $pilotRuleLibrary = PilotRuleLibrary::ensurePublishedVersion();
+        $tenant->forceFill([
+            'current_rule_library_version_id' => $pilotRuleLibrary->id,
+        ])->save();
     }
 }

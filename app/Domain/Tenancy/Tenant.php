@@ -3,7 +3,9 @@
 namespace App\Domain\Tenancy;
 
 use App\Domain\Ontology\EffectiveOntologyVersion;
+use App\Domain\Ontology\EffectiveRuleLibraryVersion;
 use App\Domain\Ontology\OntologyVersion;
+use App\Domain\Ontology\RuleLibraryVersion;
 use App\Models\User;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -86,6 +88,19 @@ class Tenant extends Model
     public function effectiveOntologyVersion(): ?OntologyVersion
     {
         return app(EffectiveOntologyVersion::class)->resolve($this);
+    }
+
+    public function currentRuleLibraryVersion(): BelongsTo
+    {
+        return $this->belongsTo(RuleLibraryVersion::class, 'current_rule_library_version_id');
+    }
+
+    /**
+     * Rule Library version used for Rule lists / SRE citation (pin or Pilot published fallback).
+     */
+    public function effectiveRuleLibraryVersion(): ?RuleLibraryVersion
+    {
+        return app(EffectiveRuleLibraryVersion::class)->resolve($this);
     }
 
     public function isTrust(): bool

@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\PupilInterventionController;
 use App\Http\Controllers\Api\V1\RelationshipMappingController;
 use App\Http\Controllers\Api\V1\ResponseController;
 use App\Http\Controllers\Api\V1\ReviewNoteController;
+use App\Http\Controllers\Api\V1\RuleController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\SettingTermController;
 use App\Http\Controllers\Api\V1\TenantController;
@@ -106,6 +107,8 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.ontology.threshold-terms.index');
         Route::get('/ontology/relationship-mappings', [RelationshipMappingController::class, 'index'])
             ->name('api.v1.ontology.relationship-mappings.index');
+        Route::get('/ontology/rules', [RuleController::class, 'index'])
+            ->name('api.v1.ontology.rules.index');
 
         Route::get('/import/template', [ImportController::class, 'template'])
             ->name('api.v1.import.template');
