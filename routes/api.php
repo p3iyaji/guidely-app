@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DraftController;
+use App\Http\Controllers\Api\V1\EvidenceController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\ImportController;
@@ -82,6 +83,10 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.pupils.interventions.index');
         Route::get('/pupils/{pupil}/evidence', [PupilEvidenceController::class, 'index'])
             ->name('api.v1.pupils.evidence.index');
+        Route::patch('/evidence/{evidence}', [EvidenceController::class, 'update'])
+            ->name('api.v1.evidence.update');
+        Route::get('/evidence/{evidence}/versions', [EvidenceController::class, 'versions'])
+            ->name('api.v1.evidence.versions.index');
         Route::get('/ontology/setting-terms', [SettingTermController::class, 'index'])
             ->name('api.v1.ontology.setting-terms.index');
         Route::get('/ontology/provision-terms', [ProvisionTermController::class, 'index'])

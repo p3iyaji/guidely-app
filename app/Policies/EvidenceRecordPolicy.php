@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceType;
 use App\Domain\Identity\Role;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\School;
@@ -120,6 +121,49 @@ class EvidenceRecordPolicy
     public function submit(User $user, EvidenceRecord $record): bool
     {
         return $this->authorOwnsDraft($user, $record);
+    }
+
+    /**
+     * Amend submitted Observation/Intervention/Response: author (assignment-scoped)
+     * or School SENCO. School Leader and non-capture Roles are denied.
+     */
+    public function amend(User $user, EvidenceRecord $record): bool
+    {
+        if ($record->lifecycle !== EvidenceLifecycle::Submitted) {
+            return false;
+        }
+
+        if (! in_array($record->type, [
+            EvidenceType::Observation,
+            EvidenceType::Intervention,
+            EvidenceType::Response,
+        ], true)) {
+            return false;
+        }
+
+        if (! $user->isActiveTenantStaff()) {
+            return false;
+        }
+
+        $pupil = $this->pupilFor($record);
+
+        if ($pupil === null || ! $this->canAccessPupilSchool($user, $pupil)) {
+            return false;
+        }
+
+        if ($user->role === Role::Senco) {
+            return true;
+        }
+
+        if (! in_array($user->role, [Role::Teacher, Role::SupportStaff], true)) {
+            return false;
+        }
+
+        if ((string) $record->author_id !== (string) $user->id) {
+            return false;
+        }
+
+        return $pupil->isAssignedTo($user);
     }
 
     private function viewDraft(User $user, EvidenceRecord $record): bool

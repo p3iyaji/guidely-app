@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'pupil_id',
@@ -79,5 +80,10 @@ class EvidenceRecord extends Model
     public function relatedIntervention(): BelongsTo
     {
         return $this->belongsTo(self::class, 'related_intervention_id');
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(EvidenceRecordVersion::class)->orderByDesc('version');
     }
 }

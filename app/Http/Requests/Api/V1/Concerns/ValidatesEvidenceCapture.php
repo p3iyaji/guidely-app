@@ -259,6 +259,75 @@ trait ValidatesEvidenceCapture
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    protected function amendBaseRules(): array
+    {
+        return [
+            'lifecycle' => ['prohibited'],
+            'type' => ['prohibited'],
+            'pupil_id' => ['prohibited'],
+            'author_id' => ['prohibited'],
+            'source' => ['prohibited'],
+            'external_id' => ['prohibited'],
+            'occurred_at' => $this->evidenceOccurredAtRule(),
+            'client_type' => $this->evidenceClientTypeRule(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function observationAmendRules(): array
+    {
+        return [
+            ...$this->amendBaseRules(),
+            'setting' => ['prohibited'],
+            'provision' => ['prohibited'],
+            'provision_term_id' => ['prohibited'],
+            'related_intervention_id' => ['prohibited'],
+            'setting_term_id' => ['required', 'ulid', $this->activeSettingTermRule()],
+            'body' => ['required', 'string', 'max:5000'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function interventionAmendRules(): array
+    {
+        return [
+            ...$this->amendBaseRules(),
+            'provision' => ['prohibited'],
+            'setting' => ['prohibited'],
+            'setting_term_id' => ['prohibited'],
+            'related_intervention_id' => ['prohibited'],
+            'provision_term_id' => ['required', 'ulid', $this->activeProvisionTermRule()],
+            'body' => ['nullable', 'string', 'max:5000'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function responseAmendRules(string $pupilId): array
+    {
+        return [
+            ...$this->amendBaseRules(),
+            'setting' => ['prohibited'],
+            'setting_term_id' => ['prohibited'],
+            'provision' => ['prohibited'],
+            'provision_term_id' => ['prohibited'],
+            'related_intervention_id' => [
+                'nullable',
+                'ulid',
+                $this->sameTenantPupilInterventionRule($pupilId),
+            ],
+            'body' => ['required', 'string', 'max:5000'],
+        ];
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function evidenceCaptureMessages(): array

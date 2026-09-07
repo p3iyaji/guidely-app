@@ -205,4 +205,79 @@ class EvidencePolicyTest extends TestCase
         $this->actingAs($leader);
         $this->assertFalse($leader->can('view', $draft));
     }
+
+    public function test_amend_allows_author_or_senco_and_denies_leader(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $school = School::factory()->forTenant($tenant)->create();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacher->schools()->attach($school->id);
+        $otherTeacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $otherTeacher->schools()->attach($school->id);
+        $senco = User::factory()->forTenant($tenant)->senco()->create();
+        $senco->schools()->attach($school->id);
+        $leader = User::factory()->forTenant($tenant)->schoolLeader()->create();
+        $leader->schools()->attach($school->id);
+
+        $pupil = Pupil::factory()->forSchool($school)->assignedTo($teacher)->create();
+        $pupil->assignedUsers()->attach($otherTeacher->id);
+
+        $submitted = EvidenceRecord::factory()
+            ->forPupil($pupil)
+            ->authoredBy($teacher)
+            ->create([
+                'lifecycle' => EvidenceLifecycle::Submitted,
+                'setting_term_id' => null,
+                'body' => 'Submitted for amend policy',
+            ]);
+
+        $draft = EvidenceRecord::factory()
+            ->forPupil($pupil)
+            ->authoredBy($teacher)
+            ->draft()
+            ->create([
+                'setting_term_id' => null,
+                'body' => null,
+            ]);
+
+        $submitted->load('pupil.school');
+        $draft->load('pupil.school');
+
+        $this->actingAs($teacher);
+        $this->assertTrue($teacher->can('amend', $submitted));
+        $this->assertFalse($teacher->can('amend', $draft));
+
+        $this->actingAs($senco);
+        $this->assertTrue($senco->can('amend', $submitted));
+
+        $this->actingAs($otherTeacher);
+        $this->assertFalse($otherTeacher->can('amend', $submitted));
+
+        $this->actingAs($leader);
+        $this->assertFalse($leader->can('amend', $submitted));
+    }
+
+    public function test_support_staff_author_assigned_can_amend(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $school = School::factory()->forTenant($tenant)->create();
+        $support = User::factory()->forTenant($tenant)->supportStaff()->create();
+        $support->schools()->attach($school->id);
+
+        $pupil = Pupil::factory()->forSchool($school)->assignedTo($support)->create();
+
+        $submitted = EvidenceRecord::factory()
+            ->forPupil($pupil)
+            ->authoredBy($support)
+            ->create([
+                'lifecycle' => EvidenceLifecycle::Submitted,
+                'setting_term_id' => null,
+                'body' => 'Support authored submitted',
+            ]);
+
+        $submitted->load('pupil.school');
+
+        $this->actingAs($support);
+        $this->assertTrue($support->can('amend', $submitted));
+    }
 }
