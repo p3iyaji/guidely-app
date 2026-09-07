@@ -97,7 +97,7 @@ class RuleLibrarySeeder extends Seeder
             'category' => RuleCategory::Documentation,
             'condition' => [
                 'all' => [
-                    ['type' => 'evidence_type_present', 'type' => 'response'],
+                    ['type' => 'evidence_type_present', 'evidence_type' => 'response'],
                 ],
             ],
             'evaluation' => [
