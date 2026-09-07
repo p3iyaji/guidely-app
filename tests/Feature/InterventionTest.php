@@ -368,7 +368,7 @@ class InterventionTest extends TestCase
 
     private function provisionTerm(string $code): ProvisionTerm
     {
-        $term = ProvisionTerm::query()->fromPublishedStub()->where('code', $code)->first();
+        $term = ProvisionTerm::query()->forTenant()->where('code', $code)->first();
         $this->assertNotNull($term, "Expected seeded Provision term [{$code}]");
 
         return $term;

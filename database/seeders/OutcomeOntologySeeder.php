@@ -2,41 +2,33 @@
 
 namespace Database\Seeders;
 
-use App\Domain\Ontology\NeedTerm;
+use App\Domain\Ontology\OutcomeTerm;
 use App\Domain\Ontology\PilotOntology;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds the Pilot Need taxonomy onto the unified published Ontology version.
+ * Seeds a minimal Pilot Outcome framework onto the unified Ontology version.
  */
-class NeedOntologySeeder extends Seeder
+class OutcomeOntologySeeder extends Seeder
 {
-    /** @deprecated Use PilotOntology::VERSION_CODE */
-    public const STUB_VERSION_CODE = PilotOntology::VERSION_CODE;
-
     /**
      * @var list<array{code: string, label: string, sort_order: int}>
      */
-    public const NEED_TERMS = [
+    public const OUTCOME_TERMS = [
         [
-            'code' => 'CI',
-            'label' => 'Communication and interaction',
+            'code' => 'ENGAGEMENT',
+            'label' => 'Engagement in learning',
             'sort_order' => 1,
         ],
         [
-            'code' => 'CL',
-            'label' => 'Cognition and learning',
+            'code' => 'INDEPENDENCE',
+            'label' => 'Independence / self-help',
             'sort_order' => 2,
         ],
         [
-            'code' => 'SEMH',
-            'label' => 'Social, emotional and mental health',
+            'code' => 'WELLBEING',
+            'label' => 'Wellbeing / SEMH progress',
             'sort_order' => 3,
-        ],
-        [
-            'code' => 'SP',
-            'label' => 'Sensory and/or physical needs',
-            'sort_order' => 4,
         ],
     ];
 
@@ -44,8 +36,8 @@ class NeedOntologySeeder extends Seeder
     {
         $version = PilotOntology::ensurePublishedVersion();
 
-        foreach (self::NEED_TERMS as $term) {
-            NeedTerm::query()->updateOrCreate(
+        foreach (self::OUTCOME_TERMS as $term) {
+            OutcomeTerm::query()->updateOrCreate(
                 [
                     'ontology_version_id' => $version->id,
                     'code' => $term['code'],

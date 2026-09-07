@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Domain\Identity\Role;
 use App\Domain\Ontology\NeedTerm;
+use App\Domain\Ontology\PilotOntology;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
 use App\Domain\Tenancy\FeatureFlagKey;
@@ -47,6 +48,9 @@ class DemoPilotSeeder extends Seeder
             NeedOntologySeeder::class,
             SettingOntologySeeder::class,
             ProvisionOntologySeeder::class,
+            OutcomeOntologySeeder::class,
+            ThresholdOntologySeeder::class,
+            RelationshipOntologySeeder::class,
         ]);
 
         $tenant = Tenant::factory()->school()->create([
@@ -76,8 +80,13 @@ class DemoPilotSeeder extends Seeder
 
         app(FeatureFlagResolver::class)->set($tenant, FeatureFlagKey::Connectors, true);
 
+        $pilotVersion = PilotOntology::ensurePublishedVersion();
+        $tenant->forceFill([
+            'current_ontology_version_id' => $pilotVersion->id,
+        ])->save();
+
         $terms = NeedTerm::query()
-            ->whereHas('ontologyVersion', fn ($query) => $query->where('code', NeedOntologySeeder::STUB_VERSION_CODE))
+            ->forVersion($pilotVersion->id)
             ->orderBy('sort_order')
             ->get()
             ->keyBy('code');

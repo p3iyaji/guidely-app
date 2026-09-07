@@ -2,12 +2,15 @@
 
 namespace App\Domain\Tenancy;
 
+use App\Domain\Ontology\EffectiveOntologyVersion;
+use App\Domain\Ontology\OntologyVersion;
 use App\Models\User;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
@@ -70,6 +73,19 @@ class Tenant extends Model
     public function featureFlags(): HasMany
     {
         return $this->hasMany(TenantFeatureFlag::class);
+    }
+
+    public function currentOntologyVersion(): BelongsTo
+    {
+        return $this->belongsTo(OntologyVersion::class, 'current_ontology_version_id');
+    }
+
+    /**
+     * Ontology version used for term lists / validation (pin or Pilot published fallback).
+     */
+    public function effectiveOntologyVersion(): ?OntologyVersion
+    {
+        return app(EffectiveOntologyVersion::class)->resolve($this);
     }
 
     public function isTrust(): bool

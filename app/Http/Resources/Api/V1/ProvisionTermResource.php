@@ -21,6 +21,7 @@ class ProvisionTermResource extends JsonResource
             'code' => $this->code,
             'label' => $this->label,
             'sort_order' => $this->sort_order,
+            'ontology_version_id' => $this->ontology_version_id,
         ];
     }
 }

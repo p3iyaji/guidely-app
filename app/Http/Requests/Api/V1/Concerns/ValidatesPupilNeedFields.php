@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\Concerns;
 
+use App\Domain\Ontology\EffectiveOntologyVersion;
 use App\Domain\Ontology\NeedTerm;
 use App\Domain\Pupils\Pupil;
-use Database\Seeders\NeedOntologySeeder;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -15,14 +15,18 @@ trait ValidatesPupilNeedFields
      */
     protected function needFieldRules(): array
     {
-        $activePublishedStubTerm = Rule::exists('need_terms', 'id')->where(function ($query): void {
-            $query->where('is_active', true)
-                ->whereIn('ontology_version_id', function ($versionQuery): void {
-                    $versionQuery->select('id')
-                        ->from('ontology_versions')
-                        ->where('status', 'published')
-                        ->where('code', NeedOntologySeeder::STUB_VERSION_CODE);
-                });
+        $versionId = app(EffectiveOntologyVersion::class)->id();
+
+        $activeEffectiveTerm = Rule::exists('need_terms', 'id')->where(function ($query) use ($versionId): void {
+            $query->where('is_active', true);
+
+            if ($versionId === null) {
+                $query->whereRaw('0 = 1');
+
+                return;
+            }
+
+            $query->where('ontology_version_id', $versionId);
         });
 
         return [
@@ -34,13 +38,13 @@ trait ValidatesPupilNeedFields
             'primary_need_term_id' => [
                 'nullable',
                 'ulid',
-                $activePublishedStubTerm,
+                $activeEffectiveTerm,
             ],
             'primary_need_notes' => ['nullable', 'string', 'max:5000'],
             'secondary_need_term_id' => [
                 'nullable',
                 'ulid',
-                $activePublishedStubTerm,
+                $activeEffectiveTerm,
             ],
             'secondary_need_notes' => ['nullable', 'string', 'max:5000'],
         ];

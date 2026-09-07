@@ -2,14 +2,14 @@
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Domain\Ontology\SettingTerm;
+use App\Domain\Ontology\RelationshipMapping;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin SettingTerm
+ * @mixin RelationshipMapping
  */
-class SettingTermResource extends JsonResource
+class RelationshipMappingResource extends JsonResource
 {
     /**
      * @return array<string, mixed>
@@ -20,6 +20,11 @@ class SettingTermResource extends JsonResource
             'id' => $this->id,
             'code' => $this->code,
             'label' => $this->label,
+            'relationship_type' => $this->relationship_type,
+            'from_domain' => $this->from_domain,
+            'from_term_id' => $this->from_term_id,
+            'to_domain' => $this->to_domain,
+            'to_term_id' => $this->to_term_id,
             'sort_order' => $this->sort_order,
             'ontology_version_id' => $this->ontology_version_id,
         ];

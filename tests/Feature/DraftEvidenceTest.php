@@ -502,7 +502,7 @@ class DraftEvidenceTest extends TestCase
 
     private function settingTerm(string $code): SettingTerm
     {
-        $term = SettingTerm::query()->fromPublishedStub()->where('code', $code)->first();
+        $term = SettingTerm::query()->forTenant()->where('code', $code)->first();
         $this->assertNotNull($term, "Expected seeded Setting term [{$code}]");
 
         return $term;
@@ -510,7 +510,7 @@ class DraftEvidenceTest extends TestCase
 
     private function provisionTerm(string $code): ProvisionTerm
     {
-        $term = ProvisionTerm::query()->fromPublishedStub()->where('code', $code)->first();
+        $term = ProvisionTerm::query()->forTenant()->where('code', $code)->first();
         $this->assertNotNull($term, "Expected seeded Provision term [{$code}]");
 
         return $term;

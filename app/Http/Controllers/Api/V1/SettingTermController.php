@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Ontology\SettingTerm;
+use App\Domain\Tenancy\CurrentTenant;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\SettingTermResource;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class SettingTermController extends Controller
         $this->authorize('create', EvidenceRecord::class);
 
         $terms = SettingTerm::query()
-            ->fromPublishedStub()
+            ->forTenant(CurrentTenant::require())
             ->orderBy('sort_order')
             ->orderBy('label')
             ->orderBy('id')

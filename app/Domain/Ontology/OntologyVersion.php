@@ -48,6 +48,26 @@ class OntologyVersion extends Model
         return $this->hasMany(SettingTerm::class);
     }
 
+    public function provisionTerms(): HasMany
+    {
+        return $this->hasMany(ProvisionTerm::class);
+    }
+
+    public function outcomeTerms(): HasMany
+    {
+        return $this->hasMany(OutcomeTerm::class);
+    }
+
+    public function thresholdTerms(): HasMany
+    {
+        return $this->hasMany(ThresholdTerm::class);
+    }
+
+    public function relationshipMappings(): HasMany
+    {
+        return $this->hasMany(RelationshipMapping::class);
+    }
+
     #[Scope]
     protected function published(Builder $query): Builder
     {

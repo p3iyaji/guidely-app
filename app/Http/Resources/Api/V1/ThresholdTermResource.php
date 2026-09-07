@@ -2,14 +2,14 @@
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Domain\Ontology\SettingTerm;
+use App\Domain\Ontology\ThresholdTerm;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin SettingTerm
+ * @mixin ThresholdTerm
  */
-class SettingTermResource extends JsonResource
+class ThresholdTermResource extends JsonResource
 {
     /**
      * @return array<string, mixed>

@@ -391,7 +391,7 @@ class ResponseTest extends TestCase
 
     private function interventionFor(Pupil $pupil, User $author): EvidenceRecord
     {
-        $provision = ProvisionTerm::query()->fromPublishedStub()->where('code', 'UNIVERSAL')->first();
+        $provision = ProvisionTerm::query()->forTenant()->where('code', 'UNIVERSAL')->first();
         $this->assertNotNull($provision, 'Expected seeded Provision term [UNIVERSAL]');
 
         return EvidenceRecord::factory()

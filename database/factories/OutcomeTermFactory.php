@@ -3,16 +3,15 @@
 namespace Database\Factories;
 
 use App\Domain\Ontology\OntologyVersion;
-use App\Domain\Ontology\PilotOntology;
-use App\Domain\Ontology\SettingTerm;
+use App\Domain\Ontology\OutcomeTerm;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<SettingTerm>
+ * @extends Factory<OutcomeTerm>
  */
-class SettingTermFactory extends Factory
+class OutcomeTermFactory extends Factory
 {
-    protected $model = SettingTerm::class;
+    protected $model = OutcomeTerm::class;
 
     /**
      * @return array<string, mixed>
@@ -20,9 +19,9 @@ class SettingTermFactory extends Factory
     public function definition(): array
     {
         return [
-            'ontology_version_id' => fn (): string => PilotOntology::ensurePublishedVersion()->id,
-            'code' => strtoupper(fake()->unique()->bothify('SET-##')),
-            'label' => fake()->unique()->words(2, true),
+            'ontology_version_id' => OntologyVersion::factory()->published(),
+            'code' => strtoupper(fake()->unique()->bothify('OUT-##')),
+            'label' => fake()->unique()->words(3, true),
             'is_active' => true,
             'sort_order' => 0,
         ];

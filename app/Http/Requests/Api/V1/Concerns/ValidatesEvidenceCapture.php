@@ -4,9 +4,8 @@ namespace App\Http\Requests\Api\V1\Concerns;
 
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceType;
+use App\Domain\Ontology\EffectiveOntologyVersion;
 use App\Domain\Tenancy\CurrentTenant;
-use Database\Seeders\ProvisionOntologySeeder;
-use Database\Seeders\SettingOntologySeeder;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -15,29 +14,42 @@ use Illuminate\Validation\Rule;
  */
 trait ValidatesEvidenceCapture
 {
+    protected function effectiveOntologyVersionId(): ?string
+    {
+        return app(EffectiveOntologyVersion::class)->id();
+    }
+
     protected function activeSettingTermRule(): mixed
     {
-        return Rule::exists('setting_terms', 'id')->where(function ($query): void {
-            $query->where('is_active', true)
-                ->whereIn('ontology_version_id', function ($versionQuery): void {
-                    $versionQuery->select('id')
-                        ->from('ontology_versions')
-                        ->where('status', 'published')
-                        ->where('code', SettingOntologySeeder::STUB_VERSION_CODE);
-                });
+        $versionId = $this->effectiveOntologyVersionId();
+
+        return Rule::exists('setting_terms', 'id')->where(function ($query) use ($versionId): void {
+            $query->where('is_active', true);
+
+            if ($versionId === null) {
+                $query->whereRaw('0 = 1');
+
+                return;
+            }
+
+            $query->where('ontology_version_id', $versionId);
         });
     }
 
     protected function activeProvisionTermRule(): mixed
     {
-        return Rule::exists('provision_terms', 'id')->where(function ($query): void {
-            $query->where('is_active', true)
-                ->whereIn('ontology_version_id', function ($versionQuery): void {
-                    $versionQuery->select('id')
-                        ->from('ontology_versions')
-                        ->where('status', 'published')
-                        ->where('code', ProvisionOntologySeeder::STUB_VERSION_CODE);
-                });
+        $versionId = $this->effectiveOntologyVersionId();
+
+        return Rule::exists('provision_terms', 'id')->where(function ($query) use ($versionId): void {
+            $query->where('is_active', true);
+
+            if ($versionId === null) {
+                $query->whereRaw('0 = 1');
+
+                return;
+            }
+
+            $query->where('ontology_version_id', $versionId);
         });
     }
 

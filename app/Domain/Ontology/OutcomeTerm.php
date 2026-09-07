@@ -3,7 +3,7 @@
 namespace App\Domain\Ontology;
 
 use App\Domain\Ontology\Concerns\BelongsToOntologyVersion;
-use Database\Factories\NeedTermFactory;
+use Database\Factories\OutcomeTermFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,9 +16,9 @@ use Illuminate\Database\Eloquent\Model;
     'is_active',
     'sort_order',
 ])]
-class NeedTerm extends Model
+class OutcomeTerm extends Model
 {
-    /** @use HasFactory<NeedTermFactory> */
+    /** @use HasFactory<OutcomeTermFactory> */
     use BelongsToOntologyVersion, HasFactory, HasUlids;
 
     /**
@@ -40,8 +40,8 @@ class NeedTerm extends Model
         ];
     }
 
-    protected static function newFactory(): NeedTermFactory
+    protected static function newFactory(): OutcomeTermFactory
     {
-        return NeedTermFactory::new();
+        return OutcomeTermFactory::new();
     }
 }

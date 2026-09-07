@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Domain\Identity\Role;
+use App\Domain\Ontology\OntologyVersion;
+use App\Domain\Ontology\PilotOntology;
 use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Ontology\SettingTerm;
 use App\Domain\Pupils\Pupil;
@@ -12,8 +14,6 @@ use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use Database\Seeders\DemoPilotSeeder;
 use Database\Seeders\DemoTrustSeeder;
-use Database\Seeders\ProvisionOntologySeeder;
-use Database\Seeders\SettingOntologySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -70,21 +70,26 @@ class DemoSeederTest extends TestCase
             ->assertJsonCount(2, 'data');
 
         $this->assertTrue(
-            SettingTerm::query()->fromPublishedStub()->exists(),
+            SettingTerm::query()->forTenant()->exists(),
             'DemoPilotSeeder should seed the Setting Ontology stub.',
         );
-        $this->assertDatabaseHas('ontology_versions', [
-            'code' => SettingOntologySeeder::STUB_VERSION_CODE,
-            'status' => 'published',
-        ]);
         $this->assertTrue(
-            ProvisionTerm::query()->fromPublishedStub()->exists(),
+            ProvisionTerm::query()->forTenant()->exists(),
             'DemoPilotSeeder should seed the Provision Ontology stub.',
         );
         $this->assertDatabaseHas('ontology_versions', [
-            'code' => ProvisionOntologySeeder::STUB_VERSION_CODE,
+            'code' => PilotOntology::VERSION_CODE,
             'status' => 'published',
         ]);
+        $this->assertSame(
+            1,
+            OntologyVersion::query()
+                ->where('code', PilotOntology::VERSION_CODE)
+                ->count(),
+        );
+        $this->assertDatabaseMissing('ontology_versions', ['code' => 'pilot-need-stub-v1']);
+        $this->assertDatabaseMissing('ontology_versions', ['code' => 'pilot-setting-stub-v1']);
+        $this->assertDatabaseMissing('ontology_versions', ['code' => 'pilot-provision-stub-v1']);
     }
 
     public function test_demo_trust_seeder_enables_trust_dashboard_for_trust_roles(): void
@@ -107,11 +112,11 @@ class DemoSeederTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => DemoPilotSeeder::USERS['senco']]);
         $this->assertDatabaseHas('users', ['email' => DemoTrustSeeder::USERS['send_lead']]);
         $this->assertTrue(
-            SettingTerm::query()->fromPublishedStub()->exists(),
+            SettingTerm::query()->forTenant()->exists(),
             'DatabaseSeeder should leave the Setting Ontology stub available.',
         );
         $this->assertTrue(
-            ProvisionTerm::query()->fromPublishedStub()->exists(),
+            ProvisionTerm::query()->forTenant()->exists(),
             'DatabaseSeeder should leave the Provision Ontology stub available.',
         );
     }

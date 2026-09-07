@@ -2,17 +2,17 @@
 
 namespace Database\Seeders;
 
-use App\Domain\Ontology\OntologyVersion;
-use App\Domain\Ontology\OntologyVersionStatus;
+use App\Domain\Ontology\PilotOntology;
 use App\Domain\Ontology\SettingTerm;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds the Pilot published Ontology Setting taxonomy stub for Observations.
+ * Seeds the Pilot Setting taxonomy onto the unified published Ontology version.
  */
 class SettingOntologySeeder extends Seeder
 {
-    public const STUB_VERSION_CODE = 'pilot-setting-stub-v1';
+    /** @deprecated Use PilotOntology::VERSION_CODE */
+    public const STUB_VERSION_CODE = PilotOntology::VERSION_CODE;
 
     /**
      * @var list<array{code: string, label: string, sort_order: int}>
@@ -52,21 +52,7 @@ class SettingOntologySeeder extends Seeder
 
     public function run(): void
     {
-        $version = OntologyVersion::query()->firstOrCreate(
-            ['code' => self::STUB_VERSION_CODE],
-            [
-                'label' => 'Pilot Setting taxonomy stub',
-                'status' => OntologyVersionStatus::Published,
-                'published_at' => now(),
-            ],
-        );
-
-        if ($version->status !== OntologyVersionStatus::Published) {
-            $version->forceFill([
-                'status' => OntologyVersionStatus::Published,
-                'published_at' => $version->published_at ?? now(),
-            ])->save();
-        }
+        $version = PilotOntology::ensurePublishedVersion();
 
         foreach (self::SETTING_TERMS as $term) {
             SettingTerm::query()->updateOrCreate(

@@ -2,17 +2,17 @@
 
 namespace Database\Seeders;
 
-use App\Domain\Ontology\OntologyVersion;
-use App\Domain\Ontology\OntologyVersionStatus;
+use App\Domain\Ontology\PilotOntology;
 use App\Domain\Ontology\ProvisionTerm;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds the Pilot published Ontology Provision taxonomy stub for Interventions.
+ * Seeds the Pilot Provision taxonomy onto the unified published Ontology version.
  */
 class ProvisionOntologySeeder extends Seeder
 {
-    public const STUB_VERSION_CODE = 'pilot-provision-stub-v1';
+    /** @deprecated Use PilotOntology::VERSION_CODE */
+    public const STUB_VERSION_CODE = PilotOntology::VERSION_CODE;
 
     /**
      * @var list<array{code: string, label: string, sort_order: int}>
@@ -52,21 +52,7 @@ class ProvisionOntologySeeder extends Seeder
 
     public function run(): void
     {
-        $version = OntologyVersion::query()->firstOrCreate(
-            ['code' => self::STUB_VERSION_CODE],
-            [
-                'label' => 'Pilot Provision taxonomy stub',
-                'status' => OntologyVersionStatus::Published,
-                'published_at' => now(),
-            ],
-        );
-
-        if ($version->status !== OntologyVersionStatus::Published) {
-            $version->forceFill([
-                'status' => OntologyVersionStatus::Published,
-                'published_at' => $version->published_at ?? now(),
-            ])->save();
-        }
+        $version = PilotOntology::ensurePublishedVersion();
 
         foreach (self::PROVISION_TERMS as $term) {
             ProvisionTerm::query()->updateOrCreate(

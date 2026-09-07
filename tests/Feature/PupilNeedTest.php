@@ -8,6 +8,7 @@ use App\Domain\Identity\AccessMessages;
 use App\Domain\Ontology\NeedTerm;
 use App\Domain\Ontology\OntologyVersion;
 use App\Domain\Ontology\OntologyVersionStatus;
+use App\Domain\Ontology\PilotOntology;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
 use App\Domain\Tenancy\School;
@@ -242,14 +243,14 @@ class PupilNeedTest extends TestCase
     public function test_need_ontology_seeder_exposes_published_stub_terms(): void
     {
         $version = OntologyVersion::query()
-            ->where('code', NeedOntologySeeder::STUB_VERSION_CODE)
+            ->where('code', PilotOntology::VERSION_CODE)
             ->first();
 
         $this->assertNotNull($version);
         $this->assertSame(OntologyVersionStatus::Published, $version->status);
         $this->assertSame(
             count(NeedOntologySeeder::NEED_TERMS),
-            NeedTerm::query()->fromPublishedStub()->count()
+            NeedTerm::query()->forTenant()->count()
         );
     }
 
@@ -289,12 +290,12 @@ class PupilNeedTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertDatabaseHas('ontology_versions', [
-            'code' => NeedOntologySeeder::STUB_VERSION_CODE,
+            'code' => PilotOntology::VERSION_CODE,
             'status' => OntologyVersionStatus::Published->value,
         ]);
         $this->assertSame(
             count(NeedOntologySeeder::NEED_TERMS),
-            NeedTerm::query()->fromPublishedStub()->count()
+            NeedTerm::query()->forTenant()->count()
         );
     }
 
@@ -438,7 +439,7 @@ class PupilNeedTest extends TestCase
 
     private function needTerm(string $code): NeedTerm
     {
-        $term = NeedTerm::query()->fromPublishedStub()->where('code', $code)->first();
+        $term = NeedTerm::query()->forTenant()->where('code', $code)->first();
         $this->assertNotNull($term, "Expected seeded Need term [{$code}]");
 
         return $term;

@@ -11,6 +11,7 @@ use App\Domain\Evidence\EvidenceType;
 use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\School;
+use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
@@ -108,14 +109,20 @@ class ImportedInterventionEvidenceUpserter
             return ['error' => 'Evidence occurred_at is required.'];
         }
 
+        $tenant = Tenant::query()->find($pupil->tenant_id);
+
+        if ($tenant === null) {
+            return ['error' => 'Pupil Tenant could not be resolved for Evidence Provision mapping.'];
+        }
+
         $provision = ProvisionTerm::query()
-            ->fromPublishedStub()
+            ->forTenant($tenant)
             ->where('code', Str::upper($provisionCode))
             ->first();
 
         if ($provision === null) {
             $provision = ProvisionTerm::query()
-                ->fromPublishedStub()
+                ->forTenant($tenant)
                 ->where('code', $provisionCode)
                 ->first();
         }

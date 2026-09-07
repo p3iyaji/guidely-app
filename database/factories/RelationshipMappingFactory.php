@@ -3,16 +3,16 @@
 namespace Database\Factories;
 
 use App\Domain\Ontology\OntologyVersion;
-use App\Domain\Ontology\PilotOntology;
-use App\Domain\Ontology\SettingTerm;
+use App\Domain\Ontology\RelationshipMapping;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
- * @extends Factory<SettingTerm>
+ * @extends Factory<RelationshipMapping>
  */
-class SettingTermFactory extends Factory
+class RelationshipMappingFactory extends Factory
 {
-    protected $model = SettingTerm::class;
+    protected $model = RelationshipMapping::class;
 
     /**
      * @return array<string, mixed>
@@ -20,9 +20,14 @@ class SettingTermFactory extends Factory
     public function definition(): array
     {
         return [
-            'ontology_version_id' => fn (): string => PilotOntology::ensurePublishedVersion()->id,
-            'code' => strtoupper(fake()->unique()->bothify('SET-##')),
-            'label' => fake()->unique()->words(2, true),
+            'ontology_version_id' => OntologyVersion::factory()->published(),
+            'code' => strtoupper(fake()->unique()->bothify('REL-##')),
+            'label' => fake()->unique()->words(4, true),
+            'relationship_type' => 'need_to_provision',
+            'from_domain' => 'need',
+            'from_term_id' => (string) Str::ulid(),
+            'to_domain' => 'provision',
+            'to_term_id' => (string) Str::ulid(),
             'is_active' => true,
             'sort_order' => 0,
         ];

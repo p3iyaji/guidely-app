@@ -2,15 +2,12 @@
 
 namespace App\Domain\Ontology;
 
+use App\Domain\Ontology\Concerns\BelongsToOntologyVersion;
 use Database\Factories\SettingTermFactory;
-use Database\Seeders\SettingOntologySeeder;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Scope;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'ontology_version_id',
@@ -22,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SettingTerm extends Model
 {
     /** @use HasFactory<SettingTermFactory> */
-    use HasFactory, HasUlids;
+    use BelongsToOntologyVersion, HasFactory, HasUlids;
 
     /**
      * @var array<string, mixed>
@@ -46,26 +43,5 @@ class SettingTerm extends Model
     protected static function newFactory(): SettingTermFactory
     {
         return SettingTermFactory::new();
-    }
-
-    public function ontologyVersion(): BelongsTo
-    {
-        return $this->belongsTo(OntologyVersion::class);
-    }
-
-    #[Scope]
-    protected function active(Builder $query): Builder
-    {
-        return $query->where('is_active', true);
-    }
-
-    #[Scope]
-    protected function fromPublishedStub(Builder $query): Builder
-    {
-        return $query->where('is_active', true)
-            ->whereHas('ontologyVersion', function (Builder $versionQuery): void {
-                $versionQuery->published()
-                    ->where('code', SettingOntologySeeder::STUB_VERSION_CODE);
-            });
     }
 }

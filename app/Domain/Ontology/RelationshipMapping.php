@@ -3,7 +3,7 @@
 namespace App\Domain\Ontology;
 
 use App\Domain\Ontology\Concerns\BelongsToOntologyVersion;
-use Database\Factories\NeedTermFactory;
+use Database\Factories\RelationshipMappingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,12 +13,17 @@ use Illuminate\Database\Eloquent\Model;
     'ontology_version_id',
     'code',
     'label',
+    'relationship_type',
+    'from_domain',
+    'from_term_id',
+    'to_domain',
+    'to_term_id',
     'is_active',
     'sort_order',
 ])]
-class NeedTerm extends Model
+class RelationshipMapping extends Model
 {
-    /** @use HasFactory<NeedTermFactory> */
+    /** @use HasFactory<RelationshipMappingFactory> */
     use BelongsToOntologyVersion, HasFactory, HasUlids;
 
     /**
@@ -40,8 +45,8 @@ class NeedTerm extends Model
         ];
     }
 
-    protected static function newFactory(): NeedTermFactory
+    protected static function newFactory(): RelationshipMappingFactory
     {
-        return NeedTermFactory::new();
+        return RelationshipMappingFactory::new();
     }
 }

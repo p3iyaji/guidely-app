@@ -8,7 +8,9 @@ use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InterventionController;
 use App\Http\Controllers\Api\V1\MeController;
+use App\Http\Controllers\Api\V1\NeedTermController;
 use App\Http\Controllers\Api\V1\ObservationController;
+use App\Http\Controllers\Api\V1\OutcomeTermController;
 use App\Http\Controllers\Api\V1\PilotTenantController;
 use App\Http\Controllers\Api\V1\PilotToolkitController;
 use App\Http\Controllers\Api\V1\ProvisionTermController;
@@ -16,12 +18,14 @@ use App\Http\Controllers\Api\V1\PupilAssignmentController;
 use App\Http\Controllers\Api\V1\PupilController;
 use App\Http\Controllers\Api\V1\PupilEvidenceController;
 use App\Http\Controllers\Api\V1\PupilInterventionController;
+use App\Http\Controllers\Api\V1\RelationshipMappingController;
 use App\Http\Controllers\Api\V1\ResponseController;
 use App\Http\Controllers\Api\V1\ReviewNoteController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\SettingTermController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantSsoController;
+use App\Http\Controllers\Api\V1\ThresholdTermController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -94,6 +98,14 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.ontology.setting-terms.index');
         Route::get('/ontology/provision-terms', [ProvisionTermController::class, 'index'])
             ->name('api.v1.ontology.provision-terms.index');
+        Route::get('/ontology/need-terms', [NeedTermController::class, 'index'])
+            ->name('api.v1.ontology.need-terms.index');
+        Route::get('/ontology/outcome-terms', [OutcomeTermController::class, 'index'])
+            ->name('api.v1.ontology.outcome-terms.index');
+        Route::get('/ontology/threshold-terms', [ThresholdTermController::class, 'index'])
+            ->name('api.v1.ontology.threshold-terms.index');
+        Route::get('/ontology/relationship-mappings', [RelationshipMappingController::class, 'index'])
+            ->name('api.v1.ontology.relationship-mappings.index');
 
         Route::get('/import/template', [ImportController::class, 'template'])
             ->name('api.v1.import.template');

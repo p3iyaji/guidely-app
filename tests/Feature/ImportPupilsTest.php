@@ -418,7 +418,7 @@ class ImportPupilsTest extends TestCase
             ->assertJsonPath('data.committed.0.evidence_action', 'evidence_created');
 
         $pupil = Pupil::query()->where('mis_key', 'MIS-EV1')->firstOrFail();
-        $provision = ProvisionTerm::query()->fromPublishedStub()->where('code', 'UNIVERSAL')->firstOrFail();
+        $provision = ProvisionTerm::query()->forTenant()->where('code', 'UNIVERSAL')->firstOrFail();
 
         $this->assertDatabaseHas('evidence_records', [
             'tenant_id' => $tenant->id,
@@ -500,7 +500,7 @@ class ImportPupilsTest extends TestCase
             'body' => 'Updated import body.',
         ]);
 
-        $provision = ProvisionTerm::query()->fromPublishedStub()->where('code', 'TARGETED_GROUP')->firstOrFail();
+        $provision = ProvisionTerm::query()->forTenant()->where('code', 'TARGETED_GROUP')->firstOrFail();
         $this->assertDatabaseHas('evidence_records', [
             'id' => $originalId,
             'provision_term_id' => $provision->id,
@@ -816,7 +816,7 @@ class ImportPupilsTest extends TestCase
         ])->assertOk();
 
         $imported = EvidenceRecord::query()->where('external_id', 'ext-gap-1')->firstOrFail();
-        $provision = ProvisionTerm::query()->fromPublishedStub()->where('code', 'SENSORY')->firstOrFail();
+        $provision = ProvisionTerm::query()->forTenant()->where('code', 'SENSORY')->firstOrFail();
 
         $capture = $this->actingAs($teacher)->postJson('/api/v1/interventions', [
             'pupil_id' => $pupil->id,
