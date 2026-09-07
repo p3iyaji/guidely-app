@@ -5,10 +5,14 @@ namespace App\Providers;
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Identity\Role;
 use App\Domain\Pupils\Pupil;
+use App\Domain\Sre\Determination;
+use App\Domain\Sre\Gap;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
+use App\Policies\DeterminationPolicy;
 use App\Policies\EvidenceRecordPolicy;
+use App\Policies\GapPolicy;
 use App\Policies\PupilPolicy;
 use App\Policies\SchoolPolicy;
 use App\Policies\TenantPolicy;
@@ -40,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(EvidenceRecord::class, EvidenceRecordPolicy::class);
+        Gate::policy(Gap::class, GapPolicy::class);
+        Gate::policy(Determination::class, DeterminationPolicy::class);
 
         Gate::define('create-pilot-tenant', fn (User $user): bool => $user->isPlatformOperator() && ! $user->isDeactivated());
         Gate::define('view-pilot-toolkit', fn (User $user): bool => $user->isActiveTenantStaff() && $user->isTenantAdmin());

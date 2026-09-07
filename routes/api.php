@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\DraftController;
 use App\Http\Controllers\Api\V1\EvidenceController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
+use App\Http\Controllers\Api\V1\GapController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InterventionController;
 use App\Http\Controllers\Api\V1\MeController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Api\V1\PilotToolkitController;
 use App\Http\Controllers\Api\V1\ProvisionTermController;
 use App\Http\Controllers\Api\V1\PupilAssignmentController;
 use App\Http\Controllers\Api\V1\PupilController;
+use App\Http\Controllers\Api\V1\PupilDeterminationController;
 use App\Http\Controllers\Api\V1\PupilEvidenceController;
 use App\Http\Controllers\Api\V1\PupilInterventionController;
 use App\Http\Controllers\Api\V1\RelationshipMappingController;
@@ -91,6 +93,10 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.pupils.interventions.index');
         Route::get('/pupils/{pupil}/evidence', [PupilEvidenceController::class, 'index'])
             ->name('api.v1.pupils.evidence.index');
+        Route::get('/pupils/{pupil}/determinations', [PupilDeterminationController::class, 'index'])
+            ->name('api.v1.pupils.determinations.index');
+        Route::get('/gaps', [GapController::class, 'index'])
+            ->name('api.v1.gaps.index');
         Route::patch('/evidence/{evidence}', [EvidenceController::class, 'update'])
             ->name('api.v1.evidence.update');
         Route::get('/evidence/{evidence}/versions', [EvidenceController::class, 'versions'])

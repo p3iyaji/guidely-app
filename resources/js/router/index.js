@@ -4,6 +4,8 @@ import AppShell from '../layouts/AppShell.vue';
 import GuestLayout from '../layouts/GuestLayout.vue';
 import AccessDenied from '../pages/AccessDenied.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
+import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
+import GapsPage from '../pages/GapsPage.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
@@ -11,7 +13,6 @@ import PupilsPage from '../pages/PupilsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
 import CapturePage from '../pages/CapturePage.vue';
 import DraftsPage from '../pages/DraftsPage.vue';
-import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -97,7 +98,8 @@ const routes = [
             {
                 path: 'gaps',
                 name: 'gaps',
-                ...stub('Gaps'),
+                component: GapsPage,
+                meta: { title: 'Gaps', requiresAuth: true },
             },
             {
                 path: 'outputs',

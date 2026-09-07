@@ -15,6 +15,21 @@ enum DeterminationResult: string
     case ReviewRequired = 'review_required';
 
     /**
+     * Humanised result label for API/UI (never treat Uncovered as success).
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Met => 'Met',
+            self::Unmet => 'Not met',
+            self::Insufficient => 'Insufficient',
+            self::Uncovered => 'Uncovered',
+            self::Escalated => 'Escalated',
+            self::ReviewRequired => 'Review required',
+        };
+    }
+
+    /**
      * @return list<string>
      */
     public static function values(): array

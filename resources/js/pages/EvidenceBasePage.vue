@@ -29,6 +29,120 @@
                 funding decisions, or statutory determinations.
             </div>
 
+            <section
+                v-if="canViewDeterminations"
+                id="determinations-panel"
+                class="mt-6"
+                data-testid="evidence-determinations"
+                aria-labelledby="evidence-determinations-heading"
+            >
+                <h2
+                    id="evidence-determinations-heading"
+                    class="text-body font-semibold text-text"
+                >
+                    Determinations
+                </h2>
+                <p class="mt-1 text-meta text-text-muted">
+                    Current documentation evaluations for this Pupil. Expand a Determination to
+                    review its Reasoning Pathway.
+                </p>
+
+                <p
+                    v-if="determinationsError"
+                    class="mt-3 text-body text-danger"
+                    data-testid="evidence-determinations-error"
+                    role="alert"
+                >
+                    {{ determinationsError }}
+                </p>
+
+                <p
+                    v-else-if="determinationsLoading"
+                    class="mt-3 text-meta text-text-muted"
+                    data-testid="evidence-determinations-loading"
+                >
+                    Loading Determinations…
+                </p>
+
+                <p
+                    v-else-if="determinations.length === 0"
+                    class="mt-3 text-meta text-text-muted"
+                    data-testid="evidence-determinations-empty"
+                >
+                    No current Determinations yet.
+                </p>
+
+                <ul
+                    v-else
+                    class="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
+                    data-testid="evidence-determinations-list"
+                >
+                    <li
+                        v-for="determination in determinations"
+                        :key="determination.id"
+                        class="px-4 py-3"
+                        :data-testid="`determination-row-${determination.id}`"
+                        :data-dimension="determination.dimension"
+                    >
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="min-w-0">
+                                <p class="text-body font-medium text-text" data-testid="determination-dimension">
+                                    {{ determination.dimension ?? '—' }}
+                                </p>
+                                <p class="mt-1">
+                                    <span
+                                        class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label font-medium"
+                                        :class="determinationResultTone(determination.result)"
+                                        data-testid="determination-result"
+                                    >
+                                        <span aria-hidden="true">●</span>
+                                        {{ determination.result_label || humaniseDeterminationResult(determination.result) }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                                <ButtonOutline
+                                    class="min-h-11"
+                                    type="button"
+                                    :data-testid="`determination-toggle-${determination.id}`"
+                                    :aria-expanded="expandedDeterminationId === determination.id ? 'true' : 'false'"
+                                    :aria-controls="`determination-pathway-${determination.id}`"
+                                    @click="toggleDetermination(determination.id)"
+                                >
+                                    {{ expandedDeterminationId === determination.id ? 'Hide' : 'Show' }} pathway for
+                                    {{ determination.dimension ?? 'this Determination' }}
+                                </ButtonOutline>
+                                <ButtonOutline
+                                    v-if="canShowOverridePlaceholder"
+                                    class="min-h-11"
+                                    type="button"
+                                    disabled
+                                    data-testid="determination-override-placeholder"
+                                    title="Override arrives in a later story"
+                                >
+                                    Override with rationale…
+                                </ButtonOutline>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="expandedDeterminationId === determination.id"
+                            :id="`determination-pathway-${determination.id}`"
+                            class="mt-4"
+                            data-testid="determination-pathway"
+                        >
+                            <ReasoningPathwayPanel
+                                :pathway="determination.reasoning_pathway"
+                                :result="determination.result"
+                                :result-label="determination.result_label"
+                                :rule="determination.rule"
+                                :rule-library-label="determination.rule_library_version?.label ?? ''"
+                            />
+                        </div>
+                    </li>
+                </ul>
+            </section>
+
             <p
                 v-if="loadError"
                 class="mt-4 text-body text-danger"
@@ -193,6 +307,7 @@
                 <li
                     v-for="record in records"
                     :key="record.id"
+                    :id="`evidence-${record.id}`"
                     class="px-4 py-3"
                     data-testid="evidence-row"
                 >
@@ -471,7 +586,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
@@ -479,6 +594,7 @@ import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import Card from '../shared/ui/Card.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
+import ReasoningPathwayPanel from '../shared/ui/ReasoningPathwayPanel.vue';
 
 const filterChips = [
     { value: '', label: 'All' },
@@ -540,8 +656,22 @@ const reviewNoteFieldErrors = reactive({
     body: '',
 });
 
+const determinations = ref([]);
+const determinationsLoading = ref(false);
+const determinationsError = ref('');
+const expandedDeterminationId = ref('');
+
 const isTeacher = computed(() => session.role.value === 'teacher');
 const isSenco = computed(() => session.role.value === 'senco');
+const isSchoolLeader = computed(() => session.role.value === 'school_leader');
+
+const canViewDeterminations = computed(() => {
+    return (isSenco.value || isSchoolLeader.value)
+        && !loadError.value
+        && pupil.value != null;
+});
+
+const canShowOverridePlaceholder = computed(() => isSenco.value);
 
 const canAddReviewNote = computed(() => {
     return isSenco.value
@@ -619,6 +749,17 @@ watch(
         }
 
         await loadPage();
+    },
+);
+
+watch(
+    () => [route.query.focus, route.query.determination],
+    () => {
+        if (loading.value || determinations.value.length === 0) {
+            return;
+        }
+
+        applyDeterminationFocus();
     },
 );
 
@@ -1147,6 +1288,9 @@ async function loadPage() {
     hasAnySubmitted.value = false;
     pupil.value = null;
     records.value = [];
+    determinations.value = [];
+    determinationsError.value = '';
+    expandedDeterminationId.value = '';
     closeAmend();
     closeReviewNoteForm();
 
@@ -1163,6 +1307,8 @@ async function loadPage() {
         if (!pupilOk || !evidenceOk) {
             records.value = [];
             loadError.value = 'Unable to load Evidence Base.';
+        } else if (isSenco.value || isSchoolLeader.value) {
+            await loadDeterminations(seq);
         }
     } catch {
         if (seq !== loadSeq) {
@@ -1174,6 +1320,8 @@ async function loadPage() {
     } finally {
         if (seq === loadSeq) {
             loading.value = false;
+            await nextTick();
+            applyDeterminationFocus();
         }
     }
 }
@@ -1215,6 +1363,137 @@ async function loadPupil(seq) {
 
         return false;
     }
+}
+
+/**
+ * @param {number} seq
+ * @returns {Promise<boolean>}
+ */
+async function loadDeterminations(seq) {
+    const pupilId = String(route.params.id ?? '');
+
+    if (pupilId === '') {
+        return false;
+    }
+
+    determinationsLoading.value = true;
+    determinationsError.value = '';
+
+    try {
+        const response = await apiFetch(`/api/v1/pupils/${pupilId}/determinations?current=1`);
+
+        if (seq !== loadSeq) {
+            return false;
+        }
+
+        if (response.status === 403) {
+            determinations.value = [];
+            determinationsError.value = 'You don’t have access.';
+
+            return false;
+        }
+
+        if (!response.ok) {
+            determinations.value = [];
+            determinationsError.value = 'Unable to load Determinations.';
+
+            return false;
+        }
+
+        const payload = await response.json();
+
+        if (seq !== loadSeq) {
+            return false;
+        }
+
+        determinations.value = asArray(payload.data).filter(isRecord);
+
+        return true;
+    } catch {
+        if (seq !== loadSeq) {
+            return false;
+        }
+
+        determinations.value = [];
+        determinationsError.value = 'Unable to load Determinations.';
+
+        return false;
+    } finally {
+        if (seq === loadSeq) {
+            determinationsLoading.value = false;
+        }
+    }
+}
+
+/**
+ * @param {string} determinationId
+ */
+function toggleDetermination(determinationId) {
+    expandedDeterminationId.value = expandedDeterminationId.value === determinationId
+        ? ''
+        : determinationId;
+}
+
+function applyDeterminationFocus() {
+    const focus = route.query.focus;
+    const determinationId = typeof route.query.determination === 'string'
+        ? route.query.determination
+        : '';
+
+    if (focus !== 'determination' && determinationId === '') {
+        return;
+    }
+
+    if (determinations.value.length === 0) {
+        return;
+    }
+
+    const target = determinationId !== ''
+        ? determinations.value.find((row) => String(row.id) === determinationId)
+        : determinations.value[0];
+
+    if (target?.id) {
+        expandedDeterminationId.value = String(target.id);
+    }
+
+    requestAnimationFrame(() => {
+        document.getElementById('determinations-panel')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    });
+}
+
+/**
+ * @param {string|undefined} result
+ */
+function determinationResultTone(result) {
+    if (result === 'met') {
+        return 'bg-success-soft text-success';
+    }
+
+    if (result === 'uncovered') {
+        return 'bg-danger-soft text-danger';
+    }
+
+    if (result === 'escalated' || result === 'review_required' || result === 'unmet') {
+        return 'bg-warning-soft text-warning';
+    }
+
+    return 'bg-surface-muted text-text-muted';
+}
+
+/**
+ * @param {string|undefined} result
+ */
+function humaniseDeterminationResult(result) {
+    const labels = {
+        met: 'Met',
+        unmet: 'Not met',
+        insufficient: 'Insufficient',
+        uncovered: 'Uncovered',
+        escalated: 'Escalated',
+        review_required: 'Review required',
+    };
+
+    return labels[result] ?? (result || '—');
 }
 
 /**
