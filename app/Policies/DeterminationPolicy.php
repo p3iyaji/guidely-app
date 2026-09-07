@@ -51,6 +51,31 @@ class DeterminationPolicy
         return $this->listForPupil($user, $pupil);
     }
 
+    /**
+     * SENCO or School Leader with Pupil school access may append an Override.
+     */
+    public function override(User $user, Determination $determination): bool
+    {
+        if (! $user->isActiveTenantStaff()) {
+            return false;
+        }
+
+        if (! in_array($user->role, [
+            Role::Senco,
+            Role::SchoolLeader,
+        ], true)) {
+            return false;
+        }
+
+        $pupil = $this->pupilFor($determination);
+
+        if ($pupil === null) {
+            return false;
+        }
+
+        return $this->canAccessPupilSchool($user, $pupil);
+    }
+
     private function pupilFor(Determination $determination): ?Pupil
     {
         if ($determination->relationLoaded('pupil') && $determination->pupil !== null) {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\DeterminationOverrideController;
 use App\Http\Controllers\Api\V1\DraftController;
 use App\Http\Controllers\Api\V1\EvidenceController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
@@ -95,6 +96,8 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.pupils.evidence.index');
         Route::get('/pupils/{pupil}/determinations', [PupilDeterminationController::class, 'index'])
             ->name('api.v1.pupils.determinations.index');
+        Route::post('/determinations/{determination}/overrides', [DeterminationOverrideController::class, 'store'])
+            ->name('api.v1.determinations.overrides.store');
         Route::get('/gaps', [GapController::class, 'index'])
             ->name('api.v1.gaps.index');
         Route::patch('/evidence/{evidence}', [EvidenceController::class, 'update'])

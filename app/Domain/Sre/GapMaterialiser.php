@@ -2,6 +2,7 @@
 
 namespace App\Domain\Sre;
 
+use App\Domain\Ontology\SreDimension;
 use App\Domain\Pupils\Pupil;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -75,6 +76,27 @@ class GapMaterialiser
             return false;
         }
 
-        return in_array($result, self::GAP_OPENING_RESULTS, true);
+        if (! in_array($result, self::GAP_OPENING_RESULTS, true)) {
+            return false;
+        }
+
+        return ! $this->hasOverrideForDimension($determination);
+    }
+
+    private function hasOverrideForDimension(Determination $determination): bool
+    {
+        $dimension = $determination->dimension instanceof SreDimension
+            ? $determination->dimension->value
+            : (string) $determination->dimension;
+
+        if ($dimension === '') {
+            return false;
+        }
+
+        return Override::withoutGlobalScope('tenant')
+            ->where('tenant_id', $determination->tenant_id)
+            ->where('pupil_id', $determination->pupil_id)
+            ->where('dimension', $dimension)
+            ->exists();
     }
 }

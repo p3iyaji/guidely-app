@@ -113,16 +113,91 @@
                                     {{ determination.dimension ?? 'this Determination' }}
                                 </ButtonOutline>
                                 <ButtonOutline
-                                    v-if="canShowOverridePlaceholder"
+                                    v-if="canOverrideDetermination(determination) && overrideDeterminationId !== determination.id"
                                     class="min-h-11"
                                     type="button"
-                                    disabled
-                                    data-testid="determination-override-placeholder"
-                                    title="Override arrives in a later story"
+                                    data-testid="determination-override-open"
+                                    @click="openOverridePanel(determination.id)"
                                 >
-                                    Override with rationale…
+                                    Override with rationale for
+                                    {{ determination.dimension ?? 'this Determination' }}
                                 </ButtonOutline>
                             </div>
+                        </div>
+
+                        <div
+                            v-if="overrideDeterminationId === determination.id"
+                            class="mt-4 space-y-4 rounded-lg border border-border bg-surface px-4 py-4"
+                            data-testid="determination-override-panel"
+                        >
+                            <h3 class="text-body font-semibold text-text">Override with rationale</h3>
+                            <p class="text-meta text-text-muted">
+                                Record professional judgement for this dimension (at least 20 characters).
+                                The engine result stays visible and is not changed.
+                            </p>
+
+                            <p
+                                v-if="overrideError"
+                                class="text-body text-danger"
+                                data-testid="determination-override-error"
+                                role="alert"
+                            >
+                                {{ overrideError }}
+                            </p>
+
+                            <form class="space-y-3" @submit.prevent="saveOverride(determination)">
+                                <div>
+                                    <label
+                                        class="block text-body text-text"
+                                        for="determination-override-rationale"
+                                    >Rationale</label>
+                                    <textarea
+                                        id="determination-override-rationale"
+                                        v-model="overrideForm.rationale"
+                                        rows="4"
+                                        required
+                                        minlength="20"
+                                        maxlength="5000"
+                                        :aria-invalid="overrideFieldErrors.rationale ? 'true' : 'false'"
+                                        aria-describedby="determination-override-rationale-hint"
+                                        class="mt-1 w-full max-w-2xl rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                                        data-testid="determination-override-rationale"
+                                    />
+                                    <p
+                                        id="determination-override-rationale-hint"
+                                        class="mt-1 text-meta text-text-muted"
+                                    >
+                                        Minimum 20 characters.
+                                    </p>
+                                    <p
+                                        v-if="overrideFieldErrors.rationale"
+                                        class="mt-1 text-body text-danger"
+                                        data-testid="determination-override-rationale-error"
+                                    >
+                                        {{ overrideFieldErrors.rationale }}
+                                    </p>
+                                </div>
+
+                                <div class="flex flex-wrap gap-3">
+                                    <ButtonPrimary
+                                        class="min-h-11"
+                                        :disabled="overrideSaving"
+                                        data-testid="determination-override-save"
+                                        type="submit"
+                                    >
+                                        {{ overrideSaving ? 'Saving…' : 'Save Override' }}
+                                    </ButtonPrimary>
+                                    <ButtonOutline
+                                        class="min-h-11"
+                                        :disabled="overrideSaving"
+                                        data-testid="determination-override-cancel"
+                                        type="button"
+                                        @click="closeOverridePanel"
+                                    >
+                                        Cancel
+                                    </ButtonOutline>
+                                </div>
+                            </form>
                         </div>
 
                         <div
@@ -656,10 +731,21 @@ const reviewNoteFieldErrors = reactive({
     body: '',
 });
 
+const OVERRIDE_ELIGIBLE_RESULTS = ['unmet', 'insufficient', 'escalated', 'review_required'];
+
 const determinations = ref([]);
 const determinationsLoading = ref(false);
 const determinationsError = ref('');
 const expandedDeterminationId = ref('');
+const overrideDeterminationId = ref('');
+const overrideSaving = ref(false);
+const overrideError = ref('');
+const overrideForm = reactive({
+    rationale: '',
+});
+const overrideFieldErrors = reactive({
+    rationale: '',
+});
 
 const isTeacher = computed(() => session.role.value === 'teacher');
 const isSenco = computed(() => session.role.value === 'senco');
@@ -671,7 +757,11 @@ const canViewDeterminations = computed(() => {
         && pupil.value != null;
 });
 
-const canShowOverridePlaceholder = computed(() => isSenco.value);
+const canOverride = computed(() => {
+    return (isSenco.value || isSchoolLeader.value)
+        && !loadError.value
+        && pupil.value != null;
+});
 
 const canAddReviewNote = computed(() => {
     return isSenco.value
@@ -782,6 +872,7 @@ async function setFilter(value) {
     activeFilter.value = value;
     closeAmend();
     closeReviewNoteForm();
+    closeOverridePanel();
     await loadEvidence({ seq: loadSeq });
 }
 
@@ -971,8 +1062,126 @@ function closeReviewNoteForm() {
     clearReviewNoteFieldErrors();
 }
 
+function clearOverrideFieldErrors() {
+    overrideFieldErrors.rationale = '';
+}
+
+function closeOverridePanel({ force = false } = {}) {
+    if (overrideSaving.value && !force) {
+        return;
+    }
+
+    overrideDeterminationId.value = '';
+    overrideSaving.value = false;
+    overrideError.value = '';
+    overrideForm.rationale = '';
+    clearOverrideFieldErrors();
+}
+
+/**
+ * @param {string} determinationId
+ */
+function openOverridePanel(determinationId) {
+    closeAmend();
+    closeReviewNoteForm();
+    overrideDeterminationId.value = determinationId;
+    overrideSaving.value = false;
+    overrideError.value = '';
+    overrideForm.rationale = '';
+    clearOverrideFieldErrors();
+}
+
+/**
+ * @param {Record<string, unknown>} determination
+ */
+function canOverrideDetermination(determination) {
+    if (!canOverride.value || !isRecord(determination)) {
+        return false;
+    }
+
+    if (determination.is_current === false) {
+        return false;
+    }
+
+    return OVERRIDE_ELIGIBLE_RESULTS.includes(String(determination.result ?? ''));
+}
+
+/**
+ * @param {Record<string, unknown>} determination
+ * @returns {Promise<void>}
+ */
+async function saveOverride(determination) {
+    if (overrideSaving.value) {
+        return;
+    }
+
+    overrideSaving.value = true;
+    overrideError.value = '';
+    clearOverrideFieldErrors();
+
+    const rationale = overrideForm.rationale.trim();
+
+    if (rationale.length < 20) {
+        overrideFieldErrors.rationale = 'A rationale of at least 20 characters is required.';
+        overrideSaving.value = false;
+
+        return;
+    }
+
+    if (rationale.length > 5000) {
+        overrideFieldErrors.rationale = 'A rationale may not be greater than 5000 characters.';
+        overrideSaving.value = false;
+
+        return;
+    }
+
+    try {
+        const response = await apiFetch(`/api/v1/determinations/${determination.id}/overrides`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rationale }),
+        });
+
+        if (response.status === 422) {
+            const payload = await response.json();
+            const errors = isRecord(payload.errors) ? payload.errors : {};
+            overrideFieldErrors.rationale = errors.rationale?.[0] ?? '';
+
+            const unmapped = [
+                errors.determination?.[0],
+            ].filter((message) => typeof message === 'string' && message !== '');
+
+            overrideError.value = unmapped.length > 0
+                ? unmapped.join(' ')
+                : 'Please correct the highlighted fields.';
+            overrideSaving.value = false;
+
+            return;
+        }
+
+        if (!response.ok) {
+            overrideError.value = 'Unable to save this Override.';
+            overrideSaving.value = false;
+
+            return;
+        }
+
+        closeOverridePanel({ force: true });
+        const refreshed = await loadDeterminations(loadSeq);
+
+        if (!refreshed) {
+            determinationsError.value = 'Override saved, but Determinations could not be refreshed.';
+        }
+    } catch {
+        overrideError.value = 'Unable to save this Override.';
+    } finally {
+        overrideSaving.value = false;
+    }
+}
+
 function openReviewNoteForm() {
     closeAmend();
+    closeOverridePanel();
     reviewNoteFormOpen.value = true;
     reviewNoteError.value = '';
     clearReviewNoteFieldErrors();
@@ -1087,6 +1296,7 @@ async function openAmend(record) {
     }
 
     closeReviewNoteForm();
+    closeOverridePanel();
     amendingId.value = String(record.id);
     amendError.value = '';
     clearAmendFieldErrors();
@@ -1293,6 +1503,7 @@ async function loadPage() {
     expandedDeterminationId.value = '';
     closeAmend();
     closeReviewNoteForm();
+    closeOverridePanel();
 
     try {
         const [pupilOk, evidenceOk] = await Promise.all([

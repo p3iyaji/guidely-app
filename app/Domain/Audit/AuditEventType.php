@@ -37,4 +37,5 @@ enum AuditEventType: string
     case EvidenceResponseUpdated = 'evidence.response.updated';
     case EvidenceResponseSubmitted = 'evidence.response.submitted';
     case EvidenceReviewNoteCreated = 'evidence.review_note.created';
+    case SreOverrideCreated = 'sre.override.created';
 }

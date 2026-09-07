@@ -265,8 +265,28 @@ class RolePolicyTest extends TestCase
         $this->assertFalse(Gate::allows('capture-evidence'));
         $this->assertFalse(Gate::allows('view-evidence'));
         $this->assertFalse(Gate::allows('run-determinations'));
-        $this->assertFalse(Gate::allows('override-determination'));
         $this->assertFalse(Gate::allows('documentation-output'));
+    }
+
+    public function test_override_determination_gate_allows_senco_and_school_leader(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $senco = User::factory()->forTenant($tenant)->senco()->create();
+        $leader = User::factory()->forTenant($tenant)->schoolLeader()->create();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+
+        $this->actingAs($senco);
+        $this->assertTrue(Gate::allows('override-determination'));
+
+        $this->actingAs($leader);
+        $this->assertTrue(Gate::allows('override-determination'));
+
+        $this->actingAs($teacher);
+        $this->assertFalse(Gate::allows('override-determination'));
+
+        $this->actingAs($admin);
+        $this->assertFalse(Gate::allows('override-determination'));
     }
 
     public function test_platform_operator_is_not_a_tenant_assignable_role(): void

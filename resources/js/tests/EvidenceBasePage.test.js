@@ -108,6 +108,30 @@ const sampleDeterminations = [
         },
         is_current: true,
     },
+    {
+        id: 'det_3',
+        dimension: 'Evidential Sufficiency',
+        result: 'insufficient',
+        result_label: 'Insufficient',
+        is_current: true,
+        reasoning_pathway: { condition_steps: [], evaluation_steps: [], evidence_ids: [] },
+    },
+    {
+        id: 'det_4',
+        dimension: 'Proportionality',
+        result: 'escalated',
+        result_label: 'Escalated',
+        is_current: true,
+        reasoning_pathway: { condition_steps: [], evaluation_steps: [], evidence_ids: [] },
+    },
+    {
+        id: 'det_5',
+        dimension: 'Sequential Compliance extra',
+        result: 'review_required',
+        result_label: 'Review required',
+        is_current: true,
+        reasoning_pathway: { condition_steps: [], evaluation_steps: [], evidence_ids: [] },
+    },
 ];
 
 describe('EvidenceBasePage', () => {
@@ -123,7 +147,7 @@ describe('EvidenceBasePage', () => {
                 return jsonResponse({ data: pupil });
             }
 
-            if (path.includes('/determinations')) {
+            if (method !== 'POST' && path.includes('/determinations')) {
                 return jsonResponse({ data: sampleDeterminations });
             }
 
@@ -179,6 +203,19 @@ describe('EvidenceBasePage', () => {
                 }, 201);
             }
 
+            if (method === 'POST' && path.includes('/overrides')) {
+                const body = JSON.parse(String(options.body ?? '{}'));
+
+                return jsonResponse({
+                    data: {
+                        id: 'ovr_1',
+                        pupil_id: 'pup_1',
+                        determination_id: 'det_1',
+                        rationale: body.rationale ?? '',
+                    },
+                }, 201);
+            }
+
             if (path.includes('/evidence')) {
                 if (path.includes('filter=review_note')) {
                     return jsonResponse({ data: [sampleRecords[2]] });
@@ -229,7 +266,7 @@ describe('EvidenceBasePage', () => {
                     return jsonResponse({ data: pupilOverride === undefined ? pupil : pupilOverride });
                 }
 
-                if (path.includes('/determinations')) {
+                if (method !== 'POST' && path.includes('/determinations')) {
                     return jsonResponse({ data: sampleDeterminations });
                 }
 
@@ -324,8 +361,13 @@ describe('EvidenceBasePage', () => {
         const { wrapper } = await mountPage('senco');
 
         expect(wrapper.find('[data-testid="evidence-determinations-list"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="determination-override-placeholder"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="determination-override-placeholder"]').attributes('disabled')).toBeDefined();
+        expect(wrapper.find('[data-testid="determination-override-placeholder"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="determination-override-open"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="determination-override-open"]').attributes('disabled')).toBeUndefined();
+        expect(wrapper.findAll('[data-testid="determination-override-open"]').length).toBe(4);
+        expect(wrapper.find('[data-testid="determination-row-det_3"] [data-testid="determination-override-open"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="determination-row-det_4"] [data-testid="determination-override-open"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="determination-row-det_5"] [data-testid="determination-override-open"]').exists()).toBe(true);
 
         const uncoveredResults = wrapper.findAll('[data-testid="determination-result"]')
             .filter((node) => node.text().includes('Uncovered'));
@@ -400,11 +442,13 @@ describe('EvidenceBasePage', () => {
         expect(wrapper.find('[data-testid="evidence-determinations-empty"]').exists()).toBe(false);
     });
 
-    it('shows read-only pathway for School Leader without Override CTA', async () => {
+    it('shows Override CTA for School Leader on eligible currents and hides it for Uncovered', async () => {
         const { wrapper } = await mountPage('school_leader');
 
         expect(wrapper.find('[data-testid="evidence-determinations"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="determination-override-placeholder"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="determination-override-open"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="determination-row-det_2"] [data-testid="determination-override-open"]').exists()).toBe(false);
 
         await wrapper.find('[data-testid="determination-toggle-det_2"]').trigger('click');
         await flushPromises();
@@ -414,10 +458,82 @@ describe('EvidenceBasePage', () => {
             .toContain('bg-danger-soft');
     });
 
+    it('opens Override panel and rejects a rationale shorter than 20 characters', async () => {
+        const { wrapper } = await mountPage('senco');
+
+        await wrapper.find('[data-testid="determination-override-open"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="determination-override-panel"]').exists()).toBe(true);
+
+        await wrapper.find('[data-testid="determination-override-rationale"]').setValue('short rationale');
+        await wrapper.find('[data-testid="determination-override-panel"] form').trigger('submit.prevent');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="determination-override-rationale-error"]').text())
+            .toContain('A rationale of at least 20 characters is required.');
+        expect(fetchMock.mock.calls.some(([url, options]) => (
+            String(url).includes('/overrides') && String(options?.method ?? '').toUpperCase() === 'POST'
+        ))).toBe(false);
+    });
+
+    it('maps 422 rationale errors from Override submit', async () => {
+        const original = fetchMock.getMockImplementation();
+        fetchMock.mockImplementation(async (url, options = {}) => {
+            if (String(options.method ?? '').toUpperCase() === 'POST' && String(url).includes('/overrides')) {
+                return jsonResponse({
+                    message: 'The given data was invalid.',
+                    errors: { rationale: ['A rationale of at least 20 characters is required.'] },
+                }, 422);
+            }
+
+            return original(url, options);
+        });
+
+        const { wrapper } = await mountPage('senco');
+
+        await wrapper.find('[data-testid="determination-override-open"]').trigger('click');
+        await flushPromises();
+
+        await wrapper.find('[data-testid="determination-override-rationale"]')
+            .setValue('Professional judgement recorded for this dimension.');
+        await wrapper.find('[data-testid="determination-override-panel"] form').trigger('submit.prevent');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="determination-override-rationale-error"]').text())
+            .toContain('A rationale of at least 20 characters is required.');
+        expect(wrapper.find('[data-testid="determination-override-error"]').text())
+            .toContain('Please correct the highlighted fields.');
+    });
+
+    it('submits Override rationale for an eligible Determination', async () => {
+        const { wrapper } = await mountPage('senco');
+
+        await wrapper.find('[data-testid="determination-override-open"]').trigger('click');
+        await flushPromises();
+
+        await wrapper.find('[data-testid="determination-override-rationale"]')
+            .setValue('Professional judgement recorded for this dimension.');
+        await wrapper.find('[data-testid="determination-override-panel"] form').trigger('submit.prevent');
+        await flushPromises();
+
+        const overrideCall = fetchMock.mock.calls.find(([url, options]) => (
+            String(url).includes('/api/v1/determinations/det_1/overrides')
+            && String(options?.method ?? '').toUpperCase() === 'POST'
+        ));
+
+        expect(overrideCall).toBeTruthy();
+        const body = JSON.parse(String(overrideCall[1].body));
+        expect(body.rationale).toBe('Professional judgement recorded for this dimension.');
+        expect(wrapper.find('[data-testid="determination-override-panel"]').exists()).toBe(false);
+    });
+
     it('hides Determinations panel for Teacher and Support Staff', async () => {
         const teacher = await mountPage('teacher');
 
         expect(teacher.wrapper.find('[data-testid="evidence-determinations"]').exists()).toBe(false);
+        expect(teacher.wrapper.find('[data-testid="determination-override-open"]').exists()).toBe(false);
+        expect(teacher.wrapper.find('[data-testid="determination-override-placeholder"]').exists()).toBe(false);
         expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/determinations'))).toBe(false);
         teacher.wrapper.unmount();
 
@@ -587,7 +703,7 @@ describe('EvidenceBasePage', () => {
                 return jsonResponse({ data: pupil });
             }
 
-            if (path.includes('/determinations')) {
+            if (method !== 'POST' && path.includes('/determinations')) {
                 return jsonResponse({ data: sampleDeterminations });
             }
 

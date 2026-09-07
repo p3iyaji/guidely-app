@@ -68,7 +68,20 @@ class AppServiceProvider extends ServiceProvider
 
         // Future addendum rows — deny by default until those domains ship.
         Gate::define('run-determinations', fn (): bool => false);
-        Gate::define('override-determination', fn (): bool => false);
+        Gate::define('override-determination', function (User $user, mixed $determination = null): bool {
+            if ($determination instanceof Determination) {
+                return $user->can('override', $determination);
+            }
+
+            if (! $user->isActiveTenantStaff()) {
+                return false;
+            }
+
+            return in_array($user->role, [
+                Role::Senco,
+                Role::SchoolLeader,
+            ], true);
+        });
         Gate::define('documentation-output', fn (): bool => false);
 
         RateLimiter::for('login', function (Request $request) {
