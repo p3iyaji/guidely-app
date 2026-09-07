@@ -3,6 +3,7 @@
  */
 
 import { apiFetch } from './client';
+import { HYBRID_TOKEN_STORAGE_KEY } from '../features/evidence/clientType';
 
 function readCookie(name) {
     const encoded = document.cookie
@@ -13,6 +14,14 @@ function readCookie(name) {
         .join('=');
 
     return encoded ? decodeURIComponent(encoded) : '';
+}
+
+function readHybridAccessToken() {
+    if (typeof sessionStorage === 'undefined') {
+        return '';
+    }
+
+    return sessionStorage.getItem(HYBRID_TOKEN_STORAGE_KEY) ?? '';
 }
 
 export async function ensureCsrfCookie() {
@@ -68,15 +77,23 @@ export async function login(email, password) {
 export async function logout() {
     await ensureCsrfCookie();
 
+    const headers = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-XSRF-TOKEN': readCookie('XSRF-TOKEN'),
+        'X-Requested-With': 'XMLHttpRequest',
+    };
+
+    const hybridToken = readHybridAccessToken();
+
+    if (hybridToken !== '') {
+        headers.Authorization = `Bearer ${hybridToken}`;
+    }
+
     const response = await fetch('/api/v1/logout', {
         method: 'POST',
         credentials: 'include',
-        headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            'X-XSRF-TOKEN': readCookie('XSRF-TOKEN'),
-            'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers,
     });
 
     if (!response.ok) {

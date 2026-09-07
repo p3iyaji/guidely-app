@@ -1,10 +1,20 @@
 import { computed, readonly, ref } from 'vue';
 import { fetchMe, logout as apiLogout } from '../../api/auth';
+import { HYBRID_TOKEN_STORAGE_KEY } from '../evidence/clientType';
 
 /** @type {import('vue').Ref<object|null>} */
 const user = ref(null);
 const bootstrapped = ref(false);
 const bootstrapping = ref(false);
+
+function clearLocalAuthArtifacts() {
+    user.value = null;
+    bootstrapped.value = true;
+
+    if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(HYBRID_TOKEN_STORAGE_KEY);
+    }
+}
 
 /**
  * Shared session state for the SPA shell. Presentation only — menus never authorise APIs.
@@ -38,13 +48,12 @@ export function useSession() {
     }
 
     async function clearSession() {
-        user.value = null;
-        bootstrapped.value = true;
-
         try {
             await apiLogout();
         } catch {
-            // Local session already cleared; ignore logout API failures.
+            // Always clear local session so the shell returns to login.
+        } finally {
+            clearLocalAuthArtifacts();
         }
     }
 

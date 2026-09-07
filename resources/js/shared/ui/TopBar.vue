@@ -31,20 +31,52 @@
                 >
             </div>
 
-            <div
-                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-label font-medium text-text-inverse"
-                :title="userName"
-                data-testid="avatar"
-                aria-label="Account"
-            >
-                {{ initials }}
+            <div ref="accountMenuRoot" class="relative" data-testid="account-menu">
+                <button
+                    type="button"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-label font-medium text-text-inverse hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white"
+                    :title="userName"
+                    :aria-label="accountMenuOpen ? 'Close account menu' : 'Open account menu'"
+                    :aria-expanded="accountMenuOpen"
+                    aria-haspopup="menu"
+                    data-testid="avatar"
+                    @click="accountMenuOpen = !accountMenuOpen"
+                >
+                    {{ initials }}
+                </button>
+
+                <div
+                    v-if="accountMenuOpen"
+                    class="absolute right-0 z-50 mt-2 min-w-44 rounded-md border border-border bg-surface py-1 shadow-[0_1px_3px_rgba(31,41,55,0.12)]"
+                    role="menu"
+                    aria-label="Account"
+                    data-testid="account-menu-panel"
+                >
+                    <p
+                        v-if="userName"
+                        class="truncate border-b border-border px-3 py-2 text-label text-text-muted"
+                        data-testid="account-menu-name"
+                    >
+                        {{ userName }}
+                    </p>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        class="block w-full px-3 py-2 text-left text-body text-text hover:bg-surface-muted focus:outline-none focus:bg-surface-muted"
+                        data-testid="sign-out"
+                        :disabled="signingOut"
+                        @click="onSignOut"
+                    >
+                        {{ signingOut ? 'Signing out…' : 'Sign out' }}
+                    </button>
+                </div>
             </div>
         </div>
     </header>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BrandWordmark from './BrandWordmark.vue';
 
 const props = defineProps({
@@ -60,9 +92,17 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    signingOut: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-defineEmits(['toggle-nav']);
+const emit = defineEmits(['toggle-nav', 'sign-out']);
+
+const accountMenuOpen = ref(false);
+/** @type {import('vue').Ref<HTMLElement|null>} */
+const accountMenuRoot = ref(null);
 
 const initials = computed(() => {
     const parts = props.userName.trim().split(/\s+/).filter(Boolean);
@@ -76,5 +116,44 @@ const initials = computed(() => {
     }
 
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+});
+
+function onSignOut() {
+    accountMenuOpen.value = false;
+    emit('sign-out');
+}
+
+function onDocumentPointerDown(event) {
+    if (!accountMenuOpen.value) {
+        return;
+    }
+
+    const target = event.target;
+
+    if (!(target instanceof Node)) {
+        return;
+    }
+
+    const root = accountMenuRoot.value;
+
+    if (root && !root.contains(target)) {
+        accountMenuOpen.value = false;
+    }
+}
+
+function onDocumentKeydown(event) {
+    if (event.key === 'Escape' && accountMenuOpen.value) {
+        accountMenuOpen.value = false;
+    }
+}
+
+onMounted(() => {
+    document.addEventListener('pointerdown', onDocumentPointerDown);
+    document.addEventListener('keydown', onDocumentKeydown);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('pointerdown', onDocumentPointerDown);
+    document.removeEventListener('keydown', onDocumentKeydown);
 });
 </script>

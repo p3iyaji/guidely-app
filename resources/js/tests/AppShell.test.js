@@ -269,6 +269,25 @@ describe('shared primitives smoke', () => {
         expect(search.attributes('readonly')).toBeDefined();
         expect(wrapper.find('[data-testid="avatar"]').text()).toBe('AL');
     });
+
+    it('TopBar account menu emits sign-out', async () => {
+        const wrapper = mount(TopBar, {
+            props: { userName: 'Ada Lovelace' },
+            attachTo: document.body,
+        });
+
+        expect(wrapper.find('[data-testid="account-menu-panel"]').exists()).toBe(false);
+
+        await wrapper.find('[data-testid="avatar"]').trigger('click');
+        expect(wrapper.find('[data-testid="account-menu-panel"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="sign-out"]').text()).toBe('Sign out');
+
+        await wrapper.find('[data-testid="sign-out"]').trigger('click');
+        expect(wrapper.emitted('sign-out')).toHaveLength(1);
+        expect(wrapper.find('[data-testid="account-menu-panel"]').exists()).toBe(false);
+
+        wrapper.unmount();
+    });
 });
 
 describe('AppShell smoke', () => {
@@ -298,6 +317,11 @@ describe('AppShell smoke', () => {
         const router = createRouter({
             history: createMemoryHistory(),
             routes: [
+                {
+                    path: '/login',
+                    name: 'login',
+                    component: { template: '<div>login</div>' },
+                },
                 {
                     path: '/',
                     component: AppShell,
@@ -439,6 +463,45 @@ describe('AppShell smoke', () => {
         expect(wrapper.find('[data-testid="mobile-nav-panel"]').attributes('aria-hidden')).toBe('true');
 
         wrapper.unmount();
+    });
+
+    it('signs out from the account menu and returns to login', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce({ ok: true })
+            .mockResolvedValueOnce({ ok: true, json: async () => ({ message: 'Logged out.' }) });
+        vi.stubGlobal('fetch', fetchMock);
+
+        useSession().setUser({
+            id: 'usr_1',
+            name: 'Ada Lovelace',
+            email: 'ada@example.com',
+            role: 'senco',
+            tenant_id: 'ten_1',
+        });
+        sessionStorage.setItem('guidely.hybrid_access_token', 'hybrid-token');
+
+        const router = await createShellRouter();
+        const wrapper = mount(AppShell, {
+            props: { role: 'senco', userName: 'Ada Lovelace' },
+            attachTo: document.body,
+            global: {
+                plugins: [router],
+                stubs: {
+                    BrandWordmark: { template: '<span>GuidelyEdu</span>' },
+                },
+            },
+        });
+
+        await wrapper.find('[data-testid="avatar"]').trigger('click');
+        await wrapper.find('[data-testid="sign-out"]').trigger('click');
+        await flushPromises();
+
+        expect(useSession().isAuthenticated.value).toBe(false);
+        expect(sessionStorage.getItem('guidely.hybrid_access_token')).toBeNull();
+        expect(router.currentRoute.value.name).toBe('login');
+
+        wrapper.unmount();
+        vi.unstubAllGlobals();
     });
 });
 

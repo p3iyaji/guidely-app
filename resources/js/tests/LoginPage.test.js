@@ -87,6 +87,21 @@ describe('auth api helper', () => {
 
         await expect(logout()).rejects.toThrow(/sign out/i);
     });
+
+    it('sends Bearer hybrid token on logout when present', async () => {
+        sessionStorage.setItem('guidely.hybrid_access_token', 'hybrid-token');
+
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce({ ok: true })
+            .mockResolvedValueOnce({ ok: true });
+
+        vi.stubGlobal('fetch', fetchMock);
+
+        await logout();
+
+        expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer hybrid-token');
+        sessionStorage.removeItem('guidely.hybrid_access_token');
+    });
 });
 
 describe('LoginPage', () => {

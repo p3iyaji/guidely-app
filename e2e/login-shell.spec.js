@@ -29,4 +29,21 @@ test.describe('authenticated shell smoke', () => {
         await expect(page.getByTestId('login-error')).toBeVisible();
         await expect(page).toHaveURL(/\/login/);
     });
+
+    test('signs out from the account menu and returns to login', async ({ page }) => {
+        await page.goto('/login');
+
+        await page.locator('#email').fill(email);
+        await page.locator('#password').fill(password);
+        await page.getByRole('button', { name: 'Sign in' }).click();
+
+        await expect(page.getByTestId('app-shell')).toBeVisible();
+
+        await page.getByTestId('avatar').click();
+        await page.getByTestId('sign-out').click();
+
+        await expect(page).toHaveURL(/\/login/);
+        await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+        await expect(page.getByTestId('app-shell')).toHaveCount(0);
+    });
 });

@@ -4,7 +4,9 @@
             :user-name="resolvedUserName"
             :show-menu-toggle="showMenuToggle"
             :aria-expanded="navOpen"
+            :signing-out="signingOut"
             @toggle-nav="navOpen = !navOpen"
+            @sign-out="onSignOut"
         />
 
         <div class="relative flex min-h-0 flex-1">
@@ -44,7 +46,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { RouterView, useRoute } from 'vue-router';
+import { RouterView, useRoute, useRouter } from 'vue-router';
 import {
     navItemsForRole,
     TEACHER_SUPPORT_BOTTOM_NAV,
@@ -68,10 +70,27 @@ const props = defineProps({
 });
 
 const route = useRoute();
+const router = useRouter();
 const session = useSession();
 const navOpen = ref(false);
+const signingOut = ref(false);
 /** @type {(() => void)|null} */
 let stopOfflineFlushListener = null;
+
+async function onSignOut() {
+    if (signingOut.value) {
+        return;
+    }
+
+    signingOut.value = true;
+
+    try {
+        await session.clearSession();
+        await router.push({ name: 'login' });
+    } finally {
+        signingOut.value = false;
+    }
+}
 
 const effectiveRole = computed(() => props.role ?? session.role.value);
 const resolvedUserName = computed(() => {
