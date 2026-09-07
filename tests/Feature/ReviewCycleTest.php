@@ -248,6 +248,49 @@ class ReviewCycleTest extends TestCase
         $this->assertForbidden($this->actingAs($teacher)->postJson('/api/v1/review-cycles/'.$cycle->id.'/close'));
     }
 
+    public function test_senco_lists_open_and_closed_cycles_for_a_pupil(): void
+    {
+        $this->travelTo('2026-09-07 12:00:00');
+
+        [, $school, $senco] = $this->tenantSchoolAndSenco();
+        $pupil = Pupil::factory()->forSchool($school)->create();
+        $other = Pupil::factory()->forSchool($school)->create();
+        $closed = ReviewCycle::factory()->forPupil($pupil)->closed()->dueOn('2026-08-01')->create();
+        $open = ReviewCycle::factory()->forPupil($pupil)->open()->dueOn('2026-09-20')->create();
+        ReviewCycle::factory()->forPupil($other)->open()->dueOn('2026-09-20')->create();
+
+        $this->actingAs($senco)
+            ->getJson('/api/v1/pupils/'.$pupil->id.'/review-cycles')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $open->id)
+            ->assertJsonPath('data.1.id', $closed->id)
+            ->assertJsonPath('data.1.status', ReviewCycleStatus::Closed->value);
+
+        $dueListIds = array_column(
+            $this->actingAs($senco)
+                ->getJson('/api/v1/review-cycles')
+                ->assertOk()
+                ->json('data'),
+            'id',
+        );
+
+        $this->assertContains($open->id, $dueListIds);
+        $this->assertNotContains($closed->id, $dueListIds);
+    }
+
+    public function test_returns_403_when_teacher_lists_pupil_review_cycles(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $school = School::factory()->forTenant($tenant)->create();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacher->schools()->attach($school->id);
+        $pupil = Pupil::factory()->forSchool($school)->create();
+        ReviewCycle::factory()->forPupil($pupil)->closed()->create();
+
+        $this->assertForbidden($this->actingAs($teacher)->getJson('/api/v1/pupils/'.$pupil->id.'/review-cycles'));
+    }
+
     public function test_returns_403_when_other_school_senco_creates_or_closes(): void
     {
         Bus::fake([SreReevaluatePupil::class]);
@@ -270,6 +313,7 @@ class ReviewCycleTest extends TestCase
             'due_on' => '2026-10-01',
         ]));
         $this->assertForbidden($this->actingAs($senco)->postJson('/api/v1/review-cycles/'.$cycle->id.'/close'));
+        $this->assertForbidden($this->actingAs($senco)->getJson('/api/v1/pupils/'.$pupil->id.'/review-cycles'));
 
         $this->assertDatabaseCount('review_cycles', 1);
         $cycle->refresh();

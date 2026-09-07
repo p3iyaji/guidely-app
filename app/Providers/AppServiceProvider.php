@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Identity\Role;
+use App\Domain\Outputs\DocumentationOutput;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Reviews\ReviewCycle;
 use App\Domain\Sre\Determination;
@@ -12,6 +13,7 @@ use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use App\Policies\DeterminationPolicy;
+use App\Policies\DocumentationOutputPolicy;
 use App\Policies\EvidenceRecordPolicy;
 use App\Policies\GapPolicy;
 use App\Policies\PupilPolicy;
@@ -49,6 +51,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Gap::class, GapPolicy::class);
         Gate::policy(Determination::class, DeterminationPolicy::class);
         Gate::policy(ReviewCycle::class, ReviewCyclePolicy::class);
+        Gate::policy(DocumentationOutput::class, DocumentationOutputPolicy::class);
 
         Gate::define('create-pilot-tenant', fn (User $user): bool => $user->isPlatformOperator() && ! $user->isDeactivated());
         Gate::define('view-pilot-toolkit', fn (User $user): bool => $user->isActiveTenantStaff() && $user->isTenantAdmin());
@@ -85,7 +88,9 @@ class AppServiceProvider extends ServiceProvider
                 Role::SchoolLeader,
             ], true);
         });
-        Gate::define('documentation-output', fn (): bool => false);
+        Gate::define('documentation-output', function (?User $user): bool {
+            return $user?->can('viewAny', DocumentationOutput::class) ?? false;
+        });
 
         RateLimiter::for('login', function (Request $request) {
             $email = $request->input('email');

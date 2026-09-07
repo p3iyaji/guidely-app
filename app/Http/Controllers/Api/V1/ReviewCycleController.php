@@ -71,6 +71,23 @@ class ReviewCycleController extends Controller
         return ReviewCycleResource::collection($query->get());
     }
 
+    /**
+     * List every Review Cycle for a Pupil, including closed Annual Reviews.
+     */
+    public function indexForPupil(Pupil $pupil): AnonymousResourceCollection
+    {
+        $this->authorize('viewAny', ReviewCycle::class);
+        $this->authorize('view', $pupil);
+
+        $cycles = ReviewCycle::query()
+            ->where('pupil_id', $pupil->id)
+            ->orderByDesc('due_on')
+            ->orderByDesc('id')
+            ->get();
+
+        return ReviewCycleResource::collection($cycles);
+    }
+
     public function store(StoreReviewCycleRequest $request, ?Pupil $pupil = null): JsonResponse
     {
         $resolvedPupil = $pupil instanceof Pupil ? $pupil : $request->pupil();

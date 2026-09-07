@@ -37,6 +37,7 @@ import DraftsPage from '../pages/DraftsPage.vue';
 import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
 import GapsPage from '../pages/GapsPage.vue';
 import ReviewCyclesPage from '../pages/ReviewCyclesPage.vue';
+import OutputsPage from '../pages/OutputsPage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
@@ -252,6 +253,19 @@ describe('Role nav IA', () => {
         const leaf = resolved.matched[resolved.matched.length - 1];
 
         expect(leaf?.components?.default ?? leaf?.component).toBe(ReviewCyclesPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses OutputsPage for production outputs route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/outputs');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(OutputsPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 });

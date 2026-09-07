@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DeterminationOverrideController;
+use App\Http\Controllers\Api\V1\DocumentationOutputController;
 use App\Http\Controllers\Api\V1\DraftController;
 use App\Http\Controllers\Api\V1\EvidenceController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
@@ -104,6 +105,8 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.gaps.index');
         Route::get('/review-cycles', [ReviewCycleController::class, 'index'])
             ->name('api.v1.review-cycles.index');
+        Route::get('/pupils/{pupil}/review-cycles', [ReviewCycleController::class, 'indexForPupil'])
+            ->name('api.v1.pupils.review-cycles.index');
         Route::post('/review-cycles', [ReviewCycleController::class, 'store'])
             ->name('api.v1.review-cycles.store');
         Route::post('/pupils/{pupil}/review-cycles', [ReviewCycleController::class, 'store'])
@@ -113,6 +116,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/review-cycles/automation/run', [ReviewCycleAutomationController::class, 'store'])
             ->middleware('feature:review_cycle_automation')
             ->name('api.v1.review-cycles.automation.run');
+        Route::get('/documentation-outputs', [DocumentationOutputController::class, 'index'])
+            ->name('api.v1.documentation-outputs.index');
+        Route::post('/documentation-outputs', [DocumentationOutputController::class, 'store'])
+            ->name('api.v1.documentation-outputs.store');
+        Route::get('/documentation-outputs/{documentationOutput}', [DocumentationOutputController::class, 'show'])
+            ->name('api.v1.documentation-outputs.show');
+        Route::post('/pupils/{pupil}/review-cycles/{reviewCycle}/outputs', [DocumentationOutputController::class, 'store'])
+            ->scopeBindings()
+            ->name('api.v1.pupils.review-cycles.outputs.store');
         Route::patch('/evidence/{evidence}', [EvidenceController::class, 'update'])
             ->name('api.v1.evidence.update');
         Route::get('/evidence/{evidence}/versions', [EvidenceController::class, 'versions'])
