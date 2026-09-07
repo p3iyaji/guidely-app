@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\PupilEvidenceController;
 use App\Http\Controllers\Api\V1\PupilInterventionController;
 use App\Http\Controllers\Api\V1\RelationshipMappingController;
 use App\Http\Controllers\Api\V1\ResponseController;
+use App\Http\Controllers\Api\V1\ReviewCycleAutomationController;
 use App\Http\Controllers\Api\V1\ReviewCycleController;
 use App\Http\Controllers\Api\V1\ReviewNoteController;
 use App\Http\Controllers\Api\V1\RuleController;
@@ -109,6 +110,9 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.pupils.review-cycles.store');
         Route::post('/review-cycles/{reviewCycle}/close', [ReviewCycleController::class, 'close'])
             ->name('api.v1.review-cycles.close');
+        Route::post('/review-cycles/automation/run', [ReviewCycleAutomationController::class, 'store'])
+            ->middleware('feature:review_cycle_automation')
+            ->name('api.v1.review-cycles.automation.run');
         Route::patch('/evidence/{evidence}', [EvidenceController::class, 'update'])
             ->name('api.v1.evidence.update');
         Route::get('/evidence/{evidence}/versions', [EvidenceController::class, 'versions'])

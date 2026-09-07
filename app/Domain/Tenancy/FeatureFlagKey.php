@@ -7,6 +7,7 @@ enum FeatureFlagKey: string
     case TrustDashboard = 'trust_dashboard';
     case Connectors = 'connectors';
     case AdvancedDocumentationPacks = 'advanced_documentation_packs';
+    case ReviewCycleAutomation = 'review_cycle_automation';
 
     /**
      * @return list<string>

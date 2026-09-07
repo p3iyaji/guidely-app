@@ -27,7 +27,7 @@ php artisan guidely:onboard-school {tenant_id} \
 | `--admin-name` | Yes | Tenant Admin display name |
 | `--admin-email` | Yes | Unique email for login |
 | `--admin-password` | Yes | Must satisfy application password rules |
-| `--enable-flag` | No | Repeatable; keys: `trust_dashboard`, `connectors`, `advanced_documentation_packs` |
+| `--enable-flag` | No | Repeatable; keys: `trust_dashboard`, `connectors`, `advanced_documentation_packs`, `review_cycle_automation` |
 | `--disable-flag` | No | Repeatable; same keys |
 
 Exit code is non-zero when the Tenant is missing or validation fails.
