@@ -20,8 +20,11 @@ class AmendEvidenceRequest extends FormRequest
             $evidence = EvidenceRecord::query()->find($evidence);
         }
 
-        return $evidence instanceof EvidenceRecord
-            && ($this->user()?->can('amend', $evidence) ?? false);
+        if (! $evidence instanceof EvidenceRecord || $evidence->type === EvidenceType::ReviewNote) {
+            return false;
+        }
+
+        return $this->user()?->can('amend', $evidence) ?? false;
     }
 
     /**
@@ -36,10 +39,15 @@ class AmendEvidenceRequest extends FormRequest
         }
 
         /** @var EvidenceRecord $evidence */
+        if ($evidence->type === EvidenceType::ReviewNote) {
+            abort(403);
+        }
+
         return match ($evidence->type) {
             EvidenceType::Observation => $this->observationAmendRules(),
             EvidenceType::Intervention => $this->interventionAmendRules(),
             EvidenceType::Response => $this->responseAmendRules((string) $evidence->pupil_id),
+            EvidenceType::ReviewNote => abort(403),
         };
     }
 

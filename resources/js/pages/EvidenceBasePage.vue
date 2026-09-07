@@ -60,6 +60,109 @@
                 </button>
             </div>
 
+            <div
+                v-if="canAddReviewNote"
+                class="mt-6"
+                data-testid="evidence-review-note-section"
+            >
+                <ButtonOutline
+                    v-if="!reviewNoteFormOpen"
+                    class="min-h-11"
+                    data-testid="evidence-review-note-open"
+                    type="button"
+                    @click="openReviewNoteForm"
+                >
+                    Add review note
+                </ButtonOutline>
+
+                <div
+                    v-else
+                    class="space-y-4 rounded-lg border border-border bg-surface px-4 py-4"
+                    data-testid="evidence-review-note-panel"
+                >
+                    <h2 class="text-body font-semibold text-text">Add review note</h2>
+                    <p class="text-meta text-text-muted">
+                        Professional commentary for this Pupil’s Evidence Base. This is not classroom Observation.
+                    </p>
+
+                    <p
+                        v-if="reviewNoteError"
+                        class="text-body text-danger"
+                        data-testid="evidence-review-note-error"
+                        role="alert"
+                    >
+                        {{ reviewNoteError }}
+                    </p>
+
+                    <form class="space-y-3" @submit.prevent="saveReviewNote">
+                        <div>
+                            <label
+                                class="block text-body text-text"
+                                for="review-note-occurred-at"
+                            >Date and time</label>
+                            <input
+                                id="review-note-occurred-at"
+                                v-model="reviewNoteForm.occurred_at_local"
+                                type="datetime-local"
+                                required
+                                class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                                data-testid="evidence-review-note-occurred-at"
+                            >
+                            <p
+                                v-if="reviewNoteFieldErrors.occurred_at"
+                                class="mt-1 text-body text-danger"
+                                data-testid="evidence-review-note-occurred-at-error"
+                            >
+                                {{ reviewNoteFieldErrors.occurred_at }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label
+                                class="block text-body text-text"
+                                for="review-note-body"
+                            >Review commentary</label>
+                                <textarea
+                                    id="review-note-body"
+                                    v-model="reviewNoteForm.body"
+                                    rows="4"
+                                    required
+                                    maxlength="5000"
+                                    class="mt-1 w-full max-w-2xl rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                                    data-testid="evidence-review-note-body"
+                                />
+                            <p
+                                v-if="reviewNoteFieldErrors.body"
+                                class="mt-1 text-body text-danger"
+                                data-testid="evidence-review-note-body-error"
+                            >
+                                {{ reviewNoteFieldErrors.body }}
+                            </p>
+                        </div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <ButtonPrimary
+                                class="min-h-11"
+                                :disabled="reviewNoteSaving"
+                                data-testid="evidence-review-note-save"
+                                type="submit"
+                            >
+                                {{ reviewNoteSaving ? 'Saving…' : 'Save review note' }}
+                            </ButtonPrimary>
+                            <ButtonOutline
+                                class="min-h-11"
+                                :disabled="reviewNoteSaving"
+                                data-testid="evidence-review-note-cancel"
+                                type="button"
+                                @click="closeReviewNoteForm"
+                            >
+                                Cancel
+                            </ButtonOutline>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <Card
                 v-if="!loadError && records.length === 0"
                 class="mt-6"
@@ -425,7 +528,26 @@ const versions = ref([]);
 const versionsLoading = ref(false);
 const versionsError = ref('');
 
+const reviewNoteFormOpen = ref(false);
+const reviewNoteSaving = ref(false);
+const reviewNoteError = ref('');
+const reviewNoteForm = reactive({
+    occurred_at_local: '',
+    body: '',
+});
+const reviewNoteFieldErrors = reactive({
+    occurred_at: '',
+    body: '',
+});
+
 const isTeacher = computed(() => session.role.value === 'teacher');
+const isSenco = computed(() => session.role.value === 'senco');
+
+const canAddReviewNote = computed(() => {
+    return isSenco.value
+        && !loadError.value
+        && pupil.value != null;
+});
 
 const pupilName = computed(() => {
     if (!pupil.value) {
@@ -518,6 +640,7 @@ async function setFilter(value) {
 
     activeFilter.value = value;
     closeAmend();
+    closeReviewNoteForm();
     await loadEvidence({ seq: loadSeq });
 }
 
@@ -693,6 +816,114 @@ function clearAmendFieldErrors() {
     amendFieldErrors.body = '';
 }
 
+function clearReviewNoteFieldErrors() {
+    reviewNoteFieldErrors.occurred_at = '';
+    reviewNoteFieldErrors.body = '';
+}
+
+function closeReviewNoteForm() {
+    reviewNoteFormOpen.value = false;
+    reviewNoteSaving.value = false;
+    reviewNoteError.value = '';
+    reviewNoteForm.occurred_at_local = '';
+    reviewNoteForm.body = '';
+    clearReviewNoteFieldErrors();
+}
+
+function openReviewNoteForm() {
+    closeAmend();
+    reviewNoteFormOpen.value = true;
+    reviewNoteError.value = '';
+    clearReviewNoteFieldErrors();
+
+    if (reviewNoteForm.occurred_at_local === '') {
+        reviewNoteForm.occurred_at_local = toLocalDateTimeInput(new Date().toISOString());
+    }
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+async function saveReviewNote() {
+    if (reviewNoteSaving.value) {
+        return;
+    }
+
+    reviewNoteSaving.value = true;
+    reviewNoteError.value = '';
+    clearReviewNoteFieldErrors();
+
+    const pupilId = String(route.params.id ?? '');
+    const occurredAt = toUtcIso(reviewNoteForm.occurred_at_local);
+    const body = reviewNoteForm.body.trim();
+
+    if (!occurredAt) {
+        reviewNoteFieldErrors.occurred_at = 'Enter a valid date and time.';
+        reviewNoteSaving.value = false;
+
+        return;
+    }
+
+    if (body === '') {
+        reviewNoteFieldErrors.body = 'Review note commentary is required.';
+        reviewNoteSaving.value = false;
+
+        return;
+    }
+
+    try {
+        const response = await apiFetch('/api/v1/review-notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pupil_id: pupilId,
+                occurred_at: occurredAt,
+                body,
+            }),
+        });
+
+        if (response.status === 422) {
+            const payload = await response.json();
+            const errors = isRecord(payload.errors) ? payload.errors : {};
+            reviewNoteFieldErrors.occurred_at = errors.occurred_at?.[0] ?? '';
+            reviewNoteFieldErrors.body = errors.body?.[0] ?? '';
+
+            const unmapped = [
+                errors.pupil_id?.[0],
+                errors.client_type?.[0],
+            ].filter((message) => typeof message === 'string' && message !== '');
+
+            reviewNoteError.value = unmapped.length > 0
+                ? unmapped.join(' ')
+                : 'Please correct the highlighted fields.';
+            reviewNoteSaving.value = false;
+
+            return;
+        }
+
+        if (!response.ok) {
+            reviewNoteError.value = 'Unable to save this review note.';
+            reviewNoteSaving.value = false;
+
+            return;
+        }
+
+        closeReviewNoteForm();
+        hasAnySubmitted.value = true;
+        activeFilter.value = '';
+
+        const refreshed = await loadEvidence({ seq: loadSeq });
+
+        if (!refreshed) {
+            loadError.value = 'Review note saved, but the Evidence Base list could not be refreshed.';
+        }
+    } catch {
+        reviewNoteError.value = 'Unable to save this review note.';
+    } finally {
+        reviewNoteSaving.value = false;
+    }
+}
+
 function closeAmend() {
     amendingId.value = '';
     amendError.value = '';
@@ -714,6 +945,7 @@ async function openAmend(record) {
         return;
     }
 
+    closeReviewNoteForm();
     amendingId.value = String(record.id);
     amendError.value = '';
     clearAmendFieldErrors();
@@ -916,6 +1148,7 @@ async function loadPage() {
     pupil.value = null;
     records.value = [];
     closeAmend();
+    closeReviewNoteForm();
 
     try {
         const [pupilOk, evidenceOk] = await Promise.all([

@@ -82,7 +82,7 @@ class PupilEvidenceTest extends TestCase
         $this->assertSame(EvidenceType::Intervention->value, $response->json('data.0.type'));
     }
 
-    public function test_filters_by_type_source_and_review_note_empty(): void
+    public function test_filters_by_type_source_and_review_note(): void
     {
         [$tenant, $school, $senco] = $this->tenantSchoolAndSenco();
         $pupil = Pupil::factory()->forSchool($school)->create();
@@ -106,6 +106,12 @@ class PupilEvidenceTest extends TestCase
             ->authoredBy($senco)
             ->response()
             ->create(['body' => 'Response row']);
+
+        $reviewNote = EvidenceRecord::factory()
+            ->forPupil($pupil)
+            ->authoredBy($senco)
+            ->reviewNote()
+            ->create(['body' => 'SENCO review commentary']);
 
         $responseObservation = $this->actingAs($senco)
             ->getJson("/api/v1/pupils/{$pupil->id}/evidence?filter=observation");
@@ -131,7 +137,9 @@ class PupilEvidenceTest extends TestCase
         $responseReviewNote = $this->actingAs($senco)
             ->getJson("/api/v1/pupils/{$pupil->id}/evidence?filter=review_note");
         $responseReviewNote->assertOk()
-            ->assertJsonPath('data', []);
+            ->assertJsonPath('data.0.id', $reviewNote->id)
+            ->assertJsonPath('data.0.type', EvidenceType::ReviewNote->value)
+            ->assertJsonCount(1, 'data');
 
         $this->actingAs($senco)
             ->getJson("/api/v1/pupils/{$pupil->id}/evidence?filter=not-a-filter")

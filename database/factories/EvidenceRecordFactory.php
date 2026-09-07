@@ -100,6 +100,25 @@ class EvidenceRecordFactory extends Factory
         ]);
     }
 
+    public function reviewNote(): static
+    {
+        return $this->state(function (array $attributes) {
+            $body = $attributes['body'] ?? null;
+            $occurredAt = $attributes['occurred_at'] ?? null;
+
+            return [
+                'type' => EvidenceType::ReviewNote,
+                'lifecycle' => EvidenceLifecycle::Submitted,
+                'source' => EvidenceSource::Capture,
+                'setting_term_id' => null,
+                'provision_term_id' => null,
+                'related_intervention_id' => null,
+                'body' => is_string($body) && trim($body) !== '' ? $body : fake()->sentence(),
+                'occurred_at' => $occurredAt ?? now()->utc(),
+            ];
+        });
+    }
+
     public function draft(): static
     {
         return $this->state(fn (array $attributes) => [

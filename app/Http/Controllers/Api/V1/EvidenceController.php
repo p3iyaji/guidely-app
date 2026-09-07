@@ -26,6 +26,7 @@ class EvidenceController extends Controller
     public function update(AmendEvidenceRequest $request, EvidenceRecord $evidence): EvidenceRecordResource
     {
         abort_unless($evidence->lifecycle === EvidenceLifecycle::Submitted, 403);
+        abort_if($evidence->type === EvidenceType::ReviewNote, 403);
 
         $payload = $request->amendPayload();
 
@@ -34,6 +35,8 @@ class EvidenceController extends Controller
 
         $record = DB::transaction(function () use ($request, $evidence, $payload): EvidenceRecord {
             $locked = $this->lockSubmittedOrConflict($evidence);
+
+            abort_if($locked->type === EvidenceType::ReviewNote, 403);
 
             $this->appendPriorVersion($locked, $request->user()->id);
 
@@ -50,10 +53,12 @@ class EvidenceController extends Controller
                 $attributes['provision_term_id'] = $payload['provision_term_id'];
                 $attributes['setting_term_id'] = null;
                 $attributes['related_intervention_id'] = null;
-            } else {
+            } elseif ($locked->type === EvidenceType::Response) {
                 $attributes['related_intervention_id'] = $payload['related_intervention_id'];
                 $attributes['setting_term_id'] = null;
                 $attributes['provision_term_id'] = null;
+            } else {
+                abort(403);
             }
 
             $locked->fill($attributes)->save();
@@ -149,8 +154,10 @@ class EvidenceController extends Controller
         } elseif ($record->type === EvidenceType::Intervention) {
             $metadata['provision_term_id'] = $record->provision_term_id;
             $metadata['provision_term_code'] = $record->provisionTerm?->code;
-        } else {
+        } elseif ($record->type === EvidenceType::Response) {
             $metadata['related_intervention_id'] = $record->related_intervention_id;
+        } else {
+            abort(403);
         }
 
         return $metadata;
@@ -162,6 +169,7 @@ class EvidenceController extends Controller
             EvidenceType::Observation => AuditEventType::EvidenceObservationUpdated,
             EvidenceType::Intervention => AuditEventType::EvidenceInterventionUpdated,
             EvidenceType::Response => AuditEventType::EvidenceResponseUpdated,
+            EvidenceType::ReviewNote => abort(403),
         };
     }
 

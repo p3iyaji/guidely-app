@@ -7,6 +7,7 @@ enum EvidenceType: string
     case Observation = 'observation';
     case Intervention = 'intervention';
     case Response = 'response';
+    case ReviewNote = 'review_note';
 
     /**
      * @return list<string>

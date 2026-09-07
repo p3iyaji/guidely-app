@@ -39,6 +39,17 @@ const sampleRecords = [
         author: { id: 'usr_2', name: 'Import Bot' },
         provision: { id: 'prv_1', code: 'SMALL_GROUP', label: 'Small group' },
     },
+    {
+        id: 'ev_3',
+        type: 'review_note',
+        lifecycle: 'submitted',
+        source: 'capture',
+        pupil_id: 'pup_1',
+        author_id: 'usr_senco',
+        occurred_at: '2026-09-04T14:00:00+00:00',
+        body: 'SENCO review commentary on documentation sufficiency.',
+        author: { id: 'usr_senco', name: 'Sam SENCO' },
+    },
 ];
 
 const settingTerms = [
@@ -97,9 +108,27 @@ describe('EvidenceBasePage', () => {
                 });
             }
 
+            if (method === 'POST' && path.includes('/review-notes')) {
+                const body = JSON.parse(String(options.body ?? '{}'));
+
+                return jsonResponse({
+                    data: {
+                        id: 'ev_review_1',
+                        type: 'review_note',
+                        lifecycle: 'submitted',
+                        source: 'capture',
+                        pupil_id: 'pup_1',
+                        author_id: 'usr_1',
+                        occurred_at: body.occurred_at ?? '2026-09-07T10:00:00+00:00',
+                        body: body.body ?? '',
+                        author: { id: 'usr_1', name: 'Test User' },
+                    },
+                }, 201);
+            }
+
             if (path.includes('/evidence')) {
                 if (path.includes('filter=review_note')) {
-                    return jsonResponse({ data: [] });
+                    return jsonResponse({ data: [sampleRecords[2]] });
                 }
 
                 if (path.includes('filter=import')) {
@@ -222,14 +251,15 @@ describe('EvidenceBasePage', () => {
         expect(wrapper.find('[data-testid="evidence-filter-observation"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="evidence-filter-review_note"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="evidence-filter-import"]').exists()).toBe(true);
-        expect(wrapper.findAll('[data-testid="evidence-row"]').length).toBe(2);
+        expect(wrapper.findAll('[data-testid="evidence-row"]').length).toBe(3);
         expect(wrapper.find('[data-testid="evidence-type"]').text()).toContain('Observation');
+        expect(wrapper.find('[data-testid="evidence-review-note-open"]').exists()).toBe(true);
         expect(wrapper.text()).not.toMatch(/Coming soon/i);
         expect(wrapper.text()).not.toMatch(/Open Gaps/i);
         expect(wrapper.text()).not.toMatch(/Last SRE run/i);
     });
 
-    it('filters to import and review note (empty until 4.3)', async () => {
+    it('filters to import and review note with labelled rows', async () => {
         const { wrapper } = await mountPage('senco');
 
         await wrapper.find('[data-testid="evidence-filter-import"]').trigger('click');
@@ -243,10 +273,67 @@ describe('EvidenceBasePage', () => {
         await flushPromises();
 
         expect(fetchMock.mock.calls.some(([url]) => String(url).includes('filter=review_note'))).toBe(true);
-        expect(wrapper.find('[data-testid="evidence-base-empty"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="evidence-base-empty-copy"]').text())
-            .toContain('No Evidence Records match this filter.');
+        expect(wrapper.findAll('[data-testid="evidence-row"]').length).toBe(1);
+        expect(wrapper.find('[data-testid="evidence-type"]').text()).toContain('Review note');
+        expect(wrapper.find('[data-testid="evidence-body"]').text())
+            .toContain('SENCO review commentary on documentation sufficiency.');
         expect(wrapper.find('[data-testid="evidence-base-capture-cta"]').exists()).toBe(false);
+    });
+
+    it('lets SENCO create a review note and hides the control for Teacher and School Leader', async () => {
+        const senco = await mountPage('senco');
+
+        expect(senco.wrapper.find('[data-testid="evidence-review-note-open"]').exists()).toBe(true);
+        await senco.wrapper.find('[data-testid="evidence-review-note-open"]').trigger('click');
+        await flushPromises();
+
+        expect(senco.wrapper.find('[data-testid="evidence-review-note-panel"]').exists()).toBe(true);
+        await senco.wrapper.find('[data-testid="evidence-review-note-body"]')
+            .setValue('Fresh SENCO professional commentary.');
+        await senco.wrapper.find('[data-testid="evidence-review-note-panel"] form').trigger('submit.prevent');
+        await flushPromises();
+
+        const postCall = fetchMock.mock.calls.find(([url, options]) => (
+            String(url).includes('/api/v1/review-notes')
+            && String(options?.method ?? '').toUpperCase() === 'POST'
+        ));
+
+        expect(postCall).toBeTruthy();
+        const body = JSON.parse(String(postCall[1].body));
+        expect(body.pupil_id).toBe('pup_1');
+        expect(body.body).toBe('Fresh SENCO professional commentary.');
+        expect(body.occurred_at).toBeTruthy();
+        expect(body).not.toHaveProperty('setting_term_id');
+        expect(body).not.toHaveProperty('lifecycle');
+        expect(senco.wrapper.find('[data-testid="evidence-review-note-panel"]').exists()).toBe(false);
+
+        const postIndex = fetchMock.mock.calls.findIndex(([url, options]) => (
+            String(url).includes('/api/v1/review-notes')
+            && String(options?.method ?? '').toUpperCase() === 'POST'
+        ));
+        expect(postIndex).toBeGreaterThanOrEqual(0);
+
+        const reloadAfterPost = fetchMock.mock.calls.slice(postIndex + 1).find(([url, options]) => {
+            const path = String(url);
+            const method = String(options?.method ?? 'GET').toUpperCase();
+
+            return method === 'GET'
+                && /\/api\/v1\/pupils\/pup_1\/evidence(?:\?|$)/.test(path)
+                && !path.includes('filter=');
+        });
+
+        expect(reloadAfterPost).toBeTruthy();
+        senco.wrapper.unmount();
+
+        const teacher = await mountPage('teacher');
+        expect(teacher.wrapper.find('[data-testid="evidence-review-note-open"]').exists()).toBe(false);
+        expect(teacher.wrapper.find('[data-testid="evidence-review-note-section"]').exists()).toBe(false);
+        teacher.wrapper.unmount();
+
+        const leader = await mountPage('school_leader');
+        expect(leader.wrapper.find('[data-testid="evidence-review-note-open"]').exists()).toBe(false);
+        expect(leader.wrapper.find('[data-testid="evidence-review-note-section"]').exists()).toBe(false);
+        leader.wrapper.unmount();
     });
 
     it('shows Capture CTA for Teacher empty state and hides it for School Leader', async () => {

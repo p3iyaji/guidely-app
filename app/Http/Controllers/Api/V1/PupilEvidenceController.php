@@ -25,9 +25,6 @@ class PupilEvidenceController extends Controller
 
         if ($filter === 'import') {
             $query->where('source', EvidenceSource::Import);
-        } elseif ($filter === 'review_note') {
-            // Review notes ship in 4.3 — accept the chip and return an empty list until then.
-            $query->where('type', 'review_note');
         } elseif (in_array($filter, EvidenceType::values(), true)) {
             $query->where('type', $filter);
         }

@@ -233,6 +233,7 @@ class DraftController extends Controller
             EvidenceType::Observation => AuditEventType::EvidenceObservationUpdated,
             EvidenceType::Intervention => AuditEventType::EvidenceInterventionUpdated,
             EvidenceType::Response => AuditEventType::EvidenceResponseUpdated,
+            EvidenceType::ReviewNote => throw new \LogicException('Review notes do not support drafts.'),
         };
     }
 
@@ -242,6 +243,7 @@ class DraftController extends Controller
             EvidenceType::Observation => AuditEventType::EvidenceObservationSubmitted,
             EvidenceType::Intervention => AuditEventType::EvidenceInterventionSubmitted,
             EvidenceType::Response => AuditEventType::EvidenceResponseSubmitted,
+            EvidenceType::ReviewNote => throw new \LogicException('Review notes do not support drafts.'),
         };
     }
 

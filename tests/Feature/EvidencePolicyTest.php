@@ -280,4 +280,58 @@ class EvidencePolicyTest extends TestCase
         $this->actingAs($support);
         $this->assertTrue($support->can('amend', $submitted));
     }
+
+    public function test_create_review_note_is_senco_only(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $school = School::factory()->forTenant($tenant)->create();
+        $otherSchool = School::factory()->forTenant($tenant)->create();
+
+        $senco = User::factory()->forTenant($tenant)->senco()->create();
+        $senco->schools()->attach($school->id);
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacher->schools()->attach($school->id);
+        $leader = User::factory()->forTenant($tenant)->schoolLeader()->create();
+        $leader->schools()->attach($school->id);
+        $support = User::factory()->forTenant($tenant)->supportStaff()->create();
+        $support->schools()->attach($school->id);
+
+        $pupil = Pupil::factory()->forSchool($school)->assignedTo($teacher)->create();
+        $pupil->assignedUsers()->attach($support->id);
+        $otherPupil = Pupil::factory()->forSchool($otherSchool)->create();
+
+        $this->actingAs($senco);
+        $this->assertTrue($senco->can('createReviewNote', [EvidenceRecord::class, $pupil]));
+        $this->assertFalse($senco->can('createReviewNote', [EvidenceRecord::class, $otherPupil]));
+
+        $this->actingAs($teacher);
+        $this->assertFalse($teacher->can('createReviewNote', [EvidenceRecord::class, $pupil]));
+        $this->assertTrue($teacher->can('create', EvidenceRecord::class));
+
+        $this->actingAs($leader);
+        $this->assertFalse($leader->can('createReviewNote', [EvidenceRecord::class, $pupil]));
+
+        $this->actingAs($support);
+        $this->assertFalse($support->can('createReviewNote', [EvidenceRecord::class, $pupil]));
+    }
+
+    public function test_amend_denies_review_notes(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $school = School::factory()->forTenant($tenant)->create();
+        $senco = User::factory()->forTenant($tenant)->senco()->create();
+        $senco->schools()->attach($school->id);
+        $pupil = Pupil::factory()->forSchool($school)->create();
+
+        $reviewNote = EvidenceRecord::factory()
+            ->forPupil($pupil)
+            ->authoredBy($senco)
+            ->reviewNote()
+            ->create(['body' => 'Commentary']);
+
+        $reviewNote->load('pupil.school');
+
+        $this->actingAs($senco);
+        $this->assertFalse($senco->can('amend', $reviewNote));
+    }
 }

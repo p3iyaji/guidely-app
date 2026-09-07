@@ -41,6 +41,18 @@ class EvidenceRecordPolicy
     }
 
     /**
+     * SENCO-only create of submitted review notes for Pupils in accessible Schools.
+     */
+    public function createReviewNote(User $user, Pupil $pupil): bool
+    {
+        if (! $user->isActiveTenantStaff() || $user->role !== Role::Senco) {
+            return false;
+        }
+
+        return $this->canAccessPupilSchool($user, $pupil);
+    }
+
+    /**
      * Draft list for capture Roles (scope applied in the controller).
      */
     public function listDrafts(User $user): bool

@@ -20,8 +20,11 @@ class UpdateDraftRequest extends FormRequest
             $draft = EvidenceRecord::query()->find($draft);
         }
 
-        return $draft instanceof EvidenceRecord
-            && ($this->user()?->can('update', $draft) ?? false);
+        if (! $draft instanceof EvidenceRecord || $draft->type === EvidenceType::ReviewNote) {
+            return false;
+        }
+
+        return $this->user()?->can('update', $draft) ?? false;
     }
 
     /**
@@ -36,10 +39,15 @@ class UpdateDraftRequest extends FormRequest
         }
 
         /** @var EvidenceRecord $draft */
+        if ($draft->type === EvidenceType::ReviewNote) {
+            abort(403);
+        }
+
         return match ($draft->type) {
             EvidenceType::Observation => $this->observationDraftMutationRules(submit: false),
             EvidenceType::Intervention => $this->interventionDraftMutationRules(submit: false),
             EvidenceType::Response => $this->responseDraftMutationRules(submit: false),
+            EvidenceType::ReviewNote => abort(403),
         };
     }
 

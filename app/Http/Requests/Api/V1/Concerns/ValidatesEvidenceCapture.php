@@ -176,6 +176,27 @@ trait ValidatesEvidenceCapture
     }
 
     /**
+     * Submitted-only review note create — no Ontology FKs, no draft lifecycle.
+     *
+     * @return array<string, mixed>
+     */
+    protected function reviewNoteCreateRules(): array
+    {
+        return [
+            'setting' => ['prohibited'],
+            'setting_term_id' => ['prohibited'],
+            'provision' => ['prohibited'],
+            'provision_term_id' => ['prohibited'],
+            'related_intervention_id' => ['prohibited'],
+            'lifecycle' => ['prohibited'],
+            'pupil_id' => $this->evidencePupilIdRule(),
+            'occurred_at' => $this->evidenceOccurredAtRule(),
+            'body' => ['required', 'string', 'max:5000'],
+            'client_type' => $this->evidenceClientTypeRule(),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function draftMutationBaseRules(bool $submit): array

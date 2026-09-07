@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceType;
 use App\Domain\Pupils\Pupil;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -32,10 +33,7 @@ class ListPupilEvidenceRequest extends FormRequest
                 'nullable',
                 'string',
                 Rule::in([
-                    'observation',
-                    'intervention',
-                    'response',
-                    'review_note',
+                    ...EvidenceType::values(),
                     'import',
                 ]),
             ],

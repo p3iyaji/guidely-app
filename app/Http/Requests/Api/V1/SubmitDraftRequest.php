@@ -20,8 +20,11 @@ class SubmitDraftRequest extends FormRequest
             $draft = EvidenceRecord::query()->find($draft);
         }
 
-        return $draft instanceof EvidenceRecord
-            && ($this->user()?->can('submit', $draft) ?? false);
+        if (! $draft instanceof EvidenceRecord || $draft->type === EvidenceType::ReviewNote) {
+            return false;
+        }
+
+        return $this->user()?->can('submit', $draft) ?? false;
     }
 
     /**
@@ -36,10 +39,15 @@ class SubmitDraftRequest extends FormRequest
         }
 
         /** @var EvidenceRecord $draft */
+        if ($draft->type === EvidenceType::ReviewNote) {
+            abort(403);
+        }
+
         return match ($draft->type) {
             EvidenceType::Observation => $this->observationDraftMutationRules(submit: true),
             EvidenceType::Intervention => $this->interventionDraftMutationRules(submit: true),
             EvidenceType::Response => $this->responseDraftMutationRules(submit: true),
+            EvidenceType::ReviewNote => abort(403),
         };
     }
 
