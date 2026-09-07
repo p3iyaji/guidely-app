@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\PilotToolkitController;
 use App\Http\Controllers\Api\V1\ProvisionTermController;
 use App\Http\Controllers\Api\V1\PupilAssignmentController;
 use App\Http\Controllers\Api\V1\PupilController;
+use App\Http\Controllers\Api\V1\PupilEvidenceController;
 use App\Http\Controllers\Api\V1\PupilInterventionController;
 use App\Http\Controllers\Api\V1\ResponseController;
 use App\Http\Controllers\Api\V1\SchoolController;
@@ -79,6 +80,8 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.drafts.submit');
         Route::get('/pupils/{pupil}/interventions', [PupilInterventionController::class, 'index'])
             ->name('api.v1.pupils.interventions.index');
+        Route::get('/pupils/{pupil}/evidence', [PupilEvidenceController::class, 'index'])
+            ->name('api.v1.pupils.evidence.index');
         Route::get('/ontology/setting-terms', [SettingTermController::class, 'index'])
             ->name('api.v1.ontology.setting-terms.index');
         Route::get('/ontology/provision-terms', [ProvisionTermController::class, 'index'])

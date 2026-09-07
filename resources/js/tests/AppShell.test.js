@@ -34,6 +34,7 @@ import PupilsPage from '../pages/PupilsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
 import CapturePage from '../pages/CapturePage.vue';
 import DraftsPage from '../pages/DraftsPage.vue';
+import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
@@ -183,7 +184,8 @@ describe('Role nav IA', () => {
         const detail = router.resolve('/pupils/pup_1');
         const detailLeaf = detail.matched[detail.matched.length - 1];
 
-        expect(detailLeaf?.components?.default ?? detailLeaf?.component).toBe(ComingSoonPage);
+        expect(detailLeaf?.components?.default ?? detailLeaf?.component).toBe(EvidenceBasePage);
+        expect(detailLeaf?.components?.default ?? detailLeaf?.component).not.toBe(ComingSoonPage);
     });
 
     it('uses ImportPage for production import route (not ComingSoon)', () => {

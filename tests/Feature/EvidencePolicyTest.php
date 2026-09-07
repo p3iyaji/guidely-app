@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
+use Database\Seeders\SettingOntologySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Tests\TestCase;
@@ -14,6 +16,13 @@ use Tests\TestCase;
 class EvidencePolicyTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(SettingOntologySeeder::class);
+    }
 
     public function test_capture_evidence_gate_allows_teacher_support_and_senco(): void
     {
@@ -41,6 +50,33 @@ class EvidencePolicyTest extends TestCase
 
         $this->actingAs($leader);
         $this->assertFalse(Gate::allows('capture-evidence'));
+        $this->assertTrue(Gate::allows('view-evidence'));
+    }
+
+    public function test_view_evidence_gate_allows_evidence_base_roles(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $support = User::factory()->forTenant($tenant)->supportStaff()->create();
+        $senco = User::factory()->forTenant($tenant)->senco()->create();
+        $leader = User::factory()->forTenant($tenant)->schoolLeader()->create();
+        $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+
+        $this->actingAs($teacher);
+        $this->assertTrue(Gate::allows('view-evidence'));
+
+        $this->actingAs($support);
+        $this->assertTrue(Gate::allows('view-evidence'));
+
+        $this->actingAs($senco);
+        $this->assertTrue(Gate::allows('view-evidence'));
+
+        $this->actingAs($leader);
+        $this->assertTrue(Gate::allows('view-evidence'));
+
+        $this->actingAs($admin);
+        $this->assertFalse(Gate::allows('view-evidence'));
     }
 
     public function test_create_for_pupil_requires_assignment_for_teacher(): void
@@ -71,5 +107,102 @@ class EvidencePolicyTest extends TestCase
         $pupil = Pupil::factory()->forSchool($school)->create();
 
         $this->assertTrue($senco->can('createForPupil', [EvidenceRecord::class, $pupil]));
+    }
+
+    public function test_submitted_evidence_view_follows_role_and_assignment_matrix(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $school = School::factory()->forTenant($tenant)->create();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacher->schools()->attach($school->id);
+        $leader = User::factory()->forTenant($tenant)->schoolLeader()->create();
+        $leader->schools()->attach($school->id);
+        $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+        $senco = User::factory()->forTenant($tenant)->senco()->create();
+        $senco->schools()->attach($school->id);
+
+        $assigned = Pupil::factory()->forSchool($school)->assignedTo($teacher)->create();
+        $unassigned = Pupil::factory()->forSchool($school)->create();
+
+        $assignedRecord = EvidenceRecord::factory()
+            ->forPupil($assigned)
+            ->authoredBy($teacher)
+            ->create([
+                'lifecycle' => EvidenceLifecycle::Submitted,
+                'setting_term_id' => null,
+                'body' => 'Assigned submitted',
+            ]);
+
+        $unassignedRecord = EvidenceRecord::factory()
+            ->forPupil($unassigned)
+            ->authoredBy($senco)
+            ->create([
+                'lifecycle' => EvidenceLifecycle::Submitted,
+                'setting_term_id' => null,
+                'body' => 'Unassigned submitted',
+            ]);
+
+        $this->actingAs($teacher);
+        $assignedRecord->unsetRelation('pupil');
+        $unassignedRecord->unsetRelation('pupil');
+        $assignedRecord->load('pupil.school');
+        $unassignedRecord->load('pupil.school');
+
+        $this->assertTrue($teacher->can('view', $assignedRecord));
+        $this->assertFalse($teacher->can('view', $unassignedRecord));
+        $this->assertTrue($teacher->can('listForPupil', [EvidenceRecord::class, $assigned]));
+        $this->assertFalse($teacher->can('listForPupil', [EvidenceRecord::class, $unassigned]));
+
+        $this->actingAs($leader);
+        $this->assertTrue($leader->can('view', $assignedRecord));
+        $this->assertTrue($leader->can('listForPupil', [EvidenceRecord::class, $assigned]));
+        $this->assertFalse($leader->can('create', EvidenceRecord::class));
+
+        $this->actingAs($senco);
+        $this->assertTrue($senco->can('view', $unassignedRecord));
+
+        $this->actingAs($admin);
+        $this->assertFalse($admin->can('view', $assignedRecord));
+        $this->assertFalse($admin->can('listForPupil', [EvidenceRecord::class, $assigned]));
+    }
+
+    public function test_draft_view_remains_author_or_senco_only(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $school = School::factory()->forTenant($tenant)->create();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacher->schools()->attach($school->id);
+        $otherTeacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $otherTeacher->schools()->attach($school->id);
+        $senco = User::factory()->forTenant($tenant)->senco()->create();
+        $senco->schools()->attach($school->id);
+        $leader = User::factory()->forTenant($tenant)->schoolLeader()->create();
+        $leader->schools()->attach($school->id);
+
+        $pupil = Pupil::factory()->forSchool($school)->assignedTo($teacher)->create();
+        $pupil->assignedUsers()->attach($otherTeacher->id);
+
+        $draft = EvidenceRecord::factory()
+            ->forPupil($pupil)
+            ->authoredBy($teacher)
+            ->draft()
+            ->create([
+                'setting_term_id' => null,
+                'body' => null,
+            ]);
+
+        $this->actingAs($teacher);
+        $draft->unsetRelation('pupil');
+        $draft->load('pupil.school');
+        $this->assertTrue($teacher->can('view', $draft));
+
+        $this->actingAs($senco);
+        $this->assertTrue($senco->can('view', $draft));
+
+        $this->actingAs($otherTeacher);
+        $this->assertFalse($otherTeacher->can('view', $draft));
+
+        $this->actingAs($leader);
+        $this->assertFalse($leader->can('view', $draft));
     }
 }

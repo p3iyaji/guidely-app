@@ -11,6 +11,7 @@ import PupilsPage from '../pages/PupilsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
 import CapturePage from '../pages/CapturePage.vue';
 import DraftsPage from '../pages/DraftsPage.vue';
+import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -68,7 +69,8 @@ const routes = [
             {
                 path: 'pupils/:id',
                 name: 'pupil-detail',
-                ...stub('Pupil'),
+                component: EvidenceBasePage,
+                meta: { title: 'Evidence Base', requiresAuth: true },
             },
             {
                 path: 'capture',

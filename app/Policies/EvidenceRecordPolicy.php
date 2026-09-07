@@ -48,29 +48,62 @@ class EvidenceRecordPolicy
     }
 
     /**
-     * Author or School SENCO may view a draft; submitted records are Evidence Base (later).
+     * Role-level Evidence Base access (Teachers, Support, SENCO, School Leader).
      */
-    public function view(User $user, EvidenceRecord $record): bool
+    public function viewEvidenceBase(User $user): bool
     {
-        if ($record->lifecycle !== EvidenceLifecycle::Draft) {
+        if (! $user->isActiveTenantStaff()) {
             return false;
         }
 
-        if (! $this->canCaptureEvidence($user)) {
+        return in_array($user->role, [
+            Role::Teacher,
+            Role::SupportStaff,
+            Role::Senco,
+            Role::SchoolLeader,
+        ], true);
+    }
+
+    /**
+     * Whether the user may list submitted Evidence for a Pupil (Evidence Base).
+     */
+    public function listForPupil(User $user, Pupil $pupil): bool
+    {
+        if (! $this->viewEvidenceBase($user) || ! $this->canAccessPupilSchool($user, $pupil)) {
+            return false;
+        }
+
+        if (in_array($user->role, [Role::Senco, Role::SchoolLeader], true)) {
+            return true;
+        }
+
+        if ($user->isAssignmentScopedForPupils()) {
+            return $pupil->isAssignedTo($user);
+        }
+
+        return false;
+    }
+
+    /**
+     * Draft: author or School SENCO. Submitted: Evidence Base Role + Pupil scope.
+     */
+    public function view(User $user, EvidenceRecord $record): bool
+    {
+        if ($record->lifecycle === EvidenceLifecycle::Draft) {
+            return $this->viewDraft($user, $record);
+        }
+
+        if ($record->lifecycle !== EvidenceLifecycle::Submitted) {
             return false;
         }
 
         $pupil = $this->pupilFor($record);
 
-        if ($pupil === null || ! $this->canAccessPupilSchool($user, $pupil)) {
+        if ($pupil === null) {
             return false;
         }
 
-        if ((string) $record->author_id === (string) $user->id) {
-            return true;
-        }
-
-        return $user->role === Role::Senco;
+        return $this->listForPupil($user, $pupil);
     }
 
     /**
@@ -87,6 +120,25 @@ class EvidenceRecordPolicy
     public function submit(User $user, EvidenceRecord $record): bool
     {
         return $this->authorOwnsDraft($user, $record);
+    }
+
+    private function viewDraft(User $user, EvidenceRecord $record): bool
+    {
+        if (! $this->canCaptureEvidence($user)) {
+            return false;
+        }
+
+        $pupil = $this->pupilFor($record);
+
+        if ($pupil === null || ! $this->canAccessPupilSchool($user, $pupil)) {
+            return false;
+        }
+
+        if ((string) $record->author_id === (string) $user->id) {
+            return true;
+        }
+
+        return $user->role === Role::Senco;
     }
 
     private function authorOwnsDraft(User $user, EvidenceRecord $record): bool
@@ -110,7 +162,7 @@ class EvidenceRecordPolicy
 
     private function pupilFor(EvidenceRecord $record): ?Pupil
     {
-        if ($record->relationLoaded('pupil')) {
+        if ($record->relationLoaded('pupil') && $record->pupil !== null) {
             return $record->pupil;
         }
 

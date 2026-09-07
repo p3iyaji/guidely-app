@@ -56,8 +56,11 @@ class AppServiceProvider extends ServiceProvider
             return $user->can('create', EvidenceRecord::class);
         });
 
+        Gate::define('view-evidence', function (User $user): bool {
+            return $user->can('viewEvidenceBase', EvidenceRecord::class);
+        });
+
         // Future addendum rows — deny by default until those domains ship.
-        Gate::define('view-evidence', fn (): bool => false);
         Gate::define('run-determinations', fn (): bool => false);
         Gate::define('override-determination', fn (): bool => false);
         Gate::define('documentation-output', fn (): bool => false);
