@@ -1,1 +1,1 @@
-pupil_identifier,given_name,family_name,date_of_birth,school_name,school_id,year_group,sen_status,notes
+pupil_identifier,given_name,family_name,date_of_birth,school_name,school_id,year_group,sen_status,notes,evidence_type,evidence_provision_code,evidence_occurred_at,evidence_external_id,evidence_body

@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditEvent;
 use App\Domain\Audit\AuditEventType;
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceSource;
 use App\Domain\Evidence\EvidenceType;
 use App\Domain\Identity\AccessMessages;
 use App\Domain\Ontology\OntologyVersion;
@@ -46,6 +47,8 @@ class InterventionTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('data.type', EvidenceType::Intervention->value)
             ->assertJsonPath('data.lifecycle', EvidenceLifecycle::Submitted->value)
+            ->assertJsonPath('data.source', EvidenceSource::Capture->value)
+            ->assertJsonPath('data.external_id', null)
             ->assertJsonPath('data.pupil_id', $pupil->id)
             ->assertJsonPath('data.author_id', $teacher->id)
             ->assertJsonPath('data.provision.id', $provision->id)

@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditEventType;
 use App\Domain\Audit\AuditWriter;
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceSource;
 use App\Domain\Evidence\EvidenceType;
 use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Pupils\Pupil;
@@ -40,6 +41,7 @@ class InterventionController extends Controller
                 'occurred_at' => $payload['occurred_at'],
                 'provision_term_id' => $payload['provision_term_id'],
                 'body' => $payload['body'],
+                'source' => EvidenceSource::Capture,
             ]);
             $record->forceFill([
                 'type' => EvidenceType::Intervention,

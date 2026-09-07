@@ -34,6 +34,8 @@ class EvidenceRecordResource extends JsonResource
             ]),
             'type' => $this->type?->value,
             'lifecycle' => $this->lifecycle?->value,
+            'source' => $this->source?->value,
+            'external_id' => $this->external_id,
             'occurred_at' => $this->occurred_at?->utc()->toIso8601String(),
             'setting' => $this->termPayload($this->settingTerm),
             'provision' => $this->termPayload($this->provisionTerm),

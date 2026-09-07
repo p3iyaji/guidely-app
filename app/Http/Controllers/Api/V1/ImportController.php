@@ -45,13 +45,19 @@ class ImportController extends Controller
                 /** @var Pupil $pupil */
                 $pupil = $item['pupil'];
 
-                return array_merge(
+                $payload = array_merge(
                     [
                         'row' => $item['row'],
                         'action' => $item['action'],
                     ],
                     (new PupilResource($pupil))->resolve($request),
                 );
+
+                if (isset($item['evidence_action'])) {
+                    $payload['evidence_action'] = $item['evidence_action'];
+                }
+
+                return $payload;
             },
             $result['committed'],
         );

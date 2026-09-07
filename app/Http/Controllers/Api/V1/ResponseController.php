@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditEventType;
 use App\Domain\Audit\AuditWriter;
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceSource;
 use App\Domain\Evidence\EvidenceType;
 use App\Domain\Pupils\Pupil;
 use App\Http\Controllers\Controller;
@@ -39,6 +40,7 @@ class ResponseController extends Controller
                 'occurred_at' => $payload['occurred_at'],
                 'related_intervention_id' => $payload['related_intervention_id'],
                 'body' => $payload['body'],
+                'source' => EvidenceSource::Capture,
             ]);
             $record->forceFill([
                 'type' => EvidenceType::Response,

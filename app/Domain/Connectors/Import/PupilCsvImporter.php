@@ -4,6 +4,11 @@ namespace App\Domain\Connectors\Import;
 
 use App\Domain\Audit\AuditEventType;
 use App\Domain\Audit\AuditWriter;
+use App\Domain\Evidence\EvidenceLifecycle;
+use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceSource;
+use App\Domain\Evidence\EvidenceType;
+use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SendStatus;
 use App\Domain\Tenancy\CurrentTenant;
@@ -12,6 +17,8 @@ use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -19,12 +26,40 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Parse and upsert Pupils from an Import Template CSV with partial-success reporting.
+ * Parse and upsert Pupils (and Pilot Intervention Evidence) from an Import Template CSV
+ * with partial-success reporting.
  */
 class PupilCsvImporter
 {
     /**
-     * Headers that indicate Evidence import (unsupported until Epic 3).
+     * Evidence columns accepted for Pilot Intervention import.
+     *
+     * @var list<string>
+     */
+    private const EVIDENCE_FIELD_HEADERS = [
+        'evidence_type',
+        'evidence_provision_code',
+        'evidence_occurred_at',
+        'evidence_date',
+        'evidence_external_id',
+        'evidence_body',
+        'evidence_notes',
+        'evidence_provision',
+        'evidence_provision_label',
+    ];
+
+    /**
+     * Free-text Provision columns — values are always rejected (Ontology code required).
+     *
+     * @var list<string>
+     */
+    private const FREE_TEXT_PROVISION_HEADERS = [
+        'evidence_provision',
+        'evidence_provision_label',
+    ];
+
+    /**
+     * Headers that indicate Evidence import intent (including unsupported aliases).
      *
      * @var list<string>
      */
@@ -35,6 +70,11 @@ class PupilCsvImporter
         'evidence_type',
         'evidence_notes',
         'historical_evidence',
+        'evidence_provision_code',
+        'evidence_occurred_at',
+        'evidence_external_id',
+        'evidence_provision',
+        'evidence_provision_label',
     ];
 
     /**
@@ -48,6 +88,21 @@ class PupilCsvImporter
         'date_of_birth',
         'school_name',
         'school_id',
+        'year_group',
+        'sen_status',
+        'send_status',
+        'notes',
+    ];
+
+    /**
+     * Pupil attribute columns that imply a Pupil upsert (not Evidence-only lookup).
+     *
+     * @var list<string>
+     */
+    private const PUPIL_UPSERT_SIGNAL_HEADERS = [
+        'given_name',
+        'family_name',
+        'date_of_birth',
         'year_group',
         'sen_status',
         'send_status',
@@ -99,16 +154,23 @@ class PupilCsvImporter
                 continue;
             }
 
+            if (isset($result['committed'])) {
+                $committed[] = $result['committed'];
+            }
+
             if (isset($result['error'])) {
                 $errors[] = [
                     'row' => $rowNumber,
                     'message' => $result['error'],
                 ];
-
-                continue;
             }
 
-            $committed[] = $result['committed'];
+            foreach ($result['errors'] ?? [] as $message) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'message' => $message,
+                ];
+            }
         }
 
         return [
@@ -228,7 +290,7 @@ class PupilCsvImporter
      * @param  list<string>  $headers
      * @param  list<string>  $evidenceHeaders
      * @param  list<string|null>  $cells
-     * @return array{committed?: array<string, mixed>, error?: string}
+     * @return array{committed?: array<string, mixed>, error?: string, errors?: list<string>}
      */
     private function processRow(
         int $rowNumber,
@@ -239,11 +301,98 @@ class PupilCsvImporter
         Request $request,
     ): array {
         $associative = $this->associateRow($headers, $cells);
+        $hasEvidenceValues = $evidenceHeaders !== []
+            && $this->rowHasEvidenceValues($associative, $evidenceHeaders);
+        $hasPupilUpsertFields = $this->rowHasPupilUpsertFields($associative);
 
-        if ($evidenceHeaders !== [] && $this->rowHasEvidenceValues($associative, $evidenceHeaders)) {
-            return ['error' => 'Evidence import not available yet.'];
+        $committed = null;
+        $pupil = null;
+        $rowErrors = [];
+        $needsSre = false;
+        $sreReason = 'import';
+
+        if ($hasPupilUpsertFields || ! $hasEvidenceValues) {
+            $pupilResult = $this->processPupilUpsert($rowNumber, $associative, $user, $request);
+
+            if (isset($pupilResult['error'])) {
+                return ['error' => $pupilResult['error']];
+            }
+
+            $committed = $pupilResult['committed'];
+            $pupil = $committed['pupil'];
+            $needsSre = true;
+            $sreReason = 'import';
         }
 
+        if ($hasEvidenceValues) {
+            if ($pupil === null) {
+                $resolved = $this->resolveExistingPupilForEvidence($associative, $user);
+
+                if (isset($resolved['error'])) {
+                    return ['error' => $resolved['error']];
+                }
+
+                $pupil = $resolved['pupil'];
+            }
+
+            $evidenceResult = $this->processEvidenceIntervention(
+                $associative,
+                $evidenceHeaders,
+                $pupil,
+                $user,
+                $request,
+            );
+
+            if (isset($evidenceResult['error'])) {
+                $rowErrors[] = $evidenceResult['error'];
+            } else {
+                $needsSre = true;
+                $sreReason = 'evidence_imported';
+
+                if ($committed === null) {
+                    $committed = [
+                        'row' => $rowNumber,
+                        'action' => $evidenceResult['action'],
+                        'evidence_action' => $evidenceResult['action'],
+                        'pupil' => $pupil,
+                    ];
+                } else {
+                    $committed['evidence_action'] = $evidenceResult['action'];
+                }
+            }
+        }
+
+        if ($needsSre && $pupil !== null) {
+            $this->enqueueSreReevaluation($pupil, $sreReason);
+        }
+
+        $result = [];
+
+        if ($committed !== null) {
+            $result['committed'] = $committed;
+        }
+
+        if ($rowErrors !== []) {
+            $result['errors'] = $rowErrors;
+        }
+
+        if ($result === []) {
+            return ['error' => 'Import failed unexpectedly.'];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, string|null>  $associative
+     * @return array{committed?: array<string, mixed>, error?: string}
+     */
+    private function processPupilUpsert(
+        int $rowNumber,
+        array $associative,
+        User $user,
+        Request $request,
+    ): array {
         $payload = $this->mapRowPayload($associative);
 
         if (isset($payload['error'])) {
@@ -295,6 +444,255 @@ class PupilCsvImporter
     }
 
     /**
+     * @param  array<string, string|null>  $row
+     * @param  list<string>  $evidenceHeaders
+     * @return array{action?: string, error?: string}
+     */
+    private function processEvidenceIntervention(
+        array $row,
+        array $evidenceHeaders,
+        Pupil $pupil,
+        User $user,
+        Request $request,
+    ): array {
+        foreach ($evidenceHeaders as $header) {
+            if (($row[$header] ?? null) === null) {
+                continue;
+            }
+
+            if (in_array($header, self::FREE_TEXT_PROVISION_HEADERS, true)) {
+                return ['error' => 'Provision must use an Ontology term code, not a free-text label.'];
+            }
+
+            if (! in_array($header, self::EVIDENCE_FIELD_HEADERS, true)) {
+                return ['error' => 'Unsupported Evidence column: '.$header.'.'];
+            }
+        }
+
+        $typeRaw = $this->nullableTrimmed($row['evidence_type'] ?? null);
+        $type = $typeRaw === null
+            ? EvidenceType::Intervention->value
+            : Str::of($typeRaw)->lower()->replace(['-', ' '], '_')->toString();
+
+        if ($type === '') {
+            $type = EvidenceType::Intervention->value;
+        }
+
+        if ($type !== EvidenceType::Intervention->value) {
+            return ['error' => 'Only Intervention Evidence import is supported in Pilot.'];
+        }
+
+        $provisionCode = $this->nullableTrimmed($row['evidence_provision_code'] ?? null);
+        $occurredAt = $this->nullableTrimmed($row['evidence_occurred_at'] ?? $row['evidence_date'] ?? null);
+        $externalId = $this->nullableTrimmed($row['evidence_external_id'] ?? null);
+        $body = $this->nullableTrimmed($row['evidence_body'] ?? $row['evidence_notes'] ?? null);
+
+        if ($provisionCode === null) {
+            return ['error' => 'Evidence Provision code is required.'];
+        }
+
+        if ($occurredAt === null) {
+            return ['error' => 'Evidence occurred_at is required.'];
+        }
+
+        $provision = ProvisionTerm::query()
+            ->fromPublishedStub()
+            ->where('code', Str::upper($provisionCode))
+            ->first();
+
+        if ($provision === null) {
+            $provision = ProvisionTerm::query()
+                ->fromPublishedStub()
+                ->where('code', $provisionCode)
+                ->first();
+        }
+
+        if ($provision === null) {
+            return ['error' => 'Evidence Provision code must match an active published Ontology term.'];
+        }
+
+        $validator = Validator::make([
+            'occurred_at' => $occurredAt,
+            'external_id' => $externalId,
+            'body' => $body,
+        ], [
+            'occurred_at' => ['required', 'date', 'before_or_equal:now'],
+            'external_id' => ['nullable', 'string', 'max:255'],
+            'body' => ['nullable', 'string', 'max:5000'],
+        ], [
+            'occurred_at.required' => 'Evidence occurred_at is required.',
+            'occurred_at.date' => 'Evidence occurred_at must be a valid date.',
+            'occurred_at.before_or_equal' => 'Evidence occurred_at cannot be in the future.',
+        ]);
+
+        if ($validator->fails()) {
+            return ['error' => $validator->errors()->first()];
+        }
+
+        /** @var array{occurred_at: string, external_id?: ?string, body?: ?string} $validated */
+        $validated = $validator->validated();
+        $resolvedExternalId = $this->nullableTrimmed($validated['external_id'] ?? null);
+        $resolvedBody = $this->nullableTrimmed($validated['body'] ?? null);
+
+        try {
+            $result = $this->upsertImportedIntervention(
+                $pupil,
+                $user,
+                $request,
+                $provision,
+                $validated['occurred_at'],
+                $resolvedExternalId,
+                $resolvedBody,
+            );
+        } catch (UniqueConstraintViolationException) {
+            return ['error' => 'An Evidence Record with this external_id already exists in your organisation.'];
+        } catch (Throwable) {
+            return ['error' => 'Evidence import failed unexpectedly.'];
+        }
+
+        if (isset($result['error'])) {
+            return ['error' => $result['error']];
+        }
+
+        return ['action' => $result['action']];
+    }
+
+    /**
+     * @return array{action?: string, error?: string}
+     */
+    private function upsertImportedIntervention(
+        Pupil $pupil,
+        User $user,
+        Request $request,
+        ProvisionTerm $provision,
+        string $occurredAt,
+        ?string $externalId,
+        ?string $body,
+    ): array {
+        return DB::transaction(function () use ($pupil, $user, $request, $provision, $occurredAt, $externalId, $body): array {
+            $existing = null;
+
+            if (is_string($externalId) && $externalId !== '') {
+                $existing = EvidenceRecord::query()
+                    ->where('tenant_id', $pupil->tenant_id)
+                    ->where('external_id', $externalId)
+                    ->first();
+            }
+
+            if ($existing !== null && $existing->pupil_id !== $pupil->id) {
+                return ['error' => 'Evidence external_id already belongs to a different Pupil.'];
+            }
+
+            if ($existing !== null) {
+                $existing->fill([
+                    'author_id' => $user->id,
+                    'occurred_at' => $occurredAt,
+                    'provision_term_id' => $provision->id,
+                    'body' => $body,
+                    'source' => EvidenceSource::Import,
+                    'external_id' => $externalId,
+                ]);
+                $existing->forceFill([
+                    'type' => EvidenceType::Intervention,
+                    'lifecycle' => EvidenceLifecycle::Submitted,
+                ])->save();
+
+                $existing->load(['provisionTerm', 'pupil']);
+
+                $this->audit->record(
+                    AuditEventType::EvidenceInterventionUpdated,
+                    $request,
+                    $user,
+                    resourceType: 'evidence_record',
+                    resourceId: $existing->id,
+                    metadata: [
+                        'source' => EvidenceSource::Import->value,
+                        'client_type' => 'import',
+                        'pupil_id' => $existing->pupil_id,
+                        'type' => $existing->type->value,
+                        'lifecycle' => $existing->lifecycle->value,
+                        'provision_term_id' => $existing->provision_term_id,
+                        'provision_term_code' => $provision->code,
+                        'external_id' => $existing->external_id,
+                        'occurred_at' => $existing->occurred_at?->utc()->toIso8601String(),
+                    ],
+                );
+
+                return ['action' => 'evidence_updated'];
+            }
+
+            $record = new EvidenceRecord([
+                'pupil_id' => $pupil->id,
+                'author_id' => $user->id,
+                'occurred_at' => $occurredAt,
+                'provision_term_id' => $provision->id,
+                'body' => $body,
+                'source' => EvidenceSource::Import,
+                'external_id' => $externalId,
+            ]);
+            $record->forceFill([
+                'type' => EvidenceType::Intervention,
+                'lifecycle' => EvidenceLifecycle::Submitted,
+            ])->save();
+
+            $record->load(['provisionTerm', 'pupil']);
+
+            $this->audit->record(
+                AuditEventType::EvidenceInterventionCreated,
+                $request,
+                $user,
+                resourceType: 'evidence_record',
+                resourceId: $record->id,
+                metadata: [
+                    'source' => EvidenceSource::Import->value,
+                    'client_type' => 'import',
+                    'pupil_id' => $record->pupil_id,
+                    'type' => $record->type->value,
+                    'lifecycle' => $record->lifecycle->value,
+                    'provision_term_id' => $record->provision_term_id,
+                    'provision_term_code' => $provision->code,
+                    'external_id' => $record->external_id,
+                    'occurred_at' => $record->occurred_at?->utc()->toIso8601String(),
+                ],
+            );
+
+            return ['action' => 'evidence_created'];
+        });
+    }
+
+    /**
+     * @param  array<string, string|null>  $row
+     * @return array{pupil?: Pupil, error?: string}
+     */
+    private function resolveExistingPupilForEvidence(array $row, User $user): array
+    {
+        $school = $this->resolveSchool($row, $user);
+
+        if (isset($school['error'])) {
+            return ['error' => $school['error']];
+        }
+
+        /** @var School $resolvedSchool */
+        $resolvedSchool = $school['school'];
+        $misKey = $row['pupil_identifier'] ?? $row['mis_key'] ?? null;
+
+        if ($misKey === null || $misKey === '') {
+            return ['error' => 'Pupil MIS key is required to import Evidence.'];
+        }
+
+        $pupil = Pupil::query()
+            ->where('school_id', $resolvedSchool->id)
+            ->where('mis_key', $misKey)
+            ->first();
+
+        if ($pupil === null) {
+            return ['error' => 'No Pupil matches this MIS key in the selected School.'];
+        }
+
+        return ['pupil' => $pupil];
+    }
+
+    /**
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
@@ -330,8 +728,6 @@ class PupilCsvImporter
                 metadata: ['source' => 'import'],
             );
 
-            $this->enqueueSreReevaluation($existing);
-
             return [
                 'row' => $rowNumber,
                 'action' => 'updated',
@@ -350,8 +746,6 @@ class PupilCsvImporter
             resourceId: $pupil->id,
             metadata: ['source' => 'import'],
         );
-
-        $this->enqueueSreReevaluation($pupil);
 
         return [
             'row' => $rowNumber,
@@ -379,7 +773,7 @@ class PupilCsvImporter
         return $validated;
     }
 
-    private function enqueueSreReevaluation(Pupil $pupil): void
+    private function enqueueSreReevaluation(Pupil $pupil, string $reason): void
     {
         $jobClass = 'App\\Jobs\\SreReevaluatePupil';
 
@@ -387,7 +781,27 @@ class PupilCsvImporter
             return;
         }
 
-        dispatch(new $jobClass($pupil->tenant_id, $pupil->id, 'import'));
+        try {
+            dispatch(new $jobClass($pupil->tenant_id, $pupil->id, $reason));
+        } catch (Throwable $e) {
+            Log::warning('import.sre_dispatch_failed', [
+                'tenant_id' => $pupil->tenant_id,
+                'pupil_id' => $pupil->id,
+                'reason' => $reason,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function nullableTrimmed(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = Str::of($value)->trim()->toString();
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**
@@ -569,6 +983,20 @@ class PupilCsvImporter
         }
 
         return Str::startsWith($header, 'evidence_') || Str::startsWith($header, 'evidence ');
+    }
+
+    /**
+     * @param  array<string, string|null>  $row
+     */
+    private function rowHasPupilUpsertFields(array $row): bool
+    {
+        foreach (self::PUPIL_UPSERT_SIGNAL_HEADERS as $header) {
+            if (($row[$header] ?? null) !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

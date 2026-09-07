@@ -3,14 +3,14 @@
         <div>
             <h1 class="text-heading font-semibold text-text">Import</h1>
             <p class="mt-1 text-body text-text-muted">
-                Download the Import Template, upload a Pupil CSV, and review committed rows versus errors by row number.
+                Download the Import Template, upload Pupils and Intervention Evidence, and review committed rows versus errors by row number.
             </p>
         </div>
 
         <Card class="mt-6" data-testid="import-download-card">
             <h2 class="text-body font-semibold text-text">Import Template</h2>
-            <p class="mt-1 text-body text-text-muted">
-                CSV headers for Pupils. Evidence columns are not supported yet and will return row errors.
+            <p class="mt-1 text-body text-text-muted" data-testid="import-template-guidance">
+                CSV headers for Pupils and Intervention Evidence. Imported Evidence counts — do not parallel-log the same events in Capture. Use Capture only for new events or Gap-filling. Use evidence_provision_code (Ontology term code) and evidence_external_id for safe re-import upsert.
             </p>
             <p
                 v-if="templateError"
@@ -32,9 +32,9 @@
         </Card>
 
         <Card class="mt-6" data-testid="import-upload-card">
-            <h2 class="text-body font-semibold text-text">Upload Pupils</h2>
+            <h2 class="text-body font-semibold text-text">Upload CSV</h2>
             <p class="mt-1 text-body text-text-muted">
-                Valid rows commit; invalid rows report by number without failing the whole file.
+                Valid Pupil and Evidence rows commit; invalid rows report by number without failing the whole file.
             </p>
 
             <form class="mt-4 space-y-4" @submit.prevent="uploadFile">

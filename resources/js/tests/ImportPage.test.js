@@ -43,6 +43,14 @@ describe('ImportPage', () => {
 
         expect(apiFetch).toHaveBeenCalledWith('/api/v1/import/template');
         expect(click).toHaveBeenCalled();
+        expect(wrapper.find('[data-testid="import-template-guidance"]').text())
+            .toContain('do not parallel-log the same events');
+        expect(wrapper.find('[data-testid="import-template-guidance"]').text())
+            .toContain('evidence_external_id');
+        expect(wrapper.find('[data-testid="import-template-guidance"]').text())
+            .toContain('evidence_provision_code');
+        expect(wrapper.find('[data-testid="import-template-guidance"]').text())
+            .not.toContain('not supported yet');
     });
 
     it('shows template download failure alert', async () => {

@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'provision_term_id',
     'related_intervention_id',
     'body',
+    'source',
+    'external_id',
 ])]
 class EvidenceRecord extends Model
 {
@@ -44,6 +46,7 @@ class EvidenceRecord extends Model
         return [
             'type' => EvidenceType::class,
             'lifecycle' => EvidenceLifecycle::class,
+            'source' => EvidenceSource::class,
             'occurred_at' => 'datetime',
         ];
     }

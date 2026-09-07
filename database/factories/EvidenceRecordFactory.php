@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceSource;
 use App\Domain\Evidence\EvidenceType;
 use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Ontology\SettingTerm;
@@ -31,12 +32,22 @@ class EvidenceRecordFactory extends Factory
             'author_id' => User::factory(),
             'type' => EvidenceType::Observation,
             'lifecycle' => EvidenceLifecycle::Submitted,
+            'source' => null,
+            'external_id' => null,
             'occurred_at' => now()->utc(),
             'setting_term_id' => SettingTerm::factory(),
             'provision_term_id' => null,
             'related_intervention_id' => null,
             'body' => fake()->sentence(),
         ];
+    }
+
+    public function fromImport(?string $externalId = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'source' => EvidenceSource::Import,
+            'external_id' => $externalId ?? fake()->uuid(),
+        ]);
     }
 
     public function forPupil(Pupil $pupil): static
