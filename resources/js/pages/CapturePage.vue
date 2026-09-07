@@ -63,11 +63,29 @@
             data-testid="capture-confirmation"
         >
             <h2 class="text-body font-semibold text-text">{{ confirmationTitle }}</h2>
-            <p class="mt-2 text-body text-text">
+            <p
+                v-if="offlineConfirmation"
+                class="mt-2 text-body text-text"
+                data-testid="capture-offline-banner-confirm"
+                role="status"
+            >
+                {{ offlineBanner || OFFLINE_DRAFT_BANNER }}
+            </p>
+            <p
+                v-else
+                class="mt-2 text-body text-text"
+            >
                 {{ confirmationBlurb }}
             </p>
+            <p
+                v-if="offlineConflictMessage"
+                class="mt-2 text-body text-text-muted"
+                data-testid="capture-offline-conflict"
+            >
+                {{ offlineConflictMessage }}
+            </p>
             <p class="mt-2 text-body text-text-muted" data-testid="capture-confirmation-id">
-                Reference: {{ confirmation.id }}
+                {{ offlineConfirmation ? 'Device reference' : 'Reference' }}: {{ confirmation.id }}
             </p>
             <p
                 v-if="confirmation.setting?.label"
@@ -139,6 +157,22 @@
                     data-testid="capture-draft-load-error"
                 >
                     <p class="text-body text-danger" role="alert">{{ draftLoadError }}</p>
+                </Card>
+
+                <Card
+                    v-if="offlineBanner && !offlineConfirmation"
+                    class="mt-6 border-border-strong"
+                    data-testid="capture-offline-banner"
+                    role="status"
+                >
+                    <p class="text-body text-text">{{ offlineBanner }}</p>
+                    <p
+                        v-if="offlineConflictMessage"
+                        class="mt-2 text-body text-text-muted"
+                        data-testid="capture-offline-conflict"
+                    >
+                        {{ offlineConflictMessage }}
+                    </p>
                 </Card>
 
                 <Card
@@ -413,6 +447,15 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
+import { resolveClientType } from '../features/evidence/clientType';
+import {
+    OFFLINE_DRAFT_BANNER,
+} from '../features/evidence/offlineBanner';
+import {
+    enqueueOfflineDraft,
+    isLikelyOffline,
+    isNetworkError,
+} from '../features/evidence/offlineDraftQueue';
 import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import Card from '../shared/ui/Card.vue';
@@ -424,6 +467,7 @@ const session = useSession();
 const mode = ref('observation');
 const draftId = ref('');
 const draftAuthorId = ref('');
+const localQueueId = ref('');
 const pupils = ref([]);
 const settingTerms = ref([]);
 const provisionTerms = ref([]);
@@ -441,6 +485,9 @@ const submitting = ref(false);
 const savingDraft = ref(false);
 const submitError = ref('');
 const confirmation = ref(null);
+const offlineBanner = ref('');
+const offlineConflictMessage = ref('');
+const offlineConfirmation = ref(false);
 
 const form = reactive({
     pupil_id: '',
@@ -513,6 +560,18 @@ const confirmationLifecycle = computed(() => confirmation.value?.lifecycle ?? ''
 const confirmationType = computed(() => confirmation.value?.type ?? '');
 
 const confirmationTitle = computed(() => {
+    if (offlineConfirmation.value) {
+        if (confirmationType.value === 'intervention') {
+            return 'Intervention saved on this device';
+        }
+
+        if (confirmationType.value === 'response') {
+            return 'Pupil Response saved on this device';
+        }
+
+        return 'Observation saved on this device';
+    }
+
     if (confirmationLifecycle.value === 'draft') {
         if (confirmationType.value === 'intervention') {
             return 'Intervention draft saved';
@@ -537,6 +596,10 @@ const confirmationTitle = computed(() => {
 });
 
 const confirmationBlurb = computed(() => {
+    if (offlineConfirmation.value) {
+        return OFFLINE_DRAFT_BANNER;
+    }
+
     if (confirmationLifecycle.value === 'draft') {
         return 'The draft is saved on the server. It will not enter SRE until you submit.';
     }
@@ -551,6 +614,8 @@ const confirmationBlurb = computed(() => {
 
     return 'The Observation is on the Evidence Base path as a submitted record.';
 });
+
+const clientType = computed(() => resolveClientType());
 
 const captureAnotherLabel = computed(() => {
     if (confirmationLifecycle.value === 'draft') {
@@ -801,9 +866,13 @@ function resetForm() {
     confirmation.value = null;
     submitError.value = '';
     draftLoadError.value = '';
+    offlineBanner.value = '';
+    offlineConflictMessage.value = '';
+    offlineConfirmation.value = false;
     clearFieldErrors();
     draftId.value = '';
     draftAuthorId.value = '';
+    localQueueId.value = '';
     form.pupil_id = '';
     form.occurred_at_local = defaultLocalDateTime();
     form.setting_term_id = '';
@@ -818,7 +887,67 @@ function resetForm() {
 function continueEditingDraft() {
     confirmation.value = null;
     submitError.value = '';
+    offlineConfirmation.value = false;
     clearFieldErrors();
+
+    if (localQueueId.value) {
+        offlineBanner.value = OFFLINE_DRAFT_BANNER;
+    } else {
+        offlineBanner.value = '';
+        offlineConflictMessage.value = '';
+    }
+}
+
+/**
+ * @returns {{ type: 'observation'|'intervention'|'response', label: string }}
+ */
+function currentTypeMeta() {
+    if (mode.value === 'intervention') {
+        return { type: 'intervention', label: 'Intervention' };
+    }
+
+    if (mode.value === 'response') {
+        return { type: 'response', label: 'Pupil Response' };
+    }
+
+    return { type: 'observation', label: 'Observation' };
+}
+
+/**
+ * @param {Record<string, unknown>} body
+ * @returns {Promise<import('../features/evidence/offlineDraftQueue').OfflineDraftItem>}
+ */
+async function enqueueCurrentDraft(body) {
+    const pupil = pupils.value.find((row) => row.id === form.pupil_id);
+    const meta = currentTypeMeta();
+
+    return enqueueOfflineDraft({
+        id: localQueueId.value || undefined,
+        type: meta.type,
+        payload: {
+            ...body,
+            client_type: 'hybrid',
+        },
+        serverDraftId: draftId.value || null,
+        pupilLabel: pupil ? displayName(pupil) : 'Pupil',
+    });
+}
+
+/**
+ * @param {import('../features/evidence/offlineDraftQueue').OfflineDraftItem} item
+ * @param {string} [conflictMessage]
+ */
+function showOfflineQueuedState(item, conflictMessage = '') {
+    localQueueId.value = item.id;
+    offlineBanner.value = OFFLINE_DRAFT_BANNER;
+    offlineConflictMessage.value = conflictMessage;
+    offlineConfirmation.value = true;
+    confirmation.value = {
+        id: item.id,
+        type: item.type,
+        lifecycle: 'draft',
+        local_only: true,
+    };
 }
 
 /**
@@ -889,6 +1018,7 @@ async function loadDraft(id) {
  */
 function buildCaptureBody() {
     const occurredAt = toUtcIso(form.occurred_at_local);
+    const type = clientType.value;
 
     if (!occurredAt) {
         fieldErrors.occurred_at = 'Enter a valid session date and time.';
@@ -902,7 +1032,7 @@ function buildCaptureBody() {
             occurred_at: occurredAt,
             provision_term_id: form.provision_term_id || null,
             body: form.body || null,
-            client_type: 'web',
+            client_type: type,
         };
     }
 
@@ -912,7 +1042,7 @@ function buildCaptureBody() {
             occurred_at: occurredAt,
             related_intervention_id: form.related_intervention_id || null,
             body: form.body || null,
-            client_type: 'web',
+            client_type: type,
         };
     }
 
@@ -921,7 +1051,7 @@ function buildCaptureBody() {
         occurred_at: occurredAt,
         setting_term_id: form.setting_term_id || null,
         body: form.body || null,
-        client_type: 'web',
+        client_type: type,
     };
 }
 
@@ -960,6 +1090,9 @@ async function saveDraft() {
     savingDraft.value = true;
     clearFieldErrors();
     submitError.value = '';
+    offlineBanner.value = '';
+    offlineConflictMessage.value = '';
+    offlineConfirmation.value = false;
 
     try {
         const body = buildCaptureBody();
@@ -968,12 +1101,24 @@ async function saveDraft() {
             return;
         }
 
+        if (isLikelyOffline()) {
+            try {
+                const item = await enqueueCurrentDraft(body);
+                showOfflineQueuedState(item);
+            } catch {
+                submitError.value = 'Unable to save draft.';
+            }
+
+            return;
+        }
+
+        const type = clientType.value;
         const response = draftId.value
             ? await apiFetch(`/api/v1/drafts/${draftId.value}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Client-Type': 'web',
+                    'X-Client-Type': type,
                 },
                 body: JSON.stringify(body),
             })
@@ -981,7 +1126,7 @@ async function saveDraft() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Client-Type': 'web',
+                    'X-Client-Type': type,
                 },
                 body: JSON.stringify({
                     ...body,
@@ -1014,8 +1159,26 @@ async function saveDraft() {
         draftAuthorId.value = payload.data.author_id != null
             ? String(payload.data.author_id)
             : draftAuthorId.value;
+        localQueueId.value = '';
         confirmation.value = payload.data;
-    } catch {
+    } catch (error) {
+        if (isNetworkError(error)) {
+            const body = buildCaptureBody();
+
+            if (body) {
+                try {
+                    const item = await enqueueCurrentDraft(body);
+                    showOfflineQueuedState(item);
+
+                    return;
+                } catch {
+                    submitError.value = 'Unable to save draft.';
+
+                    return;
+                }
+            }
+        }
+
         submitError.value = 'Unable to save draft.';
     } finally {
         savingDraft.value = false;
@@ -1169,12 +1332,13 @@ async function submitCurrentCapture(failureMessage, missingIdMessage) {
     submitting.value = true;
 
     try {
+        const type = clientType.value;
         const response = draftId.value
             ? await apiFetch(`/api/v1/drafts/${draftId.value}/submit`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Client-Type': 'web',
+                    'X-Client-Type': type,
                 },
                 body: JSON.stringify(body),
             })
@@ -1182,7 +1346,7 @@ async function submitCurrentCapture(failureMessage, missingIdMessage) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Client-Type': 'web',
+                    'X-Client-Type': type,
                 },
                 body: JSON.stringify(body),
             });
@@ -1210,6 +1374,9 @@ async function submitCurrentCapture(failureMessage, missingIdMessage) {
 
         draftId.value = '';
         draftAuthorId.value = '';
+        localQueueId.value = '';
+        offlineConfirmation.value = false;
+        offlineBanner.value = '';
         confirmation.value = payload.data;
     } catch {
         submitError.value = failureMessage;

@@ -18,29 +18,30 @@ function readCookie(name) {
 
 /**
  * @param {string} url
- * @param {RequestInit} [options]
+ * @param {RequestInit & { skipForbiddenRedirect?: boolean }} [options]
  * @returns {Promise<Response>}
  */
 export async function apiFetch(url, options = {}) {
+    const { skipForbiddenRedirect = false, ...fetchOptions } = options;
     const headers = {
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        ...(options.headers ?? {}),
+        ...(fetchOptions.headers ?? {}),
     };
 
-    const method = (options.method ?? 'GET').toUpperCase();
+    const method = (fetchOptions.method ?? 'GET').toUpperCase();
 
     if (method !== 'GET' && method !== 'HEAD') {
         headers['X-XSRF-TOKEN'] = readCookie('XSRF-TOKEN');
     }
 
     const response = await fetch(url, {
-        ...options,
+        ...fetchOptions,
         credentials: 'include',
         headers,
     });
 
-    if (response.status === 403) {
+    if (response.status === 403 && !skipForbiddenRedirect) {
         const payload = await response.clone().json().catch(() => ({}));
 
         if (payload.code === 'forbidden' || !payload.code) {

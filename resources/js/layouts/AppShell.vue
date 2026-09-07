@@ -51,6 +51,7 @@ import {
     usesTeacherSupportBottomNav,
 } from '../features/shell/navByRole';
 import { useSession } from '../features/auth/session';
+import { startOfflineFlushListener } from '../features/evidence/startOfflineFlushListener';
 import BottomNav from '../shared/ui/BottomNav.vue';
 import Sidebar from '../shared/ui/Sidebar.vue';
 import TopBar from '../shared/ui/TopBar.vue';
@@ -69,6 +70,8 @@ const props = defineProps({
 const route = useRoute();
 const session = useSession();
 const navOpen = ref(false);
+/** @type {(() => void)|null} */
+let stopOfflineFlushListener = null;
 
 const effectiveRole = computed(() => props.role ?? session.role.value);
 const resolvedUserName = computed(() => {
@@ -108,6 +111,7 @@ function onLargeViewportChange(event) {
 
 onMounted(() => {
     window.addEventListener('keydown', onKeydown);
+    stopOfflineFlushListener = startOfflineFlushListener();
 
     if (typeof window.matchMedia === 'function') {
         largeViewportQuery = window.matchMedia('(min-width: 1024px)');
@@ -122,5 +126,7 @@ onMounted(() => {
 onUnmounted(() => {
     window.removeEventListener('keydown', onKeydown);
     largeViewportQuery?.removeEventListener('change', onLargeViewportChange);
+    stopOfflineFlushListener?.();
+    stopOfflineFlushListener = null;
 });
 </script>

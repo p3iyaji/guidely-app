@@ -13,74 +13,126 @@
             <LoadingSkeleton variant="card" />
         </div>
 
-        <Card
-            v-else-if="loadError"
-            class="mt-6"
-            data-testid="drafts-error"
-        >
-            <p class="text-body text-danger" role="alert">{{ loadError }}</p>
-        </Card>
-
-        <Card
-            v-else-if="drafts.length === 0"
-            class="mt-6"
-            data-testid="drafts-empty"
-        >
-            <p class="text-body text-text">No drafts yet.</p>
-            <div class="mt-4">
-                <ButtonPrimary
-                    class="min-h-11"
-                    data-testid="drafts-capture-cta"
-                    @click="goToCapture"
-                >
-                    Capture Evidence
-                </ButtonPrimary>
-            </div>
-        </Card>
-
-        <ul
-            v-else
-            class="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
-            data-testid="drafts-list"
-        >
-            <li
-                v-for="draft in drafts"
-                :key="draft.id"
-                data-testid="draft-row"
+        <template v-else>
+            <Card
+                v-if="loadError"
+                class="mt-6"
+                data-testid="drafts-error"
             >
-                <RouterLink
-                    :to="{ name: 'capture', query: { draft: draft.id } }"
-                    class="flex min-h-11 flex-col gap-2 px-4 py-3 text-text hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-inset focus:ring-focus-ring sm:flex-row sm:items-center sm:justify-between"
-                    :data-testid="`draft-row-link-${draft.id}`"
+                <p class="text-body text-danger" role="alert">{{ loadError }}</p>
+            </Card>
+
+            <Card
+                v-if="localDrafts.length > 0"
+                class="mt-6"
+                data-testid="drafts-local-queue"
+            >
+                <h2 class="text-body font-semibold text-text">On this device</h2>
+                <p
+                    class="mt-2 text-body text-text"
+                    data-testid="drafts-offline-banner"
+                    role="status"
                 >
-                    <div class="min-w-0">
-                        <p class="text-body font-medium text-text" data-testid="draft-type">
-                            {{ typeLabel(draft.type) }}
+                    {{ offlineBanner }}
+                </p>
+                <ul class="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
+                    <li
+                        v-for="item in localDrafts"
+                        :key="item.id"
+                        class="px-4 py-3"
+                        data-testid="drafts-local-row"
+                    >
+                        <p class="text-body font-medium text-text" data-testid="drafts-local-type">
+                            {{ typeLabel(item.type) }}
                         </p>
-                        <p class="text-meta text-text-muted" data-testid="draft-pupil">
-                            {{ pupilName(draft.pupil) }}
+                        <p class="text-meta text-text-muted" data-testid="drafts-local-pupil">
+                            {{ item.pupilLabel || 'Pupil' }}
+                        </p>
+                        <p class="mt-1 text-meta text-text-muted" data-testid="drafts-local-id">
+                            Device reference: {{ item.id }}
                         </p>
                         <p
-                            v-if="draft.author?.name"
-                            class="text-meta text-text-muted"
-                            data-testid="draft-author"
+                            v-if="item.status === 'pupil_conflict' || item.lastError"
+                            class="mt-2 text-body text-danger"
+                            data-testid="drafts-local-conflict"
+                            role="alert"
                         >
-                            Author: {{ draft.author.name }}
+                            {{ item.lastError || pupilConflictMessage }}
                         </p>
-                    </div>
-                    <p class="text-meta text-text-muted" data-testid="draft-occurred-at">
-                        {{ formatOccurredAt(draft.occurred_at) }}
-                    </p>
-                </RouterLink>
-            </li>
-        </ul>
+                    </li>
+                </ul>
+            </Card>
+
+            <Card
+                v-if="!loadError && drafts.length === 0 && localDrafts.length === 0"
+                class="mt-6"
+                data-testid="drafts-empty"
+            >
+                <p class="text-body text-text">No drafts yet.</p>
+                <div class="mt-4">
+                    <ButtonPrimary
+                        class="min-h-11"
+                        data-testid="drafts-capture-cta"
+                        @click="goToCapture"
+                    >
+                        Capture Evidence
+                    </ButtonPrimary>
+                </div>
+            </Card>
+
+            <ul
+                v-if="drafts.length > 0"
+                class="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
+                data-testid="drafts-list"
+            >
+                <li
+                    v-for="draft in drafts"
+                    :key="draft.id"
+                    data-testid="draft-row"
+                >
+                    <RouterLink
+                        :to="{ name: 'capture', query: { draft: draft.id } }"
+                        class="flex min-h-11 flex-col gap-2 px-4 py-3 text-text hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-inset focus:ring-focus-ring sm:flex-row sm:items-center sm:justify-between"
+                        :data-testid="`draft-row-link-${draft.id}`"
+                    >
+                        <div class="min-w-0">
+                            <p class="text-body font-medium text-text" data-testid="draft-type">
+                                {{ typeLabel(draft.type) }}
+                            </p>
+                            <p class="text-meta text-text-muted" data-testid="draft-pupil">
+                                {{ pupilName(draft.pupil) }}
+                            </p>
+                            <p
+                                v-if="draft.author?.name"
+                                class="text-meta text-text-muted"
+                                data-testid="draft-author"
+                            >
+                                Author: {{ draft.author.name }}
+                            </p>
+                        </div>
+                        <p class="text-meta text-text-muted" data-testid="draft-occurred-at">
+                            {{ formatOccurredAt(draft.occurred_at) }}
+                        </p>
+                    </RouterLink>
+                </li>
+            </ul>
+        </template>
     </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { apiFetch } from '../api/client';
+import {
+    OFFLINE_DRAFT_BANNER,
+    PUPIL_IDENTITY_CONFLICT_MESSAGE,
+} from '../features/evidence/offlineBanner';
+import {
+    listOfflineDrafts,
+    OFFLINE_QUEUE_CHANGED_EVENT,
+} from '../features/evidence/offlineDraftQueue';
+import { flushOfflineDrafts } from '../features/evidence/flushOfflineDrafts';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import Card from '../shared/ui/Card.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
@@ -88,13 +140,32 @@ import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 const router = useRouter();
 
 const drafts = ref([]);
+const localDrafts = ref([]);
 const loading = ref(true);
 const loadError = ref('');
+const offlineBanner = OFFLINE_DRAFT_BANNER;
+const pupilConflictMessage = PUPIL_IDENTITY_CONFLICT_MESSAGE;
 
 onMounted(async () => {
     document.title = 'Drafts';
-    await loadDrafts();
+    window.addEventListener('online', onOnline);
+    window.addEventListener(OFFLINE_QUEUE_CHANGED_EVENT, onQueueChanged);
+    await loadAll();
 });
+
+onUnmounted(() => {
+    window.removeEventListener('online', onOnline);
+    window.removeEventListener(OFFLINE_QUEUE_CHANGED_EVENT, onQueueChanged);
+});
+
+async function onOnline() {
+    await flushOfflineDrafts();
+    await Promise.all([loadDrafts(), loadLocalDrafts()]);
+}
+
+async function onQueueChanged() {
+    await loadLocalDrafts();
+}
 
 /**
  * @param {string|undefined} type
@@ -163,8 +234,11 @@ function hasPupil(item) {
     return Boolean(item && typeof item === 'object' && item.pupil && item.pupil.id);
 }
 
+async function loadLocalDrafts() {
+    localDrafts.value = await listOfflineDrafts();
+}
+
 async function loadDrafts() {
-    loading.value = true;
     loadError.value = '';
 
     try {
@@ -172,6 +246,7 @@ async function loadDrafts() {
 
         if (!response.ok) {
             loadError.value = 'Unable to load Drafts.';
+            drafts.value = [];
 
             return;
         }
@@ -180,6 +255,15 @@ async function loadDrafts() {
         drafts.value = asArray(payload.data).filter(hasPupil);
     } catch {
         loadError.value = 'Unable to load Drafts.';
+        drafts.value = [];
+    }
+}
+
+async function loadAll() {
+    loading.value = true;
+
+    try {
+        await Promise.all([loadDrafts(), loadLocalDrafts()]);
     } finally {
         loading.value = false;
     }

@@ -3,7 +3,13 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryHistory, createRouter } from 'vue-router';
+
+vi.mock('../features/evidence/startOfflineFlushListener.js', () => ({
+    startOfflineFlushListener: vi.fn(() => () => {}),
+}));
+
 import { useSession } from '../features/auth/session.js';
+import { startOfflineFlushListener } from '../features/evidence/startOfflineFlushListener.js';
 import { isNavItemActive } from '../features/shell/isNavItemActive.js';
 import {
     allNavTargets,
@@ -338,6 +344,7 @@ describe('AppShell smoke', () => {
         expect(wrapper.find('[data-testid="app-shell"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="top-bar"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="sidebar"]').exists()).toBe(true);
+        expect(startOfflineFlushListener).toHaveBeenCalled();
 
         const labels = wrapper.findAll('[data-testid="sidebar-item"]').map((node) => node.text());
         expect(labels).toContain('My Pupils');

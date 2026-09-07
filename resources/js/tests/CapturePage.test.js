@@ -25,6 +25,10 @@ vi.mock('vue-router', () => ({
 
 import { apiFetch } from '../api/client.js';
 import { useSession } from '../features/auth/session.js';
+import {
+    clearOfflineDraftQueue,
+    listOfflineDrafts,
+} from '../features/evidence/offlineDraftQueue.js';
 
 function mockLoadSuccess() {
     apiFetch
@@ -80,10 +84,16 @@ function mountCapture() {
 }
 
 describe('CapturePage', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
         document.title = '';
         routeState.query = {};
+        sessionStorage.clear();
+        Object.defineProperty(navigator, 'onLine', {
+            configurable: true,
+            get: () => true,
+        });
+        await clearOfflineDraftQueue();
         useSession().setUser({
             id: '01hteacher1',
             role: 'teacher',
@@ -92,8 +102,10 @@ describe('CapturePage', () => {
         });
     });
 
-    afterEach(() => {
+    afterEach(async () => {
         useSession().setUser(null);
+        sessionStorage.clear();
+        await clearOfflineDraftQueue();
         vi.restoreAllMocks();
     });
 
@@ -834,5 +846,112 @@ describe('CapturePage', () => {
             url === '/api/v1/observations' && options?.body?.includes('"lifecycle":"draft"')
         ));
         expect(draftPosts).toHaveLength(1);
+    });
+
+    it('queues offline draft saves with the exact not-on-server banner', async () => {
+        Object.defineProperty(navigator, 'onLine', {
+            configurable: true,
+            get: () => false,
+        });
+        mockLoadSuccess();
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
+        await wrapper.find('[data-testid="capture-occurred-at"]').setValue('2026-09-06T10:15');
+        await wrapper.find('[data-testid="capture-save-draft"]').trigger('click');
+        await flushPromises();
+
+        const draftPosts = apiFetch.mock.calls.filter(([url, options]) => (
+            url === '/api/v1/observations' && options?.method === 'POST'
+        ));
+        expect(draftPosts).toHaveLength(0);
+        expect(wrapper.find('[data-testid="capture-offline-banner-confirm"]').text()).toBe(
+            'Saved on this device — not on the Evidence Base until you reconnect',
+        );
+        expect(wrapper.find('[data-testid="capture-confirmation"]').text()).toContain('saved on this device');
+        expect(wrapper.find('[data-testid="capture-confirmation-id"]').text()).toContain('Device reference');
+        expect(wrapper.find('[data-testid="capture-confirmation-id"]').text()).toContain('local_');
+    });
+
+    it('queues draft when online save throws a network TypeError', async () => {
+        mockLoadSuccess();
+        apiFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
+        await wrapper.find('[data-testid="capture-occurred-at"]').setValue('2026-09-06T10:15');
+        await wrapper.find('[data-testid="capture-save-draft"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="capture-offline-banner-confirm"]').text()).toBe(
+            'Saved on this device — not on the Evidence Base until you reconnect',
+        );
+        const queued = await listOfflineDrafts();
+        expect(queued).toHaveLength(1);
+    });
+
+    it('updates the same offline queue id on a second offline save', async () => {
+        Object.defineProperty(navigator, 'onLine', {
+            configurable: true,
+            get: () => false,
+        });
+        mockLoadSuccess();
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
+        await wrapper.find('[data-testid="capture-occurred-at"]').setValue('2026-09-06T10:15');
+        await wrapper.find('[data-testid="capture-save-draft"]').trigger('click');
+        await flushPromises();
+
+        const firstId = wrapper.find('[data-testid="capture-confirmation-id"]').text();
+        expect(firstId).toContain('local_');
+
+        await wrapper.find('[data-testid="capture-keep-editing"]').trigger('click');
+        await flushPromises();
+        await wrapper.find('[data-testid="capture-body"]').setValue('Updated offline notes');
+        await wrapper.find('[data-testid="capture-save-draft"]').trigger('click');
+        await flushPromises();
+
+        const queued = await listOfflineDrafts();
+        expect(queued).toHaveLength(1);
+        expect(wrapper.find('[data-testid="capture-confirmation-id"]').text()).toBe(firstId);
+        expect(queued[0].payload.body).toBe('Updated offline notes');
+    });
+
+    it('sends hybrid client_type when Hybrid shell is active', async () => {
+        sessionStorage.setItem('guidely.client_type', 'hybrid');
+        mockLoadSuccess();
+        apiFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            json: async () => ({
+                data: {
+                    id: '01hobs1',
+                    type: 'observation',
+                    lifecycle: 'submitted',
+                    setting: { label: 'Classroom' },
+                },
+            }),
+        });
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
+        await wrapper.find('[data-testid="capture-setting"]').setValue('01hsetting1');
+        await wrapper.find('[data-testid="capture-body"]').setValue('Observed focus.');
+        await wrapper.find('[data-testid="capture-occurred-at"]').setValue('2026-09-06T10:15');
+        await wrapper.find('form').trigger('submit.prevent');
+        await flushPromises();
+
+        const body = JSON.parse(apiFetch.mock.calls.at(-1)[1].body);
+        expect(body.client_type).toBe('hybrid');
+        expect(apiFetch.mock.calls.at(-1)[1].headers['X-Client-Type']).toBe('hybrid');
     });
 });
