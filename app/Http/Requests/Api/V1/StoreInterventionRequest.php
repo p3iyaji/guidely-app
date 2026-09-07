@@ -3,14 +3,13 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Domain\Evidence\EvidenceRecord;
-use App\Domain\Tenancy\CurrentTenant;
-use Database\Seeders\ProvisionOntologySeeder;
+use App\Http\Requests\Api\V1\Concerns\ValidatesEvidenceCapture;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class StoreInterventionRequest extends FormRequest
 {
+    use ValidatesEvidenceCapture;
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', EvidenceRecord::class) ?? false;
@@ -26,45 +25,7 @@ class StoreInterventionRequest extends FormRequest
      */
     public function rules(): array
     {
-        $tenantId = CurrentTenant::id();
-        $draft = $this->isDraftIntent();
-
-        $activePublishedStubTerm = Rule::exists('provision_terms', 'id')->where(function ($query): void {
-            $query->where('is_active', true)
-                ->whereIn('ontology_version_id', function ($versionQuery): void {
-                    $versionQuery->select('id')
-                        ->from('ontology_versions')
-                        ->where('status', 'published')
-                        ->where('code', ProvisionOntologySeeder::STUB_VERSION_CODE);
-                });
-        });
-
-        return [
-            // Free-text provision labels are never accepted — Ontology term ids only.
-            'provision' => ['prohibited'],
-            // Observation / Response fields must not be submitted on Intervention create.
-            'setting' => ['prohibited'],
-            'setting_term_id' => ['prohibited'],
-            'related_intervention_id' => ['prohibited'],
-            'lifecycle' => ['sometimes', 'string', Rule::in(['draft'])],
-            'pupil_id' => [
-                'required',
-                'ulid',
-                Rule::exists('pupils', 'id')->where(function ($query) use ($tenantId): void {
-                    $query->where('tenant_id', $tenantId)
-                        ->whereNull('deleted_at');
-                }),
-            ],
-            'occurred_at' => ['required', 'date', 'before_or_equal:now'],
-            'provision_term_id' => [
-                Rule::requiredIf(! $draft),
-                'nullable',
-                'ulid',
-                $activePublishedStubTerm,
-            ],
-            'body' => ['nullable', 'string', 'max:5000'],
-            'client_type' => ['sometimes', 'string', Rule::in(['web', 'hybrid'])],
-        ];
+        return $this->interventionCreateRules($this->isDraftIntent());
     }
 
     /**
@@ -73,45 +34,16 @@ class StoreInterventionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'provision.prohibited' => 'Provision must use an Ontology term id, not a free-text label.',
+            ...$this->evidenceCaptureMessages(),
             'setting.prohibited' => 'Setting is not used for Interventions.',
             'setting_term_id.prohibited' => 'Setting is not used for Interventions.',
             'related_intervention_id.prohibited' => 'Related Intervention is not used for Interventions.',
-            'provision_term_id.required' => 'A Provision Ontology term is required.',
-            'provision_term_id.exists' => 'The selected Provision must be an active published Ontology term.',
-            'pupil_id.exists' => 'The selected Pupil could not be found.',
-            'occurred_at.before_or_equal' => 'Session date and time cannot be in the future.',
-            'client_type.in' => 'Client type must be web or hybrid.',
-            'lifecycle.in' => 'Lifecycle must be draft when saving a draft.',
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        $merge = [];
-
-        if ($this->exists('body') && is_string($this->input('body'))) {
-            $trimmed = Str::of($this->input('body'))->trim()->toString();
-            $merge['body'] = $trimmed === '' ? null : $trimmed;
-        }
-
-        if ($this->exists('provision_term_id') && $this->input('provision_term_id') === '') {
-            $merge['provision_term_id'] = null;
-        }
-
-        $clientType = $this->input('client_type')
-            ?? $this->header('X-Client-Type')
-            ?? $this->header('X-Guidely-Client-Type');
-
-        if (is_string($clientType) && $clientType !== '') {
-            $merge['client_type'] = Str::lower(trim($clientType));
-        } elseif (! $this->exists('client_type')) {
-            $merge['client_type'] = 'web';
-        }
-
-        if ($merge !== []) {
-            $this->merge($merge);
-        }
+        $this->prepareEvidenceCaptureForValidation(['provision_term_id']);
     }
 
     /**
