@@ -22,7 +22,16 @@ class EvidenceRecordResource extends JsonResource
             'id' => $this->id,
             'tenant_id' => $this->tenant_id,
             'pupil_id' => $this->pupil_id,
+            'pupil' => $this->whenLoaded('pupil', fn () => $this->pupil === null ? null : [
+                'id' => $this->pupil->id,
+                'given_name' => $this->pupil->given_name,
+                'family_name' => $this->pupil->family_name,
+            ]),
             'author_id' => $this->author_id,
+            'author' => $this->whenLoaded('author', fn () => $this->author === null ? null : [
+                'id' => $this->author->id,
+                'name' => $this->author->name,
+            ]),
             'type' => $this->type?->value,
             'lifecycle' => $this->lifecycle?->value,
             'occurred_at' => $this->occurred_at?->utc()->toIso8601String(),

@@ -88,4 +88,11 @@ class EvidenceRecordFactory extends Factory
             'related_intervention_id' => $intervention?->id,
         ]);
     }
+
+    public function draft(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'lifecycle' => EvidenceLifecycle::Draft,
+        ]);
+    }
 }

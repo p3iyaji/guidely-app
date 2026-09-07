@@ -27,6 +27,7 @@ import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
 import CapturePage from '../pages/CapturePage.vue';
+import DraftsPage from '../pages/DraftsPage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
@@ -202,6 +203,19 @@ describe('Role nav IA', () => {
         const leaf = resolved.matched[resolved.matched.length - 1];
 
         expect(leaf?.components?.default ?? leaf?.component).toBe(CapturePage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses DraftsPage for production drafts route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/drafts');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(DraftsPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 });

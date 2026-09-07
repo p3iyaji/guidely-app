@@ -21,7 +21,7 @@
                     ? 'border-border bg-surface-muted text-text font-semibold'
                     : 'border-border bg-surface text-text-muted'"
                 :aria-selected="mode === 'observation' ? 'true' : 'false'"
-                :disabled="submitting"
+                :disabled="submitting || savingDraft || Boolean(draftId)"
                 data-testid="capture-mode-observation"
                 @click="setMode('observation')"
             >
@@ -35,7 +35,7 @@
                     ? 'border-border bg-surface-muted text-text font-semibold'
                     : 'border-border bg-surface text-text-muted'"
                 :aria-selected="mode === 'intervention' ? 'true' : 'false'"
-                :disabled="submitting"
+                :disabled="submitting || savingDraft || Boolean(draftId)"
                 data-testid="capture-mode-intervention"
                 @click="setMode('intervention')"
             >
@@ -49,7 +49,7 @@
                     ? 'border-border bg-surface-muted text-text font-semibold'
                     : 'border-border bg-surface text-text-muted'"
                 :aria-selected="mode === 'response' ? 'true' : 'false'"
-                :disabled="submitting"
+                :disabled="submitting || savingDraft || Boolean(draftId)"
                 data-testid="capture-mode-response"
                 @click="setMode('response')"
             >
@@ -90,7 +90,7 @@
             >
                 Linked Intervention: {{ interventionLabel(confirmation.related_intervention) }}
             </p>
-            <div class="mt-4">
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <ButtonPrimary
                     class="min-h-11 w-full sm:w-auto"
                     data-testid="capture-another"
@@ -98,6 +98,22 @@
                 >
                     {{ captureAnotherLabel }}
                 </ButtonPrimary>
+                <ButtonOutline
+                    v-if="confirmationLifecycle === 'draft'"
+                    class="min-h-11 w-full sm:w-auto"
+                    data-testid="capture-keep-editing"
+                    @click="continueEditingDraft"
+                >
+                    Keep editing this draft
+                </ButtonOutline>
+                <RouterLink
+                    v-if="confirmationLifecycle === 'draft'"
+                    to="/drafts"
+                    class="inline-flex min-h-11 items-center justify-center rounded-md border border-border-strong bg-surface px-4 py-2 text-body font-medium text-text hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                    data-testid="capture-view-drafts"
+                >
+                    View Drafts
+                </RouterLink>
             </div>
         </Card>
 
@@ -116,11 +132,19 @@
                 <p class="text-body text-danger" role="alert">{{ loadError }}</p>
             </Card>
 
-            <Card
-                v-else
-                class="mt-6"
-                data-testid="capture-form-card"
-            >
+            <template v-else>
+                <Card
+                    v-if="draftLoadError"
+                    class="mt-6"
+                    data-testid="capture-draft-load-error"
+                >
+                    <p class="text-body text-danger" role="alert">{{ draftLoadError }}</p>
+                </Card>
+
+                <Card
+                    class="mt-6"
+                    data-testid="capture-form-card"
+                >
                 <form class="space-y-4" @submit.prevent="submitCapture">
                     <div>
                         <label class="block text-body text-text" for="capture-pupil">Pupil</label>
@@ -128,7 +152,8 @@
                             id="capture-pupil"
                             v-model="form.pupil_id"
                             required
-                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            :disabled="readOnlyDraft"
+                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-60"
                             data-testid="capture-pupil"
                             :aria-describedby="fieldErrors.pupil_id ? 'capture-pupil-error' : undefined"
                             :aria-invalid="fieldErrors.pupil_id ? 'true' : undefined"
@@ -167,7 +192,8 @@
                             v-model="form.occurred_at_local"
                             type="datetime-local"
                             required
-                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            :disabled="readOnlyDraft"
+                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-60"
                             data-testid="capture-occurred-at"
                             :aria-describedby="fieldErrors.occurred_at ? 'capture-occurred-at-error' : undefined"
                             :aria-invalid="fieldErrors.occurred_at ? 'true' : undefined"
@@ -188,8 +214,9 @@
                         <select
                             id="capture-setting"
                             v-model="form.setting_term_id"
-                            required
-                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            :required="typeSpecificFieldsRequired"
+                            :disabled="readOnlyDraft"
+                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-60"
                             data-testid="capture-setting"
                             :aria-describedby="settingDescribedBy"
                             :aria-invalid="fieldErrors.setting_term_id || settingsEmptyError ? 'true' : undefined"
@@ -228,8 +255,9 @@
                         <select
                             id="capture-provision"
                             v-model="form.provision_term_id"
-                            required
-                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            :required="typeSpecificFieldsRequired"
+                            :disabled="readOnlyDraft"
+                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-60"
                             data-testid="capture-provision"
                             :aria-describedby="provisionDescribedBy"
                             :aria-invalid="fieldErrors.provision_term_id || provisionsEmptyError ? 'true' : undefined"
@@ -270,9 +298,9 @@
                         <select
                             id="capture-related-intervention"
                             v-model="form.related_intervention_id"
-                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            class="mt-1 min-h-11 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-60"
                             data-testid="capture-related-intervention"
-                            :disabled="!form.pupil_id || interventionsLoading"
+                            :disabled="readOnlyDraft || !form.pupil_id || interventionsLoading"
                             :aria-busy="interventionsLoading ? 'true' : 'false'"
                             :aria-describedby="relatedInterventionDescribedBy"
                             :aria-invalid="fieldErrors.related_intervention_id ? 'true' : undefined"
@@ -318,10 +346,11 @@
                         <textarea
                             id="capture-body"
                             v-model="form.body"
-                            :required="mode !== 'intervention'"
+                            :required="typeSpecificFieldsRequired && mode !== 'intervention'"
+                            :disabled="readOnlyDraft"
                             rows="4"
                             maxlength="5000"
-                            class="mt-1 w-full max-w-2xl rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            class="mt-1 w-full max-w-2xl rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-60"
                             data-testid="capture-body"
                             :aria-describedby="fieldErrors.body ? 'capture-body-error' : undefined"
                             :aria-invalid="fieldErrors.body ? 'true' : undefined"
@@ -346,16 +375,35 @@
                         {{ submitError }}
                     </p>
 
-                    <ButtonPrimary
-                        type="submit"
-                        class="min-h-11 w-full sm:w-auto"
-                        :disabled="submitDisabled"
-                        data-testid="capture-submit"
+                    <p
+                        v-if="readOnlyDraft"
+                        class="text-body text-text-muted"
+                        data-testid="capture-draft-readonly"
                     >
-                        {{ submitting ? 'Submitting…' : submitLabel }}
-                    </ButtonPrimary>
+                        This draft belongs to another author. You can view it but cannot update or submit it.
+                    </p>
+
+                    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                        <ButtonPrimary
+                            type="submit"
+                            class="min-h-11 w-full sm:w-auto"
+                            :disabled="submitDisabled || readOnlyDraft"
+                            data-testid="capture-submit"
+                        >
+                            {{ submitting ? 'Submitting…' : submitLabel }}
+                        </ButtonPrimary>
+                        <ButtonOutline
+                            class="min-h-11 w-full sm:w-auto"
+                            :disabled="draftSaveDisabled || readOnlyDraft"
+                            data-testid="capture-save-draft"
+                            @click="saveDraft"
+                        >
+                            {{ savingDraft ? 'Saving draft…' : 'Save draft' }}
+                        </ButtonOutline>
+                    </div>
                 </form>
             </Card>
+            </template>
         </template>
     </div>
 </template>
@@ -364,13 +412,18 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { apiFetch } from '../api/client';
+import { useSession } from '../features/auth/session';
+import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import Card from '../shared/ui/Card.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 
 const route = useRoute();
+const session = useSession();
 
 const mode = ref('observation');
+const draftId = ref('');
+const draftAuthorId = ref('');
 const pupils = ref([]);
 const settingTerms = ref([]);
 const provisionTerms = ref([]);
@@ -381,9 +434,11 @@ const interventionsEmptyMessage = ref('');
 let interventionsLoadToken = 0;
 const loading = ref(true);
 const loadError = ref('');
+const draftLoadError = ref('');
 const settingsEmptyError = ref('');
 const provisionsEmptyError = ref('');
 const submitting = ref(false);
+const savingDraft = ref(false);
 const submitError = ref('');
 const confirmation = ref(null);
 
@@ -453,9 +508,23 @@ const submitLabel = computed(() => {
     return 'Submit Observation';
 });
 
+const confirmationLifecycle = computed(() => confirmation.value?.lifecycle ?? '');
+
 const confirmationType = computed(() => confirmation.value?.type ?? '');
 
 const confirmationTitle = computed(() => {
+    if (confirmationLifecycle.value === 'draft') {
+        if (confirmationType.value === 'intervention') {
+            return 'Intervention draft saved';
+        }
+
+        if (confirmationType.value === 'response') {
+            return 'Pupil Response draft saved';
+        }
+
+        return 'Observation draft saved';
+    }
+
     if (confirmationType.value === 'intervention') {
         return 'Intervention submitted';
     }
@@ -468,6 +537,10 @@ const confirmationTitle = computed(() => {
 });
 
 const confirmationBlurb = computed(() => {
+    if (confirmationLifecycle.value === 'draft') {
+        return 'The draft is saved on the server. It will not enter SRE until you submit.';
+    }
+
     if (confirmationType.value === 'intervention') {
         return 'The Intervention is on the Evidence Base path as a submitted record.';
     }
@@ -480,6 +553,10 @@ const confirmationBlurb = computed(() => {
 });
 
 const captureAnotherLabel = computed(() => {
+    if (confirmationLifecycle.value === 'draft') {
+        return 'Continue capturing';
+    }
+
     if (confirmationType.value === 'intervention') {
         return 'Capture another Intervention';
     }
@@ -491,8 +568,25 @@ const captureAnotherLabel = computed(() => {
     return 'Capture another Observation';
 });
 
+const readOnlyDraft = computed(() => {
+    if (!draftId.value) {
+        return false;
+    }
+
+    const currentUserId = session.user.value?.id;
+
+    if (!currentUserId || !draftAuthorId.value) {
+        return true;
+    }
+
+    return String(draftAuthorId.value) !== String(currentUserId);
+});
+
+/** HTML required on Ontology/body fields — relaxed while editing an existing draft. */
+const typeSpecificFieldsRequired = computed(() => !draftId.value);
+
 const submitDisabled = computed(() => {
-    if (submitting.value || pupils.value.length === 0) {
+    if (submitting.value || savingDraft.value || pupils.value.length === 0) {
         return true;
     }
 
@@ -505,6 +599,14 @@ const submitDisabled = computed(() => {
     }
 
     return false;
+});
+
+const draftSaveDisabled = computed(() => {
+    return submitting.value
+        || savingDraft.value
+        || pupils.value.length === 0
+        || !form.pupil_id
+        || !form.occurred_at_local;
 });
 
 const settingDescribedBy = computed(() => {
@@ -569,13 +671,32 @@ watch(() => form.pupil_id, async (pupilId) => {
 
 onMounted(async () => {
     await loadFormData();
+
+    const queryDraftId = draftIdFromQuery(route.query.draft);
+
+    if (queryDraftId) {
+        await loadDraft(queryDraftId);
+    }
 });
 
+/**
+ * @param {unknown} queryDraft
+ * @returns {string}
+ */
+function draftIdFromQuery(queryDraft) {
+    if (Array.isArray(queryDraft)) {
+        const first = queryDraft.find((value) => typeof value === 'string' && value !== '');
+
+        return typeof first === 'string' ? first : '';
+    }
+
+    return typeof queryDraft === 'string' && queryDraft !== '' ? queryDraft : '';
+}
 /**
  * @param {'observation'|'intervention'|'response'} nextMode
  */
 function setMode(nextMode) {
-    if (submitting.value || mode.value === nextMode) {
+    if (submitting.value || savingDraft.value || mode.value === nextMode || draftId.value) {
         return;
     }
 
@@ -679,7 +800,10 @@ function clearFieldErrors() {
 function resetForm() {
     confirmation.value = null;
     submitError.value = '';
+    draftLoadError.value = '';
     clearFieldErrors();
+    draftId.value = '';
+    draftAuthorId.value = '';
     form.pupil_id = '';
     form.occurred_at_local = defaultLocalDateTime();
     form.setting_term_id = '';
@@ -689,6 +813,213 @@ function resetForm() {
     invalidateInterventionsLoad();
     interventions.value = [];
     interventionsEmptyMessage.value = '';
+}
+
+function continueEditingDraft() {
+    confirmation.value = null;
+    submitError.value = '';
+    clearFieldErrors();
+}
+
+/**
+ * @param {string|undefined} iso
+ */
+function toLocalDateTimeInput(iso) {
+    if (!iso) {
+        return defaultLocalDateTime();
+    }
+
+    const parsed = new Date(iso);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return defaultLocalDateTime();
+    }
+
+    const pad = (value) => String(value).padStart(2, '0');
+
+    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+}
+
+/**
+ * @param {string} id
+ */
+async function loadDraft(id) {
+    draftLoadError.value = '';
+
+    try {
+        const response = await apiFetch(`/api/v1/drafts/${id}`);
+
+        if (!response.ok) {
+            draftLoadError.value = 'Unable to open that draft. You can still capture a new record.';
+
+            return;
+        }
+
+        const payload = await response.json();
+        const draft = payload.data;
+
+        if (!draft?.id) {
+            draftLoadError.value = 'Unable to open that draft. You can still capture a new record.';
+
+            return;
+        }
+
+        draftId.value = draft.id;
+        draftAuthorId.value = draft.author_id != null ? String(draft.author_id) : '';
+        mode.value = draft.type === 'intervention' || draft.type === 'response'
+            ? draft.type
+            : 'observation';
+        form.pupil_id = draft.pupil_id ?? '';
+        form.occurred_at_local = toLocalDateTimeInput(draft.occurred_at);
+        form.setting_term_id = draft.setting?.id ?? '';
+        form.provision_term_id = draft.provision?.id ?? '';
+        form.related_intervention_id = draft.related_intervention_id ?? '';
+        form.body = draft.body ?? '';
+
+        if (mode.value === 'response' && form.pupil_id) {
+            await loadInterventionsForPupil(form.pupil_id);
+        }
+    } catch {
+        draftLoadError.value = 'Unable to open that draft. You can still capture a new record.';
+    }
+}
+
+/**
+ * @returns {Record<string, unknown>|null}
+ */
+function buildCaptureBody() {
+    const occurredAt = toUtcIso(form.occurred_at_local);
+
+    if (!occurredAt) {
+        fieldErrors.occurred_at = 'Enter a valid session date and time.';
+
+        return null;
+    }
+
+    if (mode.value === 'intervention') {
+        return {
+            pupil_id: form.pupil_id,
+            occurred_at: occurredAt,
+            provision_term_id: form.provision_term_id || null,
+            body: form.body || null,
+            client_type: 'web',
+        };
+    }
+
+    if (mode.value === 'response') {
+        return {
+            pupil_id: form.pupil_id,
+            occurred_at: occurredAt,
+            related_intervention_id: form.related_intervention_id || null,
+            body: form.body || null,
+            client_type: 'web',
+        };
+    }
+
+    return {
+        pupil_id: form.pupil_id,
+        occurred_at: occurredAt,
+        setting_term_id: form.setting_term_id || null,
+        body: form.body || null,
+        client_type: 'web',
+    };
+}
+
+/**
+ * @returns {string}
+ */
+function createEndpoint() {
+    if (mode.value === 'intervention') {
+        return '/api/v1/interventions';
+    }
+
+    if (mode.value === 'response') {
+        return '/api/v1/responses';
+    }
+
+    return '/api/v1/observations';
+}
+
+/**
+ * @param {Record<string, string[]|undefined>} errors
+ */
+function applyFieldErrors(errors) {
+    fieldErrors.pupil_id = errors.pupil_id?.[0] ?? '';
+    fieldErrors.occurred_at = errors.occurred_at?.[0] ?? '';
+    fieldErrors.setting_term_id = errors.setting_term_id?.[0] ?? errors.setting?.[0] ?? '';
+    fieldErrors.provision_term_id = errors.provision_term_id?.[0] ?? errors.provision?.[0] ?? '';
+    fieldErrors.related_intervention_id = errors.related_intervention_id?.[0] ?? '';
+    fieldErrors.body = errors.body?.[0] ?? '';
+}
+
+async function saveDraft() {
+    if (draftSaveDisabled.value || readOnlyDraft.value || savingDraft.value) {
+        return;
+    }
+
+    savingDraft.value = true;
+    clearFieldErrors();
+    submitError.value = '';
+
+    try {
+        const body = buildCaptureBody();
+
+        if (!body) {
+            return;
+        }
+
+        const response = draftId.value
+            ? await apiFetch(`/api/v1/drafts/${draftId.value}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client-Type': 'web',
+                },
+                body: JSON.stringify(body),
+            })
+            : await apiFetch(createEndpoint(), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client-Type': 'web',
+                },
+                body: JSON.stringify({
+                    ...body,
+                    lifecycle: 'draft',
+                }),
+            });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (response.status === 422) {
+            applyFieldErrors(payload.errors ?? {});
+            submitError.value = payload.message ?? 'Please correct the highlighted fields.';
+
+            return;
+        }
+
+        if (!response.ok) {
+            submitError.value = payload.message ?? 'Unable to save draft.';
+
+            return;
+        }
+
+        if (!payload.data?.id) {
+            submitError.value = 'Draft was accepted but no record reference was returned.';
+
+            return;
+        }
+
+        draftId.value = payload.data.id;
+        draftAuthorId.value = payload.data.author_id != null
+            ? String(payload.data.author_id)
+            : draftAuthorId.value;
+        confirmation.value = payload.data;
+    } catch {
+        submitError.value = 'Unable to save draft.';
+    } finally {
+        savingDraft.value = false;
+    }
 }
 
 function invalidateInterventionsLoad() {
@@ -817,204 +1148,94 @@ async function submitCapture() {
     await submitObservation();
 }
 
-async function submitObservation() {
-    if (submitting.value || submitDisabled.value) {
+/**
+ * @param {string} failureMessage
+ * @param {string} missingIdMessage
+ */
+async function submitCurrentCapture(failureMessage, missingIdMessage) {
+    if (submitting.value || submitDisabled.value || readOnlyDraft.value) {
         return;
     }
 
     clearFieldErrors();
     submitError.value = '';
 
-    const occurredAt = toUtcIso(form.occurred_at_local);
+    const body = buildCaptureBody();
 
-    if (!occurredAt) {
-        fieldErrors.occurred_at = 'Enter a valid session date and time.';
-
+    if (!body) {
         return;
     }
 
     submitting.value = true;
 
     try {
-        const response = await apiFetch('/api/v1/observations', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Client-Type': 'web',
-            },
-            body: JSON.stringify({
-                pupil_id: form.pupil_id,
-                occurred_at: occurredAt,
-                setting_term_id: form.setting_term_id,
-                body: form.body,
-                client_type: 'web',
-            }),
-        });
+        const response = draftId.value
+            ? await apiFetch(`/api/v1/drafts/${draftId.value}/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client-Type': 'web',
+                },
+                body: JSON.stringify(body),
+            })
+            : await apiFetch(createEndpoint(), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client-Type': 'web',
+                },
+                body: JSON.stringify(body),
+            });
 
         const payload = await response.json().catch(() => ({}));
 
         if (response.status === 422) {
-            const errors = payload.errors ?? {};
-            fieldErrors.pupil_id = errors.pupil_id?.[0] ?? '';
-            fieldErrors.occurred_at = errors.occurred_at?.[0] ?? '';
-            fieldErrors.setting_term_id = errors.setting_term_id?.[0] ?? errors.setting?.[0] ?? '';
-            fieldErrors.body = errors.body?.[0] ?? '';
+            applyFieldErrors(payload.errors ?? {});
             submitError.value = payload.message ?? 'Please correct the highlighted fields.';
 
             return;
         }
 
         if (!response.ok) {
-            submitError.value = payload.message ?? 'Unable to submit Observation.';
+            submitError.value = payload.message ?? failureMessage;
 
             return;
         }
 
         if (!payload.data?.id) {
-            submitError.value = 'Observation was accepted but no record reference was returned.';
+            submitError.value = missingIdMessage;
 
             return;
         }
 
+        draftId.value = '';
+        draftAuthorId.value = '';
         confirmation.value = payload.data;
     } catch {
-        submitError.value = 'Unable to submit Observation.';
+        submitError.value = failureMessage;
     } finally {
         submitting.value = false;
     }
+}
+
+async function submitObservation() {
+    await submitCurrentCapture(
+        'Unable to submit Observation.',
+        'Observation was accepted but no record reference was returned.',
+    );
 }
 
 async function submitIntervention() {
-    if (submitting.value || submitDisabled.value) {
-        return;
-    }
-
-    clearFieldErrors();
-    submitError.value = '';
-
-    const occurredAt = toUtcIso(form.occurred_at_local);
-
-    if (!occurredAt) {
-        fieldErrors.occurred_at = 'Enter a valid session date and time.';
-
-        return;
-    }
-
-    submitting.value = true;
-
-    try {
-        const response = await apiFetch('/api/v1/interventions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Client-Type': 'web',
-            },
-            body: JSON.stringify({
-                pupil_id: form.pupil_id,
-                occurred_at: occurredAt,
-                provision_term_id: form.provision_term_id,
-                body: form.body || null,
-                client_type: 'web',
-            }),
-        });
-
-        const payload = await response.json().catch(() => ({}));
-
-        if (response.status === 422) {
-            const errors = payload.errors ?? {};
-            fieldErrors.pupil_id = errors.pupil_id?.[0] ?? '';
-            fieldErrors.occurred_at = errors.occurred_at?.[0] ?? '';
-            fieldErrors.provision_term_id = errors.provision_term_id?.[0] ?? errors.provision?.[0] ?? '';
-            fieldErrors.body = errors.body?.[0] ?? '';
-            submitError.value = payload.message ?? 'Please correct the highlighted fields.';
-
-            return;
-        }
-
-        if (!response.ok) {
-            submitError.value = payload.message ?? 'Unable to submit Intervention.';
-
-            return;
-        }
-
-        if (!payload.data?.id) {
-            submitError.value = 'Intervention was accepted but no record reference was returned.';
-
-            return;
-        }
-
-        confirmation.value = payload.data;
-    } catch {
-        submitError.value = 'Unable to submit Intervention.';
-    } finally {
-        submitting.value = false;
-    }
+    await submitCurrentCapture(
+        'Unable to submit Intervention.',
+        'Intervention was accepted but no record reference was returned.',
+    );
 }
 
 async function submitResponse() {
-    if (submitting.value || submitDisabled.value) {
-        return;
-    }
-
-    clearFieldErrors();
-    submitError.value = '';
-
-    const occurredAt = toUtcIso(form.occurred_at_local);
-
-    if (!occurredAt) {
-        fieldErrors.occurred_at = 'Enter a valid session date and time.';
-
-        return;
-    }
-
-    submitting.value = true;
-
-    try {
-        const response = await apiFetch('/api/v1/responses', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Client-Type': 'web',
-            },
-            body: JSON.stringify({
-                pupil_id: form.pupil_id,
-                occurred_at: occurredAt,
-                related_intervention_id: form.related_intervention_id || null,
-                body: form.body,
-                client_type: 'web',
-            }),
-        });
-
-        const payload = await response.json().catch(() => ({}));
-
-        if (response.status === 422) {
-            const errors = payload.errors ?? {};
-            fieldErrors.pupil_id = errors.pupil_id?.[0] ?? '';
-            fieldErrors.occurred_at = errors.occurred_at?.[0] ?? '';
-            fieldErrors.related_intervention_id = errors.related_intervention_id?.[0] ?? '';
-            fieldErrors.body = errors.body?.[0] ?? '';
-            submitError.value = payload.message ?? 'Please correct the highlighted fields.';
-
-            return;
-        }
-
-        if (!response.ok) {
-            submitError.value = payload.message ?? 'Unable to submit Pupil Response.';
-
-            return;
-        }
-
-        if (!payload.data?.id) {
-            submitError.value = 'Pupil Response was accepted but no record reference was returned.';
-
-            return;
-        }
-
-        confirmation.value = payload.data;
-    } catch {
-        submitError.value = 'Unable to submit Pupil Response.';
-    } finally {
-        submitting.value = false;
-    }
+    await submitCurrentCapture(
+        'Unable to submit Pupil Response.',
+        'Pupil Response was accepted but no record reference was returned.',
+    );
 }
 </script>

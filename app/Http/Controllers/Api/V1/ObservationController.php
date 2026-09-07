@@ -24,13 +24,16 @@ class ObservationController extends Controller
     public function store(StoreObservationRequest $request): JsonResponse
     {
         $payload = $request->observationPayload();
+        $lifecycle = $payload['lifecycle'] === 'draft'
+            ? EvidenceLifecycle::Draft
+            : EvidenceLifecycle::Submitted;
 
         /** @var Pupil $pupil */
         $pupil = Pupil::query()->findOrFail($payload['pupil_id']);
 
         $this->authorize('createForPupil', [EvidenceRecord::class, $pupil]);
 
-        $record = DB::transaction(function () use ($request, $payload, $pupil): EvidenceRecord {
+        $record = DB::transaction(function () use ($request, $payload, $pupil, $lifecycle): EvidenceRecord {
             $record = new EvidenceRecord([
                 'pupil_id' => $pupil->id,
                 'author_id' => $request->user()->id,
@@ -40,10 +43,10 @@ class ObservationController extends Controller
             ]);
             $record->forceFill([
                 'type' => EvidenceType::Observation,
-                'lifecycle' => EvidenceLifecycle::Submitted,
+                'lifecycle' => $lifecycle,
             ])->save();
 
-            $record->load(['settingTerm']);
+            $record->load(['settingTerm', 'pupil']);
 
             $this->audit->record(
                 AuditEventType::EvidenceObservationCreated,
@@ -65,7 +68,9 @@ class ObservationController extends Controller
             return $record;
         });
 
-        $this->enqueueSreReevaluation($pupil);
+        if ($lifecycle === EvidenceLifecycle::Submitted) {
+            $this->enqueueSreReevaluation($pupil);
+        }
 
         return (new EvidenceRecordResource($record))
             ->response()

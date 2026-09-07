@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\DraftController;
 use App\Http\Controllers\Api\V1\FeatureFlagController;
 use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\ImportController;
@@ -68,6 +69,14 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.interventions.store');
         Route::post('/responses', [ResponseController::class, 'store'])
             ->name('api.v1.responses.store');
+        Route::get('/drafts', [DraftController::class, 'index'])
+            ->name('api.v1.drafts.index');
+        Route::get('/drafts/{draft}', [DraftController::class, 'show'])
+            ->name('api.v1.drafts.show');
+        Route::patch('/drafts/{draft}', [DraftController::class, 'update'])
+            ->name('api.v1.drafts.update');
+        Route::post('/drafts/{draft}/submit', [DraftController::class, 'submit'])
+            ->name('api.v1.drafts.submit');
         Route::get('/pupils/{pupil}/interventions', [PupilInterventionController::class, 'index'])
             ->name('api.v1.pupils.interventions.index');
         Route::get('/ontology/setting-terms', [SettingTermController::class, 'index'])

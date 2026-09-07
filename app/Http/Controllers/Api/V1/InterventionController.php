@@ -24,13 +24,16 @@ class InterventionController extends Controller
     public function store(StoreInterventionRequest $request): JsonResponse
     {
         $payload = $request->interventionPayload();
+        $lifecycle = $payload['lifecycle'] === 'draft'
+            ? EvidenceLifecycle::Draft
+            : EvidenceLifecycle::Submitted;
 
         /** @var Pupil $pupil */
         $pupil = Pupil::query()->findOrFail($payload['pupil_id']);
 
         $this->authorize('createForPupil', [EvidenceRecord::class, $pupil]);
 
-        $record = DB::transaction(function () use ($request, $payload, $pupil): EvidenceRecord {
+        $record = DB::transaction(function () use ($request, $payload, $pupil, $lifecycle): EvidenceRecord {
             $record = new EvidenceRecord([
                 'pupil_id' => $pupil->id,
                 'author_id' => $request->user()->id,
@@ -40,10 +43,10 @@ class InterventionController extends Controller
             ]);
             $record->forceFill([
                 'type' => EvidenceType::Intervention,
-                'lifecycle' => EvidenceLifecycle::Submitted,
+                'lifecycle' => $lifecycle,
             ])->save();
 
-            $record->load(['provisionTerm']);
+            $record->load(['provisionTerm', 'pupil']);
 
             $this->audit->record(
                 AuditEventType::EvidenceInterventionCreated,
@@ -65,7 +68,9 @@ class InterventionController extends Controller
             return $record;
         });
 
-        $this->enqueueSreReevaluation($pupil);
+        if ($lifecycle === EvidenceLifecycle::Submitted) {
+            $this->enqueueSreReevaluation($pupil);
+        }
 
         return (new EvidenceRecordResource($record))
             ->response()

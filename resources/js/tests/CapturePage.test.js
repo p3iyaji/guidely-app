@@ -8,14 +8,23 @@ vi.mock('../api/client.js', () => ({
     apiFetch: vi.fn(),
 }));
 
+const routeState = {
+    name: 'capture',
+    meta: {},
+    query: /** @type {Record<string, string|string[]>} */ ({}),
+};
+
 vi.mock('vue-router', () => ({
-    useRoute: () => ({
-        name: 'capture',
-        meta: {},
-    }),
+    useRoute: () => routeState,
+    RouterLink: {
+        name: 'RouterLink',
+        props: ['to'],
+        template: '<a><slot /></a>',
+    },
 }));
 
 import { apiFetch } from '../api/client.js';
+import { useSession } from '../features/auth/session.js';
 
 function mockLoadSuccess() {
     apiFetch
@@ -57,20 +66,41 @@ function mockLoadSuccess() {
         });
 }
 
+function mountCapture() {
+    return mount(CapturePage, {
+        global: {
+            stubs: {
+                RouterLink: {
+                    props: ['to'],
+                    template: '<a><slot /></a>',
+                },
+            },
+        },
+    });
+}
+
 describe('CapturePage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         document.title = '';
+        routeState.query = {};
+        useSession().setUser({
+            id: '01hteacher1',
+            role: 'teacher',
+            given_name: 'Alex',
+            family_name: 'Teacher',
+        });
     });
 
     afterEach(() => {
+        useSession().setUser(null);
         vi.restoreAllMocks();
     });
 
     it('loads pupils and setting terms into the capture form', async () => {
         mockLoadSuccess();
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         expect(apiFetch).toHaveBeenCalledWith('/api/v1/pupils');
@@ -94,7 +124,7 @@ describe('CapturePage', () => {
                 json: async () => ({ data: [{ id: '01hprovision1', code: 'UNIVERSAL', label: 'Universal classroom strategies' }] }),
             });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         expect(wrapper.find('[data-testid="capture-error"]').text())
@@ -113,7 +143,7 @@ describe('CapturePage', () => {
                 json: async () => ({ data: [{ id: '01hprovision1', code: 'UNIVERSAL', label: 'Universal classroom strategies' }] }),
             });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         expect(wrapper.find('[data-testid="capture-error"]').exists()).toBe(false);
@@ -135,7 +165,7 @@ describe('CapturePage', () => {
             })
             .mockResolvedValueOnce({ ok: false });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         expect(wrapper.find('[data-testid="capture-error"]').exists()).toBe(false);
@@ -159,7 +189,7 @@ describe('CapturePage', () => {
                 json: async () => ({ data: [] }),
             });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         expect(wrapper.find('[data-testid="capture-submit"]').attributes('disabled')).toBeUndefined();
@@ -187,7 +217,7 @@ describe('CapturePage', () => {
                 json: async () => ({ data: [{ id: '01hprovision1', code: 'UNIVERSAL', label: 'Universal classroom strategies' }] }),
             });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         expect(wrapper.find('[data-testid="capture-settings-empty"]').text())
@@ -210,7 +240,7 @@ describe('CapturePage', () => {
                 json: async () => ({ data: { id: 'also-not-an-array' } }),
             });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         expect(wrapper.find('[data-testid="capture-pupils-empty"]').exists()).toBe(true);
@@ -233,7 +263,7 @@ describe('CapturePage', () => {
             }),
         });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
@@ -277,7 +307,7 @@ describe('CapturePage', () => {
             }),
         });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-mode-intervention"]').trigger('click');
@@ -328,7 +358,7 @@ describe('CapturePage', () => {
             }),
         });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-mode-intervention"]').trigger('click');
@@ -349,7 +379,7 @@ describe('CapturePage', () => {
             json: async () => ({ data: {} }),
         });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
@@ -372,7 +402,7 @@ describe('CapturePage', () => {
             json: async () => ({ data: {} }),
         });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-mode-intervention"]').trigger('click');
@@ -401,7 +431,7 @@ describe('CapturePage', () => {
             }),
         });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
@@ -449,7 +479,7 @@ describe('CapturePage', () => {
                 }),
             });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-mode-response"]').trigger('click');
@@ -502,7 +532,7 @@ describe('CapturePage', () => {
             json: async () => ({ data: [] }),
         });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-mode-response"]').trigger('click');
@@ -535,7 +565,7 @@ describe('CapturePage', () => {
                 }),
             });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-mode-response"]').trigger('click');
@@ -564,7 +594,7 @@ describe('CapturePage', () => {
                 json: async () => ({ data: {} }),
             });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-mode-response"]').trigger('click');
@@ -584,7 +614,7 @@ describe('CapturePage', () => {
         mockLoadSuccess();
         apiFetch.mockResolvedValueOnce({ ok: false });
 
-        const wrapper = mount(CapturePage);
+        const wrapper = mountCapture();
         await flushPromises();
 
         await wrapper.find('[data-testid="capture-mode-response"]').trigger('click');
@@ -593,5 +623,216 @@ describe('CapturePage', () => {
 
         expect(wrapper.find('[data-testid="capture-interventions-empty"]').text())
             .toContain('Unable to load Interventions for this Pupil.');
+    });
+
+    it('saves an Observation draft with lifecycle draft and shows confirmation id', async () => {
+        mockLoadSuccess();
+        apiFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            json: async () => ({
+                data: {
+                    id: '01hdraft1',
+                    type: 'observation',
+                    lifecycle: 'draft',
+                    author_id: '01hteacher1',
+                    pupil_id: '01hpupil1',
+                },
+            }),
+        });
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="capture-save-draft"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="capture-save-draft"]').classes().join(' ')).toContain('min-h-11');
+
+        await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
+        await wrapper.find('[data-testid="capture-occurred-at"]').setValue('2026-09-06T10:15');
+        await wrapper.find('[data-testid="capture-save-draft"]').trigger('click');
+        await flushPromises();
+
+        const draftCall = apiFetch.mock.calls.find(([url, options]) => (
+            url === '/api/v1/observations' && options?.body?.includes('"lifecycle":"draft"')
+        ));
+        expect(draftCall).toBeTruthy();
+        expect(wrapper.find('[data-testid="capture-confirmation"]').text()).toContain('Observation draft saved');
+        expect(wrapper.find('[data-testid="capture-confirmation-id"]').text()).toContain('01hdraft1');
+        expect(wrapper.find('[data-testid="capture-keep-editing"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="capture-view-drafts"]').exists()).toBe(true);
+    });
+
+    it('hydrates from ?draft= query and PATCHes on later save', async () => {
+        routeState.query = { draft: '01hdraft1' };
+        mockLoadSuccess();
+        apiFetch
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: {
+                        id: '01hdraft1',
+                        type: 'observation',
+                        lifecycle: 'draft',
+                        author_id: '01hteacher1',
+                        pupil_id: '01hpupil1',
+                        occurred_at: '2026-09-06T09:00:00.000Z',
+                        setting: { id: '01hsetting1', code: 'CLASSROOM', label: 'Classroom' },
+                        body: 'Partial notes',
+                    },
+                }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: {
+                        id: '01hdraft1',
+                        type: 'observation',
+                        lifecycle: 'draft',
+                        author_id: '01hteacher1',
+                        pupil_id: '01hpupil1',
+                        body: 'Updated notes',
+                    },
+                }),
+            });
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        expect(apiFetch).toHaveBeenCalledWith('/api/v1/drafts/01hdraft1');
+        expect(wrapper.find('[data-testid="capture-body"]').element.value).toContain('Partial notes');
+
+        await wrapper.find('[data-testid="capture-body"]').setValue('Updated notes');
+        await wrapper.find('[data-testid="capture-save-draft"]').trigger('click');
+        await flushPromises();
+
+        const patchCall = apiFetch.mock.calls.find(([url, options]) => (
+            url === '/api/v1/drafts/01hdraft1' && options?.method === 'PATCH'
+        ));
+        expect(patchCall).toBeTruthy();
+    });
+
+    it('submits an existing draft via /drafts/{id}/submit', async () => {
+        routeState.query = { draft: '01hdraft1' };
+        mockLoadSuccess();
+        apiFetch
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: {
+                        id: '01hdraft1',
+                        type: 'observation',
+                        lifecycle: 'draft',
+                        author_id: '01hteacher1',
+                        pupil_id: '01hpupil1',
+                        occurred_at: '2026-09-06T09:00:00.000Z',
+                        setting: { id: '01hsetting1', code: 'CLASSROOM', label: 'Classroom' },
+                        body: 'Ready to submit',
+                    },
+                }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    data: {
+                        id: '01hdraft1',
+                        type: 'observation',
+                        lifecycle: 'submitted',
+                        author_id: '01hteacher1',
+                    },
+                }),
+            });
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        await wrapper.find('form').trigger('submit.prevent');
+        await flushPromises();
+
+        const submitCall = apiFetch.mock.calls.find(([url, options]) => (
+            url === '/api/v1/drafts/01hdraft1/submit' && options?.method === 'POST'
+        ));
+        expect(submitCall).toBeTruthy();
+        expect(wrapper.find('[data-testid="capture-confirmation"]').text()).toContain('Observation submitted');
+    });
+
+    it('treats non-author drafts as read-only and disables inputs', async () => {
+        routeState.query = { draft: '01hdraft1' };
+        mockLoadSuccess();
+        apiFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: {
+                    id: '01hdraft1',
+                    type: 'observation',
+                    lifecycle: 'draft',
+                    author_id: '01hother1',
+                    pupil_id: '01hpupil1',
+                    occurred_at: '2026-09-06T09:00:00.000Z',
+                    body: 'Someone else wrote this',
+                },
+            }),
+        });
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="capture-draft-readonly"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="capture-pupil"]').attributes('disabled')).toBeDefined();
+        expect(wrapper.find('[data-testid="capture-save-draft"]').attributes('disabled')).toBeDefined();
+        expect(wrapper.find('[data-testid="capture-submit"]').attributes('disabled')).toBeDefined();
+    });
+
+    it('soft-fails draft load and still shows the capture form', async () => {
+        routeState.query = { draft: ['01hdraft1'] };
+        mockLoadSuccess();
+        apiFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="capture-draft-load-error"]').text())
+            .toContain('Unable to open that draft');
+        expect(wrapper.find('[data-testid="capture-form-card"]').exists()).toBe(true);
+    });
+
+    it('prevents double draft POST while a save is in flight', async () => {
+        mockLoadSuccess();
+
+        let resolveSave;
+        const savePromise = new Promise((resolve) => {
+            resolveSave = resolve;
+        });
+
+        apiFetch.mockImplementationOnce(() => savePromise);
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
+        await wrapper.find('[data-testid="capture-occurred-at"]').setValue('2026-09-06T10:15');
+
+        const clickOne = wrapper.find('[data-testid="capture-save-draft"]').trigger('click');
+        await wrapper.find('[data-testid="capture-save-draft"]').trigger('click');
+
+        resolveSave({
+            ok: true,
+            status: 201,
+            json: async () => ({
+                data: {
+                    id: '01hdraft1',
+                    type: 'observation',
+                    lifecycle: 'draft',
+                    author_id: '01hteacher1',
+                },
+            }),
+        });
+        await clickOne;
+        await flushPromises();
+
+        const draftPosts = apiFetch.mock.calls.filter(([url, options]) => (
+            url === '/api/v1/observations' && options?.body?.includes('"lifecycle":"draft"')
+        ));
+        expect(draftPosts).toHaveLength(1);
     });
 });

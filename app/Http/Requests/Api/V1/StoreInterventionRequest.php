@@ -16,12 +16,18 @@ class StoreInterventionRequest extends FormRequest
         return $this->user()?->can('create', EvidenceRecord::class) ?? false;
     }
 
+    public function isDraftIntent(): bool
+    {
+        return $this->input('lifecycle') === 'draft';
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         $tenantId = CurrentTenant::id();
+        $draft = $this->isDraftIntent();
 
         $activePublishedStubTerm = Rule::exists('provision_terms', 'id')->where(function ($query): void {
             $query->where('is_active', true)
@@ -40,6 +46,7 @@ class StoreInterventionRequest extends FormRequest
             'setting' => ['prohibited'],
             'setting_term_id' => ['prohibited'],
             'related_intervention_id' => ['prohibited'],
+            'lifecycle' => ['sometimes', 'string', Rule::in(['draft'])],
             'pupil_id' => [
                 'required',
                 'ulid',
@@ -50,7 +57,8 @@ class StoreInterventionRequest extends FormRequest
             ],
             'occurred_at' => ['required', 'date', 'before_or_equal:now'],
             'provision_term_id' => [
-                'required',
+                Rule::requiredIf(! $draft),
+                'nullable',
                 'ulid',
                 $activePublishedStubTerm,
             ],
@@ -74,6 +82,7 @@ class StoreInterventionRequest extends FormRequest
             'pupil_id.exists' => 'The selected Pupil could not be found.',
             'occurred_at.before_or_equal' => 'Session date and time cannot be in the future.',
             'client_type.in' => 'Client type must be web or hybrid.',
+            'lifecycle.in' => 'Lifecycle must be draft when saving a draft.',
         ];
     }
 
@@ -84,6 +93,10 @@ class StoreInterventionRequest extends FormRequest
         if ($this->exists('body') && is_string($this->input('body'))) {
             $trimmed = Str::of($this->input('body'))->trim()->toString();
             $merge['body'] = $trimmed === '' ? null : $trimmed;
+        }
+
+        if ($this->exists('provision_term_id') && $this->input('provision_term_id') === '') {
+            $merge['provision_term_id'] = null;
         }
 
         $clientType = $this->input('client_type')
@@ -102,19 +115,20 @@ class StoreInterventionRequest extends FormRequest
     }
 
     /**
-     * @return array{pupil_id: string, occurred_at: string, provision_term_id: string, body: ?string, client_type: string}
+     * @return array{pupil_id: string, occurred_at: string, provision_term_id: ?string, body: ?string, client_type: string, lifecycle: string}
      */
     public function interventionPayload(): array
     {
-        /** @var array{pupil_id: string, occurred_at: string, provision_term_id: string, body?: ?string, client_type?: string} $validated */
+        /** @var array{pupil_id: string, occurred_at: string, provision_term_id?: ?string, body?: ?string, client_type?: string, lifecycle?: string} $validated */
         $validated = $this->validated();
 
         return [
             'pupil_id' => $validated['pupil_id'],
             'occurred_at' => $validated['occurred_at'],
-            'provision_term_id' => $validated['provision_term_id'],
+            'provision_term_id' => $validated['provision_term_id'] ?? null,
             'body' => $validated['body'] ?? null,
             'client_type' => $validated['client_type'] ?? 'web',
+            'lifecycle' => ($validated['lifecycle'] ?? null) === 'draft' ? 'draft' : 'submitted',
         ];
     }
 }
