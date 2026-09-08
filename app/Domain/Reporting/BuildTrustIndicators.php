@@ -14,7 +14,9 @@ use Illuminate\Support\Collection;
 
 class BuildTrustIndicators
 {
-    public function handle(bool $includeSchools): TrustIndicator
+    public function __construct(private BuildTrustBenchmark $benchmark) {}
+
+    public function handle(bool $includeSchools, bool $includeBenchmark = false): TrustIndicator
     {
         $schools = School::query()
             ->active()
@@ -25,7 +27,14 @@ class BuildTrustIndicators
         $empty = $this->emptyStatusCounts();
 
         if ($schools->isEmpty()) {
-            return $this->makeIndicator($empty, 0, 0, $this->emptyEscalationSummary(), $includeSchools ? [] : null);
+            return $this->makeIndicator(
+                $empty,
+                0,
+                0,
+                $this->emptyEscalationSummary(),
+                $includeSchools ? [] : null,
+                $includeBenchmark ? $this->benchmark->payload([], $includeSchools) : null,
+            );
         }
 
         $schoolIds = $schools->pluck('id');
@@ -71,6 +80,7 @@ class BuildTrustIndicators
             $totalOverdue,
             $this->tenantEscalationSummary($escalationsBySchool),
             $includeSchools ? $schoolRows : null,
+            $includeBenchmark ? $this->benchmark->payload($schoolRows, $includeSchools) : null,
         );
     }
 
@@ -78,6 +88,7 @@ class BuildTrustIndicators
      * @param  array{ready: int, gaps: int, uncovered: int, not-started: int, evaluating: int}  $byStatus
      * @param  array{escalated_pupils: int, flagged_schools: int, escalations: list<array{rule_id: string, rule_code: string, rule_label: string, pupil_count: int}>}  $escalation
      * @param  list<array<string, mixed>>|null  $schools
+     * @param  array<string, mixed>|null  $benchmark
      */
     private function makeIndicator(
         array $byStatus,
@@ -85,6 +96,7 @@ class BuildTrustIndicators
         int $overdueOpenCycles,
         array $escalation,
         ?array $schools,
+        ?array $benchmark,
     ): TrustIndicator {
         $metrics = $this->metricPayload($byStatus, $openCycles, $overdueOpenCycles);
 
@@ -100,6 +112,7 @@ class BuildTrustIndicators
             flaggedSchools: $escalation['flagged_schools'],
             escalations: $escalation['escalations'],
             schools: $schools,
+            benchmark: $benchmark,
         );
     }
 

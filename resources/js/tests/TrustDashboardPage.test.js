@@ -205,6 +205,7 @@ describe('TrustDashboardPage', () => {
         expect(wrapper.text()).not.toContain('Maya');
         expect(wrapper.find('a[href*="/pupils/"]').exists()).toBe(false);
         expect(wrapper.findAll('[data-testid="trust-dashboard-school-escalations"]').at(0)?.text()).toBe('0');
+        expect(wrapper.find('[data-testid="trust-dashboard-benchmark"]').exists()).toBe(false);
     });
 
     it('cites escalation Rules without pupil names for Trust SEND Lead', async () => {
@@ -234,6 +235,82 @@ describe('TrustDashboardPage', () => {
         );
         expect(wrapper.text()).not.toContain('Maya');
         expect(wrapper.findAll('[data-testid="kpi-card"]').at(4)?.find('[data-testid="kpi-value"]').text()).toBe('1');
+    });
+
+    it('ranks enabled Schools and shows empty trend copy when benchmark payload is present', async () => {
+        const { wrapper } = await mountPage({
+            payload: {
+                ...leadPayload,
+                benchmark: {
+                    ranked_by: 'gap_density',
+                    schools: [
+                        {
+                            school_id: 'sch_oak',
+                            name: 'Oak Academy',
+                            rank: 1,
+                            gap_density: 0.5,
+                            lateness_rate: 0.5,
+                            pupils_in_scope: 2,
+                        },
+                        {
+                            school_id: 'sch_ridge',
+                            name: 'Ridge Academy',
+                            rank: 2,
+                            gap_density: 0,
+                            lateness_rate: 0,
+                            pupils_in_scope: 2,
+                        },
+                    ],
+                    trends: [],
+                },
+            },
+        });
+
+        expect(wrapper.find('[data-testid="trust-dashboard-benchmark"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="trust-dashboard-benchmark-ranks"]').text()).toContain('Oak Academy');
+        expect(wrapper.find('[data-testid="trust-dashboard-benchmark-trends-empty"]').text()).toContain(
+            'No trend history yet.',
+        );
+        expect(wrapper.text()).not.toMatch(/AI found/i);
+        expect(wrapper.text()).not.toContain('Maya');
+    });
+
+    it('lists month-over-month Indicator deltas when trend history exists', async () => {
+        const { wrapper } = await mountPage({
+            payload: {
+                ...executivePayload,
+                benchmark: {
+                    ranked_by: 'gap_density',
+                    trends: [
+                        {
+                            month: '2026-07',
+                            lateness_rate: 0.4,
+                            gap_density: 0.2,
+                            pupils_in_scope: 4,
+                            gaps: 1,
+                            lateness_rate_delta: null,
+                            gap_density_delta: null,
+                        },
+                        {
+                            month: '2026-08',
+                            lateness_rate: 0.5,
+                            gap_density: 0.25,
+                            pupils_in_scope: 4,
+                            gaps: 1,
+                            lateness_rate_delta: 0.1,
+                            gap_density_delta: 0.05,
+                        },
+                    ],
+                },
+            },
+        });
+
+        expect(wrapper.find('[data-testid="trust-dashboard-benchmark-trends-empty"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="trust-dashboard-benchmark-trends"]').text()).toContain('2026-08');
+        expect(wrapper.find('[data-testid="trust-dashboard-benchmark-trends"]').text()).toContain('+5 pp');
+        expect(wrapper.find('[data-testid="trust-dashboard-benchmark-ranks"]').exists()).toBe(false);
+        expect(wrapper.text()).toContain('Month-over-month Trust Indicators');
+        expect(wrapper.text()).not.toContain('Maya');
     });
 
     it('omits the School table for Trust Executive aggregates', async () => {

@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\SettingTermController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantSsoController;
 use App\Http\Controllers\Api\V1\ThresholdTermController;
+use App\Http\Controllers\Api\V1\TrustBenchmarkController;
 use App\Http\Controllers\Api\V1\TrustIndicatorController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
@@ -176,6 +177,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/trust-dashboard', [TrustIndicatorController::class, 'show'])
             ->middleware('feature:trust_dashboard')
             ->name('api.v1.trust-dashboard');
+        Route::get('/trust-benchmark', TrustBenchmarkController::class)
+            ->middleware(['feature:trust_dashboard', 'feature:portfolio_benchmarking'])
+            ->name('api.v1.trust-benchmark');
         Route::get('/connectors', [ConnectorController::class, 'index'])
             ->middleware('feature:connectors')
             ->name('api.v1.connectors');

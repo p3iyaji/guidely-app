@@ -83,6 +83,7 @@ class TrustIndicatorTest extends TestCase
         $this->assertStringNotContainsString('Maya', $response->getContent());
         $this->assertStringNotContainsString('Okonkwo', $response->getContent());
         $this->assertForbiddenFields($response);
+        $this->assertArrayNotHasKey('benchmark', $response->json('data'));
         $this->assertTrue($lead->can('view', TrustIndicator::class));
     }
 
@@ -106,6 +107,7 @@ class TrustIndicatorTest extends TestCase
             ->assertJsonPath('data.lateness_rate', 1);
 
         $this->assertArrayNotHasKey('schools', $response->json('data'));
+        $this->assertArrayNotHasKey('benchmark', $response->json('data'));
         $this->assertStringNotContainsString('Maya', $response->getContent());
         $this->assertTrue($executive->can('view', TrustIndicator::class));
     }

@@ -110,6 +110,70 @@
                 </Card>
 
                 <Card
+                    v-if="benchmark"
+                    class="mt-6"
+                    data-testid="trust-dashboard-benchmark"
+                >
+                    <h2 class="text-body font-semibold text-text">Portfolio Indicators</h2>
+                    <p class="mt-1 text-meta text-text-muted">
+                        {{ benchmarkSchools.length > 0
+                            ? 'Cross-School ranking and month-over-month Indicators. These are documentation Indicators, not diagnoses or Pupil prognosis.'
+                            : 'Month-over-month Trust Indicators. These are documentation Indicators, not diagnoses or Pupil prognosis.' }}
+                    </p>
+                    <table
+                        v-if="benchmarkSchools.length > 0"
+                        class="mt-4 min-w-full divide-y divide-border text-left text-body"
+                        data-testid="trust-dashboard-benchmark-ranks"
+                    >
+                        <thead>
+                            <tr>
+                                <th scope="col" class="px-3 py-2 font-medium text-text">Rank</th>
+                                <th scope="col" class="px-3 py-2 font-medium text-text">School</th>
+                                <th scope="col" class="px-3 py-2 font-medium text-text">Gap density</th>
+                                <th scope="col" class="px-3 py-2 font-medium text-text">Lateness</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border">
+                            <tr
+                                v-for="row in benchmarkSchools"
+                                :key="row.school_id"
+                                data-testid="trust-dashboard-benchmark-rank-row"
+                            >
+                                <td class="px-3 py-2">{{ row.rank }}</td>
+                                <td class="px-3 py-2">{{ row.name }}</td>
+                                <td class="px-3 py-2">{{ formatPercent(row.gap_density) }}</td>
+                                <td class="px-3 py-2">{{ formatPercent(row.lateness_rate) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p
+                        v-if="benchmarkTrends.length === 0"
+                        class="mt-4 text-body text-text-muted"
+                        data-testid="trust-dashboard-benchmark-trends-empty"
+                    >
+                        No trend history yet.
+                    </p>
+                    <ul v-else class="mt-4 space-y-2" data-testid="trust-dashboard-benchmark-trends">
+                        <li
+                            v-for="(point, index) in benchmarkTrends"
+                            :key="`${point.month}-${index}`"
+                            class="text-body text-text"
+                            data-testid="trust-dashboard-benchmark-trend-row"
+                        >
+                            {{ point.month }}
+                            — Gap density {{ formatPercent(point.gap_density) }}
+                            <template v-if="point.gap_density_delta !== null">
+                                ({{ formatDelta(point.gap_density_delta) }})
+                            </template>
+                            · Lateness {{ formatPercent(point.lateness_rate) }}
+                            <template v-if="point.lateness_rate_delta !== null">
+                                ({{ formatDelta(point.lateness_rate_delta) }})
+                            </template>
+                        </li>
+                    </ul>
+                </Card>
+
+                <Card
                     v-if="schools.length === 0 && pupilsInScope === 0"
                     class="mt-6"
                     data-testid="trust-dashboard-empty"
@@ -194,6 +258,9 @@ let loadSeq = 0;
 const pupilsInScope = computed(() => indicators.value.pupils_in_scope);
 const schools = computed(() => indicators.value.schools);
 const escalations = computed(() => indicators.value.escalations);
+const benchmark = computed(() => indicators.value.benchmark);
+const benchmarkSchools = computed(() => benchmark.value?.schools ?? []);
+const benchmarkTrends = computed(() => benchmark.value?.trends ?? []);
 
 const kpis = computed(() => [
     {
@@ -310,6 +377,7 @@ function normaliseIndicators(value) {
         schools: Array.isArray(record.schools)
             ? record.schools.filter(isRecord).map(normaliseSchool).filter((school) => school.school_id !== '')
             : [],
+        benchmark: isRecord(record.benchmark) ? normaliseBenchmark(record.benchmark) : null,
     };
 }
 
@@ -358,6 +426,52 @@ function normaliseEscalation(flag) {
     };
 }
 
+/**
+ * @param {Record<string, unknown>} value
+ */
+function normaliseBenchmark(value) {
+    return {
+        ranked_by: typeof value.ranked_by === 'string' ? value.ranked_by : 'gap_density',
+        schools: Array.isArray(value.schools)
+            ? value.schools.filter(isRecord).map(normaliseRankedSchool).filter((school) => school.school_id !== '')
+            : [],
+        trends: Array.isArray(value.trends)
+            ? value.trends.filter(isRecord).map(normaliseTrend).filter((point) => point.month !== '')
+            : [],
+    };
+}
+
+/**
+ * @param {Record<string, unknown>} school
+ */
+function normaliseRankedSchool(school) {
+    const schoolId = typeof school.school_id === 'string' ? school.school_id.trim() : '';
+
+    return {
+        school_id: schoolId,
+        name: typeof school.name === 'string' ? school.name : 'School',
+        rank: Number(school.rank ?? 0),
+        gap_density: Number(school.gap_density ?? 0),
+        lateness_rate: Number(school.lateness_rate ?? 0),
+        pupils_in_scope: Number(school.pupils_in_scope ?? 0),
+    };
+}
+
+/**
+ * @param {Record<string, unknown>} point
+ */
+function normaliseTrend(point) {
+    return {
+        month: typeof point.month === 'string' ? point.month : '',
+        lateness_rate: Number(point.lateness_rate ?? 0),
+        gap_density: Number(point.gap_density ?? 0),
+        pupils_in_scope: Number(point.pupils_in_scope ?? 0),
+        gaps: Number(point.gaps ?? 0),
+        lateness_rate_delta: point.lateness_rate_delta == null ? null : Number(point.lateness_rate_delta),
+        gap_density_delta: point.gap_density_delta == null ? null : Number(point.gap_density_delta),
+    };
+}
+
 function emptyIndicators() {
     return normaliseIndicators({});
 }
@@ -368,13 +482,39 @@ function emptyIndicators() {
  * @param {number} denominator
  */
 function formatRate(rate, numerator, denominator) {
-    const percent = `${Math.round(Number(rate) * 100)}%`;
+    const percent = formatPercent(rate);
 
     if (Number(denominator) === 0) {
         return percent;
     }
 
     return `${percent} (${numerator} of ${denominator})`;
+}
+
+/**
+ * @param {number} rate
+ */
+function formatPercent(rate) {
+    return `${Math.round(Number(rate) * 100)}%`;
+}
+
+/**
+ * @param {number} delta
+ */
+function formatDelta(delta) {
+    const amount = Number(delta);
+
+    if (! Number.isFinite(amount)) {
+        return '';
+    }
+
+    const percent = `${Math.round(amount * 100)}`;
+
+    if (amount > 0) {
+        return `+${percent} pp`;
+    }
+
+    return `${percent} pp`;
 }
 
 /**

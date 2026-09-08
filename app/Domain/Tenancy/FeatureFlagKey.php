@@ -8,6 +8,7 @@ enum FeatureFlagKey: string
     case Connectors = 'connectors';
     case AdvancedDocumentationPacks = 'advanced_documentation_packs';
     case ReviewCycleAutomation = 'review_cycle_automation';
+    case PortfolioBenchmarking = 'portfolio_benchmarking';
 
     /**
      * @return list<string>

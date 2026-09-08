@@ -33,6 +33,10 @@ class TrustIndicatorResource extends JsonResource
             $payload['schools'] = $this->schools;
         }
 
+        if ($this->benchmark !== null) {
+            $payload['benchmark'] = $this->benchmark;
+        }
+
         return $payload;
     }
 }
