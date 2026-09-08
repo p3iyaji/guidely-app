@@ -10,6 +10,7 @@ enum FeatureFlagKey: string
     case ReviewCycleAutomation = 'review_cycle_automation';
     case PortfolioBenchmarking = 'portfolio_benchmarking';
     case ComplianceAlerts = 'compliance_alerts';
+    case SafeguardingIngest = 'safeguarding_ingest';
 
     /**
      * @return list<string>

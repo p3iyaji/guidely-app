@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\V1\ReviewCycleAutomationController;
 use App\Http\Controllers\Api\V1\ReviewCycleController;
 use App\Http\Controllers\Api\V1\ReviewNoteController;
 use App\Http\Controllers\Api\V1\RuleController;
+use App\Http\Controllers\Api\V1\SafeguardingSignalController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\SchoolReportController;
 use App\Http\Controllers\Api\V1\SettingTermController;
@@ -185,6 +186,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/compliance-alerts', [ComplianceAlertController::class, 'index'])
             ->middleware('feature:compliance_alerts')
             ->name('api.v1.compliance-alerts.index');
+        Route::get('/safeguarding-signals', [SafeguardingSignalController::class, 'index'])
+            ->middleware('feature:safeguarding_ingest')
+            ->name('api.v1.safeguarding-signals.index');
+        Route::put('/pupils/{pupil}/safeguarding-signal', [SafeguardingSignalController::class, 'upsert'])
+            ->middleware('feature:safeguarding_ingest')
+            ->name('api.v1.pupils.safeguarding-signal.upsert');
         Route::get('/compliance-alert-thresholds', [ComplianceAlertThresholdController::class, 'index'])
             ->middleware('feature:compliance_alerts')
             ->name('api.v1.compliance-alert-thresholds.index');

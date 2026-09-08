@@ -19,6 +19,7 @@ import OutputsPage from '../pages/OutputsPage.vue';
 import SchoolReportPage from '../pages/SchoolReportPage.vue';
 import TrustDashboardPage from '../pages/TrustDashboardPage.vue';
 import AlertsPage from '../pages/AlertsPage.vue';
+import SafeguardingContextPage from '../pages/SafeguardingContextPage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -142,6 +143,12 @@ const routes = [
                 name: 'alerts',
                 component: AlertsPage,
                 meta: { title: 'Alerts', requiresAuth: true },
+            },
+            {
+                path: 'safeguarding-context',
+                name: 'safeguarding-context',
+                component: SafeguardingContextPage,
+                meta: { title: 'Safeguarding context', requiresAuth: true },
             },
             {
                 path: 'users',

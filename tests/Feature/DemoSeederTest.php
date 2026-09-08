@@ -30,6 +30,9 @@ class DemoSeederTest extends TestCase
 
         $tenant = Tenant::query()->where('name', DemoPilotSeeder::TENANT_NAME)->first();
         $this->assertNotNull($tenant);
+        $this->assertFalse(
+            app(FeatureFlagResolver::class)->isEnabled(FeatureFlagKey::SafeguardingIngest, $tenant),
+        );
 
         foreach (DemoPilotSeeder::USERS as $email) {
             $this->assertDatabaseHas('users', ['email' => $email]);
@@ -125,6 +128,9 @@ class DemoSeederTest extends TestCase
         );
         $this->assertFalse(
             app(FeatureFlagResolver::class)->isEnabled(FeatureFlagKey::ComplianceAlerts, $tenant),
+        );
+        $this->assertFalse(
+            app(FeatureFlagResolver::class)->isEnabled(FeatureFlagKey::SafeguardingIngest, $tenant),
         );
 
         $lead = User::query()->where('email', DemoTrustSeeder::USERS['send_lead'])->firstOrFail();

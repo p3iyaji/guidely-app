@@ -44,6 +44,7 @@ import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import ConnectorsPage from '../pages/ConnectorsPage.vue';
 import TrustDashboardPage from '../pages/TrustDashboardPage.vue';
 import AlertsPage from '../pages/AlertsPage.vue';
+import SafeguardingContextPage from '../pages/SafeguardingContextPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
 describe('Role nav IA', () => {
@@ -75,6 +76,7 @@ describe('Role nav IA', () => {
             'Outputs',
             'School Report',
             'Alerts',
+            'Safeguarding context',
             'Import',
             'Settings',
         ]);
@@ -84,6 +86,7 @@ describe('Role nav IA', () => {
         expect(navLabelsForRole('school_leader')).toEqual([
             'Dashboard',
             'School Report',
+            'Safeguarding context',
             'Review Cycles',
             'Settings',
         ]);
@@ -323,6 +326,19 @@ describe('Role nav IA', () => {
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 
+    it('uses SafeguardingContextPage for production safeguarding-context route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/safeguarding-context');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(SafeguardingContextPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
     it('uses ConnectorsPage for production connectors route (not ComingSoon)', () => {
         const router = createRouter({
             history: createMemoryHistory(),
@@ -497,6 +513,7 @@ describe('AppShell smoke', () => {
                         { path: 'outputs', component: stub },
                         { path: 'school-report', component: stub },
                         { path: 'alerts', component: stub },
+                        { path: 'safeguarding-context', component: stub },
                         { path: 'import', component: stub },
                         ...extraChildren,
                     ],
@@ -582,6 +599,7 @@ describe('AppShell smoke', () => {
             'Outputs',
             'School Report',
             'Alerts',
+            'Safeguarding context',
             'Import',
             'Settings',
         ]);
