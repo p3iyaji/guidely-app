@@ -5,6 +5,7 @@
             :show-menu-toggle="showMenuToggle"
             :aria-expanded="navOpen"
             :signing-out="signingOut"
+            :can-search-review-cycles="reviewCycleSearchEnabled"
             @toggle-nav="navOpen = !navOpen"
             @sign-out="onSignOut"
         />
@@ -48,6 +49,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import {
+    canSearchReviewCycles,
     navItemsForRole,
     TEACHER_SUPPORT_BOTTOM_NAV,
     usesTeacherSupportBottomNav,
@@ -101,6 +103,7 @@ const resolvedUserName = computed(() => {
     return session.user.value?.name ?? '';
 });
 const navItems = computed(() => navItemsForRole(effectiveRole.value));
+const reviewCycleSearchEnabled = computed(() => canSearchReviewCycles(effectiveRole.value));
 const showBottomNav = computed(() => usesTeacherSupportBottomNav(effectiveRole.value));
 const bottomNavItems = computed(() => (showBottomNav.value ? TEACHER_SUPPORT_BOTTOM_NAV : []));
 /** Hamburger for mid widths / Roles without relying on bottom nav alone. */

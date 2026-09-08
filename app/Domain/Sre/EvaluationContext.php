@@ -33,6 +33,7 @@ final class EvaluationContext
         public readonly Collection $thresholdTerms,
         public readonly Collection $relationshipMappings,
         public readonly string $reason,
+        public readonly bool $hasOpenReviewCycle,
     ) {}
 
     /**

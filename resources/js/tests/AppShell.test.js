@@ -13,6 +13,7 @@ import { startOfflineFlushListener } from '../features/evidence/startOfflineFlus
 import { isNavItemActive } from '../features/shell/isNavItemActive.js';
 import {
     allNavTargets,
+    canSearchReviewCycles,
     navItemsForRole,
     navLabelsForRole,
     TEACHER_SUPPORT_BOTTOM_NAV,
@@ -146,6 +147,15 @@ describe('Role nav IA', () => {
     it('returns empty nav for unknown roles', () => {
         expect(navItemsForRole('unknown')).toEqual([]);
         expect(navItemsForRole(null)).toEqual([]);
+    });
+
+    it('enables Review Cycle search only for Roles that list Review Cycles', () => {
+        expect(canSearchReviewCycles('senco')).toBe(true);
+        expect(canSearchReviewCycles('school_leader')).toBe(true);
+        expect(canSearchReviewCycles('teacher')).toBe(false);
+        expect(canSearchReviewCycles('support_staff')).toBe(false);
+        expect(canSearchReviewCycles('tenant_admin')).toBe(false);
+        expect(canSearchReviewCycles(null)).toBe(false);
     });
 
     it('registers every nav to on production routes', () => {
@@ -329,7 +339,7 @@ describe('shared primitives smoke', () => {
         await router.isReady();
 
         const wrapper = mount(TopBar, {
-            props: { userName: 'Ada Lovelace' },
+            props: { userName: 'Ada Lovelace', canSearchReviewCycles: true },
             global: { plugins: [router] },
         });
 
@@ -345,6 +355,26 @@ describe('shared primitives smoke', () => {
 
         expect(router.currentRoute.value.path).toBe('/review-cycles');
         expect(router.currentRoute.value.query.q).toBe('Maya');
+    });
+
+    it('TopBar hides Review Cycle search when the Role cannot list cycles', async () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: [
+                { path: '/', component: { template: '<div />' } },
+                { path: '/review-cycles', name: 'review-cycles', component: { template: '<div />' } },
+            ],
+        });
+        await router.push('/');
+        await router.isReady();
+
+        const wrapper = mount(TopBar, {
+            props: { userName: 'Ada Lovelace', canSearchReviewCycles: false },
+            global: { plugins: [router] },
+        });
+
+        expect(wrapper.find('[data-testid="search-stub"]').exists()).toBe(false);
+        expect(router.currentRoute.value.path).toBe('/');
     });
 
     it('TopBar account menu emits sign-out', async () => {
@@ -462,6 +492,7 @@ describe('AppShell smoke', () => {
         expect(labels).toContain('My Pupils');
         expect(labels.join(' ')).not.toMatch(/messages/i);
         expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="search-stub"]').exists()).toBe(false);
     });
 
     it('hides Teacher bottom nav pattern for SENCO', async () => {
@@ -472,6 +503,7 @@ describe('AppShell smoke', () => {
         expect(labels).toContain('Review Cycles');
         expect(labels).toContain('Gaps');
         expect(labels).toContain('Capture');
+        expect(wrapper.find('[data-testid="search-stub"]').exists()).toBe(true);
     });
 
     it('derives Role sidebar and avatar initials from session when props empty', async () => {

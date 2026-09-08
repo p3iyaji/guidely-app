@@ -100,6 +100,17 @@ export function navItemsForRole(role) {
 }
 
 /**
+ * TopBar Review Cycle search is presentation only. SENCO and School Leader have
+ * the Review Cycles nav item; other Roles must not be sent to that 403 page.
+ *
+ * @param {string|null|undefined} role
+ * @returns {boolean}
+ */
+export function canSearchReviewCycles(role) {
+    return navItemsForRole(role).some((item) => item.key === 'review-cycles');
+}
+
+/**
  * @param {string|null|undefined} role
  * @returns {boolean}
  */

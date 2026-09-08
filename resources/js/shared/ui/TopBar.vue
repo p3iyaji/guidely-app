@@ -20,6 +20,7 @@
 
         <div class="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3 sm:gap-4">
             <form
+                v-if="canSearchReviewCycles"
                 class="relative hidden min-w-0 max-w-xs flex-1 sm:block md:max-w-sm"
                 data-testid="search-stub"
                 @submit.prevent="onSearch"
@@ -98,6 +99,10 @@ const props = defineProps({
         default: false,
     },
     signingOut: {
+        type: Boolean,
+        default: false,
+    },
+    canSearchReviewCycles: {
         type: Boolean,
         default: false,
     },

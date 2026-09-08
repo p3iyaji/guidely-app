@@ -5,8 +5,8 @@ namespace App\Domain\Sre;
 /**
  * Interprets Pilot Rule condition JSON. Unsupported types make the Rule non-applicable.
  *
- * Deferred domains (`review_cycle_open`, `prior_determination`) are recorded as skipped
- * and make the Rule non-applicable until those domains exist.
+ * Deferred domains (`prior_determination`) are recorded as skipped and make the Rule
+ * non-applicable until Determination history is a first-class evaluation input.
  */
 final class RuleConditionInterpreter
 {
@@ -16,7 +16,6 @@ final class RuleConditionInterpreter
      * @var list<string>
      */
     private const DEFERRED_TYPES = [
-        'review_cycle_open',
         'prior_determination',
     ];
 
@@ -128,6 +127,7 @@ final class RuleConditionInterpreter
             'threshold_code' => $this->thresholdCode($clause, $context),
             'evidence_min_count' => $this->evidenceMinCount($clause, $context),
             'provision_and_need_linked' => $context->hasProvisionAndNeedLinked(),
+            'review_cycle_open' => $context->hasOpenReviewCycle,
             default => false,
         };
     }

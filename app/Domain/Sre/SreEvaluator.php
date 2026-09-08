@@ -11,6 +11,7 @@ use App\Domain\Ontology\Rule;
 use App\Domain\Ontology\SreDimension;
 use App\Domain\Ontology\ThresholdTerm;
 use App\Domain\Pupils\Pupil;
+use App\Domain\Reviews\ReviewCycle;
 use App\Domain\Tenancy\Tenant;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -96,6 +97,12 @@ class SreEvaluator
             ->orderBy('id')
             ->get();
 
+        $hasOpenReviewCycle = ReviewCycle::withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenant->id)
+            ->where('pupil_id', $pupil->id)
+            ->open()
+            ->exists();
+
         $context = new EvaluationContext(
             tenant: $tenant,
             pupil: $pupil,
@@ -105,6 +112,7 @@ class SreEvaluator
             thresholdTerms: $thresholdTerms,
             relationshipMappings: $relationshipMappings,
             reason: $reason,
+            hasOpenReviewCycle: $hasOpenReviewCycle,
         );
 
         $evaluatedAt = now();

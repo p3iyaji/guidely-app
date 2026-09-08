@@ -9,9 +9,11 @@ use App\Domain\Ontology\NeedTerm;
 use App\Domain\Ontology\PilotOntology;
 use App\Domain\Ontology\PilotRuleLibrary;
 use App\Domain\Ontology\ProvisionTerm;
+use App\Domain\Ontology\Rule;
 use App\Domain\Ontology\SettingTerm;
 use App\Domain\Ontology\SreDimension;
 use App\Domain\Pupils\Pupil;
+use App\Domain\Reviews\ReviewCycle;
 use App\Domain\Sre\Determination;
 use App\Domain\Sre\DeterminationResult;
 use App\Domain\Sre\SreEvaluator;
@@ -275,6 +277,71 @@ class SreEvaluatorTest extends TestCase
         }
     }
 
+    public function test_open_review_cycle_applies_review_threshold_rule_when_initial_evidential_rule_is_inactive(): void
+    {
+        [$tenant, $pupil, $teacher] = $this->tenantPupilAndTeacher();
+        $this->seedHappyPathEvidence($pupil, $teacher);
+        $this->deactivateInitialEvidentialRule();
+        ReviewCycle::factory()->forPupil($pupil)->open()->dueOn('2026-09-20')->create();
+
+        app(SreEvaluator::class)->evaluate($tenant->id, $pupil->id, 'review-cycle-open');
+
+        $evidential = $this->currentByDimension($pupil->id)[SreDimension::EvidentialSufficiency->value];
+        $this->assertSame(DeterminationResult::ReviewRequired, $evidential->result);
+        $this->assertSame('REV_THR_EVID', $evidential->rule?->code);
+        $this->assertContains(
+            'review_cycle_open',
+            array_column($evidential->reasoning_pathway['condition_steps'] ?? [], 'type'),
+        );
+        $this->assertSame(
+            'passed',
+            collect($evidential->reasoning_pathway['condition_steps'] ?? [])
+                ->firstWhere('type', 'review_cycle_open')['status'] ?? null,
+        );
+    }
+
+    public function test_closed_review_cycle_does_not_apply_review_threshold_rule(): void
+    {
+        [$tenant, $pupil, $teacher] = $this->tenantPupilAndTeacher();
+        $this->seedHappyPathEvidence($pupil, $teacher);
+        $this->deactivateInitialEvidentialRule();
+        ReviewCycle::factory()->forPupil($pupil)->closed()->dueOn('2026-09-01')->create();
+
+        app(SreEvaluator::class)->evaluate($tenant->id, $pupil->id, 'review-cycle-closed');
+
+        $evidential = $this->currentByDimension($pupil->id)[SreDimension::EvidentialSufficiency->value];
+        $this->assertSame(DeterminationResult::Uncovered, $evidential->result);
+        $this->assertNull($evidential->rule_id);
+        $skipped = $evidential->reasoning_pathway['notes']['skipped_rules'] ?? [];
+        $revThr = collect($skipped)->first(
+            fn (array $row): bool => ($row['rule']['code'] ?? null) === 'REV_THR_EVID',
+        );
+        $this->assertIsArray($revThr);
+        $this->assertSame(
+            'failed',
+            collect($revThr['condition_steps'] ?? [])
+                ->firstWhere('type', 'review_cycle_open')['status'] ?? null,
+        );
+        $this->assertNotSame(
+            'skipped',
+            collect($revThr['condition_steps'] ?? [])
+                ->firstWhere('type', 'review_cycle_open')['status'] ?? null,
+        );
+    }
+
+    public function test_open_review_cycle_does_not_replace_initial_evidential_rule_when_that_rule_still_applies(): void
+    {
+        [$tenant, $pupil, $teacher] = $this->tenantPupilAndTeacher();
+        $this->seedHappyPathEvidence($pupil, $teacher);
+        ReviewCycle::factory()->forPupil($pupil)->open()->dueOn('2026-09-20')->create();
+
+        app(SreEvaluator::class)->evaluate($tenant->id, $pupil->id, 'review-cycle-does-not-steal');
+
+        $evidential = $this->currentByDimension($pupil->id)[SreDimension::EvidentialSufficiency->value];
+        $this->assertSame(DeterminationResult::Met, $evidential->result);
+        $this->assertSame('EVID_THR_INITIAL', $evidential->rule?->code);
+    }
+
     /**
      * Domain\Sre / job paths run without Auth; bypass tenant global scope in assertions.
      *
@@ -306,6 +373,14 @@ class SreEvaluatorTest extends TestCase
         $pupil->assignTo($teacher);
 
         return [$tenant, $pupil, $teacher];
+    }
+
+    private function deactivateInitialEvidentialRule(): void
+    {
+        Rule::query()
+            ->forVersion(PilotRuleLibrary::ensurePublishedVersion()->id)
+            ->where('code', 'EVID_THR_INITIAL')
+            ->update(['is_active' => false]);
     }
 
     private function seedHappyPathEvidence(Pupil $pupil, User $teacher): void
