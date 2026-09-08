@@ -58,6 +58,28 @@ class FeatureFlagTest extends TestCase
             ->assertJsonMissing(['value' => 0]);
     }
 
+    public function test_trust_dashboard_flag_on_returns_resource_for_trust_send_lead_and_forbids_teacher(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $lead = User::factory()->forTenant($tenant)->trustSendLead()->create();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+
+        TenantFeatureFlag::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('key', FeatureFlagKey::TrustDashboard->value)
+            ->update(['enabled' => true]);
+
+        $this->actingAs($lead)->getJson('/api/v1/trust-dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.pupils_in_scope', 0)
+            ->assertJsonMissing(['placeholder' => true])
+            ->assertJsonMissing(['available' => true]);
+
+        $this->actingAs($teacher)->getJson('/api/v1/trust-dashboard')
+            ->assertForbidden()
+            ->assertJsonPath('code', 'forbidden');
+    }
+
     public function test_list_flags_returns_known_keys_for_current_tenant(): void
     {
         $tenant = Tenant::factory()->create();
@@ -186,6 +208,7 @@ class FeatureFlagTest extends TestCase
             ->update(['enabled' => true]);
 
         $userA = User::factory()->forTenant($tenantA)->tenantAdmin()->create();
+        $leadA = User::factory()->forTenant($tenantA)->trustSendLead()->create();
 
         $list = $this->actingAs($userA)->getJson('/api/v1/tenant/feature-flags');
 
@@ -211,17 +234,21 @@ class FeatureFlagTest extends TestCase
             'enabled' => true,
         ]);
 
-        $userB = User::factory()->forTenant($tenantB)->create();
+        $userB = User::factory()->forTenant($tenantB)->trustSendLead()->create();
 
-        $this->actingAs($userA)->getJson('/api/v1/trust-dashboard')->assertOk();
-        $this->actingAs($userB)->getJson('/api/v1/trust-dashboard')->assertOk();
+        $this->actingAs($leadA)->getJson('/api/v1/trust-dashboard')
+            ->assertOk()
+            ->assertJsonMissing(['placeholder' => true]);
+        $this->actingAs($userB)->getJson('/api/v1/trust-dashboard')
+            ->assertOk()
+            ->assertJsonMissing(['placeholder' => true]);
 
         $this->actingAs($userA)->patchJson('/api/v1/tenant/feature-flags', [
             'key' => 'trust_dashboard',
             'enabled' => false,
         ])->assertOk();
 
-        $this->actingAs($userA)->getJson('/api/v1/trust-dashboard')->assertForbidden();
+        $this->actingAs($leadA)->getJson('/api/v1/trust-dashboard')->assertForbidden();
         $this->actingAs($userB)->getJson('/api/v1/trust-dashboard')->assertOk();
     }
 
@@ -231,7 +258,6 @@ class FeatureFlagTest extends TestCase
     public static function gatedFeatures(): array
     {
         return [
-            'trust_dashboard' => [FeatureFlagKey::TrustDashboard, '/api/v1/trust-dashboard'],
             'advanced_documentation_packs' => [
                 FeatureFlagKey::AdvancedDocumentationPacks,
                 '/api/v1/advanced-documentation-packs',

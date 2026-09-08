@@ -255,6 +255,26 @@ describe('SchoolReportPage', () => {
         expect(fetchMock.mock.calls[0][0]).toContain('window=7');
     });
 
+    it('passes school_id from the query string on School Report fetch', async () => {
+        const { wrapper } = await mountPage('senco', { path: '/school-report?school_id=sch_oak' });
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining('/api/v1/school-report?'),
+            expect.anything(),
+        );
+        expect(fetchMock.mock.calls[0][0]).toContain('school_id=sch_oak');
+        expect(fetchMock.mock.calls[0][0]).toContain('window=30');
+
+        await wrapper.find('[data-testid="school-report-window-7"]').trigger('click');
+        await flushPromises();
+
+        const laterUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+        const windowSeven = laterUrls.filter((url) => url.includes('window=7'));
+
+        expect(windowSeven.length).toBeGreaterThan(0);
+        expect(windowSeven.at(-1)).toContain('school_id=sch_oak');
+    });
+
     it('requests the selected due window', async () => {
         const { wrapper } = await mountPage('senco');
 

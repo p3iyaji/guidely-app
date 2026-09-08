@@ -11,11 +11,11 @@ use Illuminate\Database\Eloquent\Collection;
 
 class BuildSchoolReport
 {
-    public function handle(User $user, int $windowDays): SchoolReport
+    public function handle(User $user, int $windowDays, ?string $schoolId = null): SchoolReport
     {
         $byStatus = $this->emptyStatusCounts();
 
-        foreach ($this->statusCounts($user) as $status => $count) {
+        foreach ($this->statusCounts($user, $schoolId) as $status => $count) {
             if (! array_key_exists($status, $byStatus)) {
                 continue;
             }
@@ -23,8 +23,8 @@ class BuildSchoolReport
             $byStatus[$status] = (int) $count;
         }
 
-        $pupils = $this->inScopePupils($user);
-        $cyclesDue = $this->cyclesDue($user, $windowDays);
+        $pupils = $this->inScopePupils($user, $schoolId);
+        $cyclesDue = $this->cyclesDue($user, $windowDays, $schoolId);
 
         return new SchoolReport(
             pupilsInScope: $pupils->count(),
@@ -74,10 +74,10 @@ class BuildSchoolReport
     /**
      * @return array<string, int>
      */
-    private function statusCounts(User $user): array
+    private function statusCounts(User $user, ?string $schoolId): array
     {
         return Pupil::query()
-            ->tap(fn (Builder $query) => $this->scopePupilsToUser($query, $user))
+            ->tap(fn (Builder $query) => $this->scopePupilsToUser($query, $user, $schoolId))
             ->toBase()
             ->selectRaw('documentation_status as status, count(*) as aggregate')
             ->groupBy('documentation_status')
@@ -89,10 +89,10 @@ class BuildSchoolReport
     /**
      * @return Collection<int, Pupil>
      */
-    private function inScopePupils(User $user): Collection
+    private function inScopePupils(User $user, ?string $schoolId): Collection
     {
         return Pupil::query()
-            ->tap(fn (Builder $query) => $this->scopePupilsToUser($query, $user))
+            ->tap(fn (Builder $query) => $this->scopePupilsToUser($query, $user, $schoolId))
             ->select(['id', 'given_name', 'family_name', 'documentation_status'])
             ->orderBy('family_name')
             ->orderBy('given_name')
@@ -103,7 +103,7 @@ class BuildSchoolReport
     /**
      * @return Collection<int, ReviewCycle>
      */
-    private function cyclesDue(User $user, int $windowDays): Collection
+    private function cyclesDue(User $user, int $windowDays, ?string $schoolId): Collection
     {
         $horizon = now('Europe/London')->addDays($windowDays)->toDateString();
 
@@ -111,8 +111,8 @@ class BuildSchoolReport
             ->open()
             ->dueOnOrBefore($horizon)
             ->with('pupil:id,given_name,family_name')
-            ->whereHas('pupil', function (Builder $pupils) use ($user): void {
-                $this->scopePupilsToUser($pupils, $user);
+            ->whereHas('pupil', function (Builder $pupils) use ($user, $schoolId): void {
+                $this->scopePupilsToUser($pupils, $user, $schoolId);
             })
             ->orderBy('due_on')
             ->orderBy('id')
@@ -124,8 +124,12 @@ class BuildSchoolReport
      *
      * @param  Builder<Pupil>  $query
      */
-    private function scopePupilsToUser(Builder $query, User $user): void
+    private function scopePupilsToUser(Builder $query, User $user, ?string $schoolId = null): void
     {
+        if ($schoolId !== null) {
+            $query->where('school_id', $schoolId);
+        }
+
         if ($user->isAssignmentScopedForPupils()) {
             $query->whereIn('school_id', $user->schools()->allRelatedIds())
                 ->whereHas(

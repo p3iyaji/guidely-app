@@ -17,6 +17,7 @@ import DraftsPage from '../pages/DraftsPage.vue';
 import ReviewCyclesPage from '../pages/ReviewCyclesPage.vue';
 import OutputsPage from '../pages/OutputsPage.vue';
 import SchoolReportPage from '../pages/SchoolReportPage.vue';
+import TrustDashboardPage from '../pages/TrustDashboardPage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -125,10 +126,10 @@ const routes = [
                 meta: { title: 'Import', requiresAuth: true },
             },
             {
-                // Coming soon stub is OK for 1.8; FeatureFlaggedEmpty when flag off lands with later Trust work / API 403.
                 path: 'trust-dashboard',
                 name: 'trust-dashboard',
-                ...stub('Trust Dashboard'),
+                component: TrustDashboardPage,
+                meta: { title: 'Trust Dashboard', requiresAuth: true },
             },
             {
                 path: 'schools',

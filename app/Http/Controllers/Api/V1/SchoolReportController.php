@@ -19,7 +19,7 @@ class SchoolReportController extends Controller
         $user = $request->user();
 
         return new SchoolReportResource(
-            $build->handle($user, $request->windowDays()),
+            $build->handle($user, $request->windowDays(), $request->schoolId()),
         );
     }
 }

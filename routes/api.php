@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\SettingTermController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantSsoController;
 use App\Http\Controllers\Api\V1\ThresholdTermController;
+use App\Http\Controllers\Api\V1\TrustIndicatorController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -172,7 +173,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/pilot/success-metrics', [PilotToolkitController::class, 'successMetrics'])
             ->name('api.v1.pilot.success-metrics');
 
-        Route::get('/trust-dashboard', [FeatureStubController::class, 'trustDashboard'])
+        Route::get('/trust-dashboard', [TrustIndicatorController::class, 'show'])
             ->middleware('feature:trust_dashboard')
             ->name('api.v1.trust-dashboard');
         Route::get('/connectors', [ConnectorController::class, 'index'])

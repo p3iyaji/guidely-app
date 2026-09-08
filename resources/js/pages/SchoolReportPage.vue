@@ -267,7 +267,7 @@ onMounted(async () => {
 });
 
 watch(
-    () => route.query.window,
+    () => [route.query.window, route.query.school_id],
     async () => {
         windowDays.value = parseWindow(route.query.window);
         await loadReport();
@@ -290,9 +290,13 @@ function clearDrill() {
  */
 function setWindow(days) {
     windowDays.value = days;
+    const schoolId = schoolIdFromQuery();
     router.replace({
         path: '/school-report',
-        query: { window: String(days) },
+        query: {
+            window: String(days),
+            ...(schoolId ? { school_id: schoolId } : {}),
+        },
     });
 }
 
@@ -303,6 +307,11 @@ async function loadReport() {
 
     const params = new URLSearchParams();
     params.set('window', String(windowDays.value));
+    const schoolId = schoolIdFromQuery();
+
+    if (schoolId) {
+        params.set('school_id', schoolId);
+    }
 
     try {
         const response = await apiFetch(`/api/v1/school-report?${params.toString()}`);
@@ -410,6 +419,19 @@ function parseWindow(value) {
     const parsed = Number(value);
 
     return windowOptions.includes(parsed) ? parsed : 30;
+}
+
+function schoolIdFromQuery() {
+    const raw = route.query.school_id;
+    const schoolId = Array.isArray(raw) ? raw[0] : raw;
+
+    if (typeof schoolId !== 'string') {
+        return null;
+    }
+
+    const trimmed = schoolId.trim();
+
+    return trimmed !== '' ? trimmed : null;
 }
 
 /**

@@ -5,11 +5,10 @@ namespace App\Policies;
 use App\Domain\Identity\Role;
 use App\Models\User;
 
-class SchoolReportPolicy
+class TrustIndicatorPolicy
 {
     /**
-     * SENCO, School Leader, or Trust SEND Lead may view the School Report
-     * (school-scoped in the builder; Trust SEND Lead requires school_id on the request).
+     * Trust SEND Lead or Trust Executive may view Trust Indicators when they are active Tenant staff.
      */
     public function view(User $user): bool
     {
@@ -18,9 +17,8 @@ class SchoolReportPolicy
         }
 
         return in_array($user->role, [
-            Role::Senco,
-            Role::SchoolLeader,
             Role::TrustSendLead,
+            Role::TrustExecutive,
         ], true);
     }
 }
