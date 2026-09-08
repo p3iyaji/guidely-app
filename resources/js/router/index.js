@@ -18,6 +18,7 @@ import ReviewCyclesPage from '../pages/ReviewCyclesPage.vue';
 import OutputsPage from '../pages/OutputsPage.vue';
 import SchoolReportPage from '../pages/SchoolReportPage.vue';
 import TrustDashboardPage from '../pages/TrustDashboardPage.vue';
+import AlertsPage from '../pages/AlertsPage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -139,7 +140,8 @@ const routes = [
             {
                 path: 'alerts',
                 name: 'alerts',
-                ...stub('Alerts'),
+                component: AlertsPage,
+                meta: { title: 'Alerts', requiresAuth: true },
             },
             {
                 path: 'users',

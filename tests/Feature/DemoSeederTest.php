@@ -123,6 +123,9 @@ class DemoSeederTest extends TestCase
         $this->assertTrue(
             app(FeatureFlagResolver::class)->isEnabled(FeatureFlagKey::TrustDashboard, $tenant),
         );
+        $this->assertFalse(
+            app(FeatureFlagResolver::class)->isEnabled(FeatureFlagKey::ComplianceAlerts, $tenant),
+        );
 
         $lead = User::query()->where('email', DemoTrustSeeder::USERS['send_lead'])->firstOrFail();
         $this->assertTrue($lead->isActiveTenantStaff());

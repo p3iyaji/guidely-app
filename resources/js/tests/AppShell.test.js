@@ -43,6 +43,7 @@ import SchoolReportPage from '../pages/SchoolReportPage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import ConnectorsPage from '../pages/ConnectorsPage.vue';
 import TrustDashboardPage from '../pages/TrustDashboardPage.vue';
+import AlertsPage from '../pages/AlertsPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
 describe('Role nav IA', () => {
@@ -73,6 +74,7 @@ describe('Role nav IA', () => {
             'Gaps',
             'Outputs',
             'School Report',
+            'Alerts',
             'Import',
             'Settings',
         ]);
@@ -308,6 +310,19 @@ describe('Role nav IA', () => {
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 
+    it('uses AlertsPage for production alerts route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/alerts');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(AlertsPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
     it('uses ConnectorsPage for production connectors route (not ComingSoon)', () => {
         const router = createRouter({
             history: createMemoryHistory(),
@@ -481,6 +496,7 @@ describe('AppShell smoke', () => {
                         { path: 'gaps', component: stub },
                         { path: 'outputs', component: stub },
                         { path: 'school-report', component: stub },
+                        { path: 'alerts', component: stub },
                         { path: 'import', component: stub },
                         ...extraChildren,
                     ],
@@ -565,6 +581,7 @@ describe('AppShell smoke', () => {
             'Gaps',
             'Outputs',
             'School Report',
+            'Alerts',
             'Import',
             'Settings',
         ]);

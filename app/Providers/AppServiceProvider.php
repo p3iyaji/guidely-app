@@ -9,6 +9,7 @@ use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Identity\Role;
 use App\Domain\Outputs\DocumentationOutput;
 use App\Domain\Pupils\Pupil;
+use App\Domain\Reporting\ComplianceAlert;
 use App\Domain\Reporting\SchoolReport;
 use App\Domain\Reporting\TrustIndicator;
 use App\Domain\Reviews\ReviewCycle;
@@ -17,6 +18,7 @@ use App\Domain\Sre\Gap;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
+use App\Policies\ComplianceAlertPolicy;
 use App\Policies\ConnectorPolicy;
 use App\Policies\DeterminationPolicy;
 use App\Policies\DocumentationOutputPolicy;
@@ -67,6 +69,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(DocumentationOutput::class, DocumentationOutputPolicy::class);
         Gate::policy(SchoolReport::class, SchoolReportPolicy::class);
         Gate::policy(TrustIndicator::class, TrustIndicatorPolicy::class);
+        Gate::policy(ComplianceAlert::class, ComplianceAlertPolicy::class);
 
         Gate::define('create-pilot-tenant', fn (User $user): bool => $user->isPlatformOperator() && ! $user->isDeactivated());
         Gate::define('view-pilot-toolkit', fn (User $user): bool => $user->isActiveTenantStaff() && $user->isTenantAdmin());

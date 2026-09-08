@@ -39,7 +39,8 @@ class PilotTenantBootstrapTest extends TestCase
             ->assertJsonPath('data.feature_flags.connectors', false)
             ->assertJsonPath('data.feature_flags.advanced_documentation_packs', false)
             ->assertJsonPath('data.feature_flags.review_cycle_automation', false)
-            ->assertJsonPath('data.feature_flags.portfolio_benchmarking', false);
+            ->assertJsonPath('data.feature_flags.portfolio_benchmarking', false)
+            ->assertJsonPath('data.feature_flags.compliance_alerts', false);
 
         $tenantId = $response->json('data.id');
 

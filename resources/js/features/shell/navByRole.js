@@ -29,6 +29,7 @@ export const NAV_BY_ROLE = {
         { key: 'gaps', label: 'Gaps', to: '/gaps' },
         { key: 'outputs', label: 'Outputs', to: '/outputs' },
         { key: 'school-report', label: 'School Report', to: '/school-report' },
+        { key: 'alerts', label: 'Alerts', to: '/alerts' },
         { key: 'import', label: 'Import', to: '/import' },
         { key: 'settings', label: 'Settings', to: '/settings' },
     ],

@@ -95,6 +95,7 @@ class FeatureFlagTest extends TestCase
                     'advanced_documentation_packs' => false,
                     'review_cycle_automation' => false,
                     'portfolio_benchmarking' => false,
+                    'compliance_alerts' => false,
                 ],
             ]);
     }
@@ -196,7 +197,8 @@ class FeatureFlagTest extends TestCase
             ->assertJsonPath('data.feature_flags.connectors', true)
             ->assertJsonPath('data.feature_flags.advanced_documentation_packs', false)
             ->assertJsonPath('data.feature_flags.review_cycle_automation', false)
-            ->assertJsonPath('data.feature_flags.portfolio_benchmarking', false);
+            ->assertJsonPath('data.feature_flags.portfolio_benchmarking', false)
+            ->assertJsonPath('data.feature_flags.compliance_alerts', false);
     }
 
     public function test_cross_tenant_cannot_read_or_mutate_other_tenant_flags(): void

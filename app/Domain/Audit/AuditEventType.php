@@ -44,4 +44,6 @@ enum AuditEventType: string
     case DocumentationOutputGenerated = 'documentation_output.generated';
     case DocumentationOutputDownloaded = 'documentation_output.downloaded';
     case ConnectorUpdated = 'connector.updated';
+    case ComplianceAlertCreated = 'compliance_alert.created';
+    case ComplianceAlertResolved = 'compliance_alert.resolved';
 }

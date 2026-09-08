@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ComplianceAlertController;
+use App\Http\Controllers\Api\V1\ComplianceAlertThresholdController;
 use App\Http\Controllers\Api\V1\ConnectorController;
 use App\Http\Controllers\Api\V1\DeterminationOverrideController;
 use App\Http\Controllers\Api\V1\DocumentationOutputController;
@@ -180,6 +182,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/trust-benchmark', TrustBenchmarkController::class)
             ->middleware(['feature:trust_dashboard', 'feature:portfolio_benchmarking'])
             ->name('api.v1.trust-benchmark');
+        Route::get('/compliance-alerts', [ComplianceAlertController::class, 'index'])
+            ->middleware('feature:compliance_alerts')
+            ->name('api.v1.compliance-alerts.index');
+        Route::get('/compliance-alert-thresholds', [ComplianceAlertThresholdController::class, 'index'])
+            ->middleware('feature:compliance_alerts')
+            ->name('api.v1.compliance-alert-thresholds.index');
+        Route::match(['put', 'patch'], '/compliance-alert-thresholds', [ComplianceAlertThresholdController::class, 'update'])
+            ->middleware('feature:compliance_alerts')
+            ->name('api.v1.compliance-alert-thresholds.update');
         Route::get('/connectors', [ConnectorController::class, 'index'])
             ->middleware('feature:connectors')
             ->name('api.v1.connectors');
