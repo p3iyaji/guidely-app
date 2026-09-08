@@ -15,6 +15,7 @@ import CapturePage from '../pages/CapturePage.vue';
 import DraftsPage from '../pages/DraftsPage.vue';
 import ReviewCyclesPage from '../pages/ReviewCyclesPage.vue';
 import OutputsPage from '../pages/OutputsPage.vue';
+import SchoolReportPage from '../pages/SchoolReportPage.vue';
 
 /**
  * Stub page for unfinished domains (UK English empty state — not fake data).
@@ -113,7 +114,8 @@ const routes = [
             {
                 path: 'school-report',
                 name: 'school-report',
-                ...stub('School Report'),
+                component: SchoolReportPage,
+                meta: { title: 'School Report', requiresAuth: true },
             },
             {
                 path: 'import',

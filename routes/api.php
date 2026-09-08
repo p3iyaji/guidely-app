@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\ReviewCycleController;
 use App\Http\Controllers\Api\V1\ReviewNoteController;
 use App\Http\Controllers\Api\V1\RuleController;
 use App\Http\Controllers\Api\V1\SchoolController;
+use App\Http\Controllers\Api\V1\SchoolReportController;
 use App\Http\Controllers\Api\V1\SettingTermController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantSsoController;
@@ -116,6 +117,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/review-cycles/automation/run', [ReviewCycleAutomationController::class, 'store'])
             ->middleware('feature:review_cycle_automation')
             ->name('api.v1.review-cycles.automation.run');
+        Route::get('/school-report', [SchoolReportController::class, 'show'])
+            ->name('api.v1.school-report.show');
         Route::get('/documentation-outputs', [DocumentationOutputController::class, 'index'])
             ->name('api.v1.documentation-outputs.index');
         Route::post('/documentation-outputs', [DocumentationOutputController::class, 'store'])

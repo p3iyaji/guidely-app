@@ -38,6 +38,7 @@ import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
 import GapsPage from '../pages/GapsPage.vue';
 import ReviewCyclesPage from '../pages/ReviewCyclesPage.vue';
 import OutputsPage from '../pages/OutputsPage.vue';
+import SchoolReportPage from '../pages/SchoolReportPage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
@@ -268,6 +269,19 @@ describe('Role nav IA', () => {
         expect(leaf?.components?.default ?? leaf?.component).toBe(OutputsPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
+
+    it('uses SchoolReportPage for production school-report route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/school-report');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(SchoolReportPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
 });
 
 describe('isNavItemActive', () => {
@@ -288,6 +302,7 @@ describe('shared primitives smoke', () => {
         const kpi = mount(KpiCard, { props: { label: 'Open gaps', value: null } });
         expect(kpi.find('[data-testid="kpi-value"]').text()).toBe('—');
         expect(kpi.text()).toContain('Open gaps');
+        expect(kpi.find('[data-testid="kpi-card-select"]').exists()).toBe(false);
 
         expect(mount(ButtonPrimary, { slots: { default: 'Save' } }).text()).toBe('Save');
         expect(mount(ButtonSecondary, { slots: { default: 'Learn more' } }).text()).toBe('Learn more');
@@ -585,6 +600,7 @@ describe('HomeDashboard KPI placeholders', () => {
         expect(wrapper.find('[data-testid="kpi-row"]').exists()).toBe(true);
         expect(wrapper.findAll('[data-testid="kpi-card"]').length).toBeGreaterThanOrEqual(3);
         expect(wrapper.findAll('[data-testid="kpi-value"]').every((node) => node.text() === '—')).toBe(true);
+        expect(wrapper.find('[data-testid="kpi-card-select"]').exists()).toBe(false);
     });
 });
 
