@@ -36,7 +36,7 @@
                 <Card>
                     <h2 class="text-body font-semibold text-text">Connector</h2>
                     <p class="mt-1 text-body text-text-muted">
-                        Type: Pilot stub. Live MIS sync is not part of this screen.
+                        Type: Pilot stub. Use Run sync below to upsert a School payload without duplicating Pupils.
                     </p>
                     <label class="mt-4 flex items-center gap-2 text-body text-text">
                         <input
@@ -117,6 +117,102 @@
                     {{ saving ? 'Saving…' : 'Save Connector' }}
                 </ButtonPrimary>
             </form>
+
+            <form
+                v-if="loaded"
+                class="mt-8 space-y-4"
+                data-testid="connectors-sync-form"
+                @submit.prevent="runSync"
+            >
+                <Card>
+                    <h2 class="text-body font-semibold text-text">Run sync</h2>
+                    <p class="mt-1 text-body text-text-muted">
+                        Upsert one Pupil by MIS key for a School. Optional Intervention evidence uses an external id so a second sync does not duplicate the record. The Connector must be enabled to run a sync.
+                    </p>
+                    <div class="mt-4">
+                        <label class="block text-body text-text" for="connector-sync-school">School</label>
+                        <select
+                            id="connector-sync-school"
+                            v-model="syncForm.schoolId"
+                            required
+                            class="mt-1 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            data-testid="connector-sync-school"
+                        >
+                            <option disabled value="">Select a School</option>
+                            <option
+                                v-for="school in schools"
+                                :key="school.id"
+                                :value="school.id"
+                            >
+                                {{ school.name }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-body text-text" for="connector-sync-mis-key">MIS key</label>
+                        <input
+                            id="connector-sync-mis-key"
+                            v-model="syncForm.misKey"
+                            type="text"
+                            required
+                            class="mt-1 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            data-testid="connector-sync-mis-key"
+                        >
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-body text-text" for="connector-sync-external-id">Evidence external id (optional)</label>
+                        <input
+                            id="connector-sync-external-id"
+                            v-model="syncForm.evidenceExternalId"
+                            type="text"
+                            class="mt-1 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            data-testid="connector-sync-external-id"
+                        >
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-body text-text" for="connector-sync-provision-code">Evidence provision code (optional)</label>
+                        <input
+                            id="connector-sync-provision-code"
+                            v-model="syncForm.evidenceProvisionCode"
+                            type="text"
+                            class="mt-1 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            data-testid="connector-sync-provision-code"
+                        >
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-body text-text" for="connector-sync-occurred-at">Evidence occurred at (optional)</label>
+                        <input
+                            id="connector-sync-occurred-at"
+                            v-model="syncForm.evidenceOccurredAt"
+                            type="datetime-local"
+                            class="mt-1 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            data-testid="connector-sync-occurred-at"
+                        >
+                    </div>
+                </Card>
+                <p
+                    v-if="syncError"
+                    class="text-body text-danger"
+                    data-testid="connectors-sync-error"
+                    role="alert"
+                >
+                    {{ syncError }}
+                </p>
+                <p
+                    v-if="syncSuccess"
+                    class="text-body text-text"
+                    data-testid="connectors-sync-success"
+                >
+                    {{ syncSuccess }}
+                </p>
+                <ButtonPrimary
+                    type="submit"
+                    :disabled="syncing || !form.enabled"
+                    data-testid="connector-sync-submit"
+                >
+                    {{ syncing ? 'Syncing…' : 'Run sync' }}
+                </ButtonPrimary>
+            </form>
         </template>
     </div>
 </template>
@@ -144,6 +240,9 @@ const loadError = ref('');
 const saveError = ref('');
 const saveSuccess = ref('');
 const saving = ref(false);
+const syncError = ref('');
+const syncSuccess = ref('');
+const syncing = ref(false);
 const hasSecret = ref(false);
 const schools = ref([]);
 
@@ -151,6 +250,14 @@ const form = reactive({
     enabled: false,
     secret: '',
     fieldShares: {},
+});
+
+const syncForm = reactive({
+    schoolId: '',
+    misKey: '',
+    evidenceExternalId: '',
+    evidenceProvisionCode: '',
+    evidenceOccurredAt: '',
 });
 
 function emptyFieldMap() {
@@ -236,6 +343,7 @@ onMounted(async () => {
         const schoolsPayload = await schoolsResponse.json();
         schools.value = schoolsPayload.data ?? [];
         applyConnector(connectorPayload.data);
+        syncForm.schoolId = schools.value[0]?.id ?? '';
         loaded.value = true;
     } catch {
         loadError.value = 'Unable to load Connector settings.';
@@ -287,6 +395,65 @@ async function save() {
         saveError.value = 'Unable to save Connector settings.';
     } finally {
         saving.value = false;
+    }
+}
+
+async function runSync() {
+    syncing.value = true;
+    syncError.value = '';
+    syncSuccess.value = '';
+
+    try {
+        const pupil = { mis_key: syncForm.misKey };
+
+        if (syncForm.evidenceExternalId !== '') {
+            pupil.evidence_external_id = syncForm.evidenceExternalId;
+        }
+
+        if (syncForm.evidenceProvisionCode !== '') {
+            pupil.evidence_provision_code = syncForm.evidenceProvisionCode;
+        }
+
+        if (syncForm.evidenceOccurredAt !== '') {
+            const occurredAt = new Date(syncForm.evidenceOccurredAt);
+
+            if (Number.isNaN(occurredAt.getTime())) {
+                syncError.value = 'Evidence occurred at must be a valid date.';
+
+                return;
+            }
+
+            pupil.evidence_occurred_at = occurredAt.toISOString();
+        }
+
+        const response = await apiFetch('/api/v1/connectors/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                school_id: syncForm.schoolId,
+                pupils: [pupil],
+            }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (response.status === 403 && payload.code === 'feature_not_available') {
+            flagUnavailable.value = true;
+            return;
+        }
+
+        if (!response.ok) {
+            syncError.value = firstValidationMessage(payload)
+                ?? payload.message
+                ?? 'Unable to run Connector sync.';
+            return;
+        }
+
+        syncSuccess.value = payload.message ?? 'Connector sync queued.';
+    } catch {
+        syncError.value = 'Unable to run Connector sync.';
+    } finally {
+        syncing.value = false;
     }
 }
 </script>

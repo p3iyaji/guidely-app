@@ -28,6 +28,11 @@ class ConnectorPolicy
         return $this->view($user, $connector);
     }
 
+    public function sync(User $user, Connector $connector): bool
+    {
+        return $this->update($user, $connector);
+    }
+
     private function isActiveTenantAdmin(User $user): bool
     {
         return $user->isActiveTenantStaff()

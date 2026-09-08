@@ -126,7 +126,10 @@ class ConnectorConfigurationTest extends TestCase
         $this->actingAs($admin)->putJson('/api/v1/connectors', $this->validPayload($school, 'filter-secret'))
             ->assertOk();
 
-        $filtered = (new FilterConnectorPayload)->handle($school->id, [
+        $connector = Connector::query()->first();
+        $this->assertNotNull($connector);
+
+        $filtered = (new FilterConnectorPayload)->handle($connector, $school->id, [
             'mis_key' => 'MIS-100',
             'year_group' => '7',
             'given_name' => 'Ada',
@@ -145,7 +148,10 @@ class ConnectorConfigurationTest extends TestCase
         $this->actingAs($admin)->putJson('/api/v1/connectors', $this->validPayload($schoolA, 'filter-secret'))
             ->assertOk();
 
-        $filtered = (new FilterConnectorPayload)->handle($schoolB->id, [
+        $connector = Connector::query()->first();
+        $this->assertNotNull($connector);
+
+        $filtered = (new FilterConnectorPayload)->handle($connector, $schoolB->id, [
             'mis_key' => 'MIS-100',
             'year_group' => '7',
         ]);
@@ -164,7 +170,10 @@ class ConnectorConfigurationTest extends TestCase
             'enabled' => false,
         ])->assertOk();
 
-        $filtered = (new FilterConnectorPayload)->handle($school->id, [
+        $connector = Connector::query()->first();
+        $this->assertNotNull($connector);
+
+        $filtered = (new FilterConnectorPayload)->handle($connector, $school->id, [
             'mis_key' => 'MIS-100',
         ]);
 

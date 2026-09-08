@@ -26,6 +26,7 @@ class ConnectorPolicyTest extends TestCase
         $this->assertTrue($admin->can('view', $connector));
         $this->assertTrue($admin->can('create', Connector::class));
         $this->assertTrue($admin->can('update', $connector));
+        $this->assertTrue($admin->can('sync', $connector));
     }
 
     public function test_tenant_admin_cannot_view_or_update_other_tenant_connector(): void
@@ -37,6 +38,7 @@ class ConnectorPolicyTest extends TestCase
 
         $this->assertFalse($adminA->can('view', $foreign));
         $this->assertFalse($adminA->can('update', $foreign));
+        $this->assertFalse($adminA->can('sync', $foreign));
     }
 
     public function test_deactivated_tenant_admin_cannot_view_or_update(): void
@@ -48,6 +50,7 @@ class ConnectorPolicyTest extends TestCase
         $this->assertFalse($admin->can('viewAny', Connector::class));
         $this->assertFalse($admin->can('view', $connector));
         $this->assertFalse($admin->can('update', $connector));
+        $this->assertFalse($admin->can('sync', $connector));
     }
 
     #[DataProvider('deniedRoles')]
@@ -72,6 +75,7 @@ class ConnectorPolicyTest extends TestCase
         $this->assertFalse($user->can('view', $connector));
         $this->assertFalse($user->can('create', Connector::class));
         $this->assertFalse($user->can('update', $connector));
+        $this->assertFalse($user->can('sync', $connector));
     }
 
     /**

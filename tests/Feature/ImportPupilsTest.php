@@ -549,6 +549,39 @@ class ImportPupilsTest extends TestCase
         });
     }
 
+    public function test_identical_evidence_reimport_does_not_dispatch_sre_again(): void
+    {
+        Queue::fake([SreReevaluatePupil::class]);
+        $this->seed(ProvisionOntologySeeder::class);
+        $this->freezeTime();
+        [, $school, $senco] = $this->tenantSchoolAndSenco();
+        Pupil::factory()->forSchool($school)->withMisKey('MIS-IDENT')->create();
+        $occurredAt = now()->subDay()->utc()->toIso8601String();
+
+        $header = 'pupil_identifier,school_name,evidence_type,evidence_provision_code,evidence_occurred_at,evidence_external_id,evidence_body';
+        $row = 'MIS-IDENT,'.$school->name.',,UNIVERSAL,'.$occurredAt.',ext-ident-1,Identical body';
+        $csv = $header."\n".$row."\n";
+
+        $this->actingAs($senco)
+            ->post('/api/v1/import/pupils', ['file' => $this->csvUpload($csv)])
+            ->assertOk()
+            ->assertJsonPath('data.summary.committed_count', 1)
+            ->assertJsonPath('data.committed.0.evidence_action', 'evidence_created');
+
+        Queue::assertPushed(SreReevaluatePupil::class, 1);
+
+        Queue::fake([SreReevaluatePupil::class]);
+
+        $this->actingAs($senco)
+            ->post('/api/v1/import/pupils', ['file' => $this->csvUpload($csv)])
+            ->assertOk()
+            ->assertJsonPath('data.summary.committed_count', 1)
+            ->assertJsonPath('data.committed.0.evidence_action', 'unchanged');
+
+        $this->assertSame(1, EvidenceRecord::query()->where('external_id', 'ext-ident-1')->count());
+        Queue::assertNotPushed(SreReevaluatePupil::class);
+    }
+
     public function test_non_intervention_evidence_type_is_row_error(): void
     {
         $this->seed(ProvisionOntologySeeder::class);

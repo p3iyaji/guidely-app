@@ -181,6 +181,9 @@ Route::prefix('v1')->group(function () {
         Route::put('/connectors', [ConnectorController::class, 'upsert'])
             ->middleware('feature:connectors')
             ->name('api.v1.connectors.upsert');
+        Route::post('/connectors/sync', [ConnectorController::class, 'sync'])
+            ->middleware('feature:connectors')
+            ->name('api.v1.connectors.sync');
         Route::get('/advanced-documentation-packs', [FeatureStubController::class, 'advancedDocumentationPacks'])
             ->middleware('feature:advanced_documentation_packs')
             ->name('api.v1.advanced-documentation-packs');

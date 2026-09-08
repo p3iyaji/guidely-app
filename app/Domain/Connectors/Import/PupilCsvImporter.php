@@ -189,18 +189,22 @@ class PupilCsvImporter
             if (isset($evidenceResult['error'])) {
                 $rowErrors[] = $evidenceResult['error'];
             } else {
-                $needsSre = true;
-                $sreReason = 'evidence_imported';
+                $action = $evidenceResult['action'] ?? null;
+
+                if ($action === 'evidence_created' || $action === 'evidence_updated') {
+                    $needsSre = true;
+                    $sreReason = 'evidence_imported';
+                }
 
                 if ($committed === null) {
                     $committed = [
                         'row' => $rowNumber,
-                        'action' => $evidenceResult['action'],
-                        'evidence_action' => $evidenceResult['action'],
+                        'action' => $action,
+                        'evidence_action' => $action,
                         'pupil' => $pupil,
                     ];
                 } else {
-                    $committed['evidence_action'] = $evidenceResult['action'];
+                    $committed['evidence_action'] = $action;
                 }
             }
         }

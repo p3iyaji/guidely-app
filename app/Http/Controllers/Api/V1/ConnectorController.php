@@ -9,8 +9,10 @@ use App\Domain\Connectors\ConnectorField;
 use App\Domain\Connectors\ConnectorType;
 use App\Domain\Tenancy\CurrentTenant;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\SyncConnectorRequest;
 use App\Http\Requests\Api\V1\UpsertConnectorRequest;
 use App\Http\Resources\Api\V1\ConnectorResource;
+use App\Jobs\ConnectorSync;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -90,6 +92,41 @@ class ConnectorController extends Controller
         return (new ConnectorResource($connector->refresh()))
             ->response()
             ->setStatusCode(200);
+    }
+
+    public function sync(SyncConnectorRequest $request): JsonResponse
+    {
+        $existing = Connector::query()->first();
+
+        if ($existing === null) {
+            $this->authorize('create', Connector::class);
+        } else {
+            $this->authorize('sync', $existing);
+        }
+
+        if ($existing === null || $existing->enabled !== true) {
+            return response()->json([
+                'message' => 'The Connector is disabled.',
+                'code' => 'connector_disabled',
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        if ($user === null || $user->tenant_id === null) {
+            abort(401);
+        }
+
+        ConnectorSync::dispatch(
+            $user->tenant_id,
+            $request->string('school_id')->toString(),
+            $user->id,
+            $request->validated('pupils'),
+        );
+
+        return response()->json([
+            'message' => 'Connector sync queued.',
+        ], 202);
     }
 
     private function defaultConnector(): Connector

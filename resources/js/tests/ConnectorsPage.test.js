@@ -25,6 +25,12 @@ describe('ConnectorsPage', () => {
                 const path = String(url);
                 const method = (options.method ?? 'GET').toUpperCase();
 
+                if (path.includes('/api/v1/connectors/sync') && method === 'POST') {
+                    return jsonResponse({
+                        message: 'Connector sync queued.',
+                    }, 202);
+                }
+
                 if (path.includes('/api/v1/connectors') && method === 'PUT') {
                     return jsonResponse({
                         data: {
@@ -103,7 +109,9 @@ describe('ConnectorsPage', () => {
 
         expect(wrapper.text()).toContain('Not available for this Tenant');
         expect(wrapper.find('[data-testid="connectors-form"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="connectors-sync-form"]').exists()).toBe(false);
         expect(wrapper.text()).not.toMatch(/Coming soon/i);
+        expect(wrapper.text()).not.toContain('Live MIS sync is not part of this screen.');
     });
 
     it('renders enable, write-only secret, and per-School field checkboxes', async () => {
@@ -117,8 +125,12 @@ describe('ConnectorsPage', () => {
         expect(wrapper.find('[data-testid="connector-secret"]').element.value).toBe('');
         expect(wrapper.find('[data-testid="field-share-sch_1-mis_key"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="field-share-sch_1-year_group"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="connectors-sync-form"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="connector-sync-mis-key"]').exists()).toBe(true);
         expect(wrapper.text()).toContain('Oak Primary');
+        expect(wrapper.text()).toContain('Run sync');
         expect(wrapper.text()).not.toMatch(/Coming soon/i);
+        expect(wrapper.text()).not.toContain('Live MIS sync is not part of this screen.');
     });
 
     it('puts secret and opt-in fields on save and does not echo the secret', async () => {
@@ -187,12 +199,14 @@ describe('ConnectorsPage', () => {
 
         expect(wrapper.find('[data-testid="connectors-loading"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="connectors-form"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="connectors-sync-form"]').exists()).toBe(false);
 
         release();
         await flushPromises();
 
         expect(wrapper.find('[data-testid="connectors-loading"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="connectors-form"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="connectors-sync-form"]').exists()).toBe(true);
     });
 
     it('hydrates field-share checkboxes from the Connector payload', async () => {
@@ -240,5 +254,70 @@ describe('ConnectorsPage', () => {
         expect(wrapper.find('[data-testid="connector-enabled"]').element.checked).toBe(true);
         expect(wrapper.find('[data-testid="connector-has-secret"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="connector-secret"]').element.value).toBe('');
+    });
+
+    it('posts mis_key and optional evidence to Run sync for a School', async () => {
+        const wrapper = mount(ConnectorsPage);
+        await flushPromises();
+
+        await wrapper.find('[data-testid="connector-enabled"]').setValue(true);
+        await wrapper.find('[data-testid="connector-sync-mis-key"]').setValue('MIS-100');
+        await wrapper.find('[data-testid="connector-sync-external-id"]').setValue('ext-1');
+        await wrapper.find('[data-testid="connector-sync-provision-code"]').setValue('UNIVERSAL');
+        await wrapper.find('[data-testid="connector-sync-occurred-at"]').setValue('2026-09-06T10:15');
+        await wrapper.find('[data-testid="connectors-sync-form"]').trigger('submit.prevent');
+        await flushPromises();
+
+        const postCall = fetch.mock.calls.find(([, options]) => options?.method === 'POST');
+
+        expect(postCall[0]).toBe('/api/v1/connectors/sync');
+        const body = JSON.parse(postCall[1].body);
+        expect(body.school_id).toBe('sch_1');
+        expect(body.pupils[0].mis_key).toBe('MIS-100');
+        expect(body.pupils[0].evidence_external_id).toBe('ext-1');
+        expect(body.pupils[0].evidence_provision_code).toBe('UNIVERSAL');
+        expect(Number.isNaN(Date.parse(body.pupils[0].evidence_occurred_at))).toBe(false);
+        expect(body.pupils[0].evidence_occurred_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(wrapper.find('[data-testid="connectors-sync-success"]').text()).toContain('Connector sync queued.');
+    });
+
+    it('shows the Connector disabled message when Run sync returns 422', async () => {
+        fetch.mockImplementation(async (url, options = {}) => {
+            const path = String(url);
+            const method = (options.method ?? 'GET').toUpperCase();
+
+            if (path.includes('/api/v1/connectors/sync') && method === 'POST') {
+                return jsonResponse({
+                    message: 'The Connector is disabled.',
+                    code: 'connector_disabled',
+                }, 422);
+            }
+
+            if (path.includes('/api/v1/schools')) {
+                return jsonResponse({
+                    data: [{ id: 'sch_1', name: 'Oak Primary', is_active: true }],
+                });
+            }
+
+            return jsonResponse({
+                data: {
+                    id: 'con_1',
+                    type: 'pilot_stub',
+                    enabled: true,
+                    has_secret: false,
+                    field_shares: [],
+                },
+            });
+        });
+
+        const wrapper = mount(ConnectorsPage);
+        await flushPromises();
+
+        await wrapper.find('[data-testid="connector-sync-mis-key"]').setValue('MIS-100');
+        await wrapper.find('[data-testid="connectors-sync-form"]').trigger('submit.prevent');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="connectors-sync-error"]').text()).toContain('The Connector is disabled.');
+        expect(wrapper.find('[data-testid="connectors-sync-success"]').exists()).toBe(false);
     });
 });

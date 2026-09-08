@@ -15,6 +15,7 @@ use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -68,6 +69,7 @@ class ImportedInterventionEvidenceUpserter
         Pupil $pupil,
         User $user,
         Request $request,
+        EvidenceSource $source = EvidenceSource::Import,
     ): array {
         foreach ($evidenceHeaders as $header) {
             if (($row[$header] ?? null) === null) {
@@ -163,6 +165,7 @@ class ImportedInterventionEvidenceUpserter
                 $validated['occurred_at'],
                 $resolvedExternalId,
                 $resolvedBody,
+                $source,
             );
         } catch (UniqueConstraintViolationException) {
             return ['error' => 'An Evidence Record with this external_id already exists in your organisation.'];
@@ -220,8 +223,9 @@ class ImportedInterventionEvidenceUpserter
         string $occurredAt,
         ?string $externalId,
         ?string $body,
+        EvidenceSource $source,
     ): array {
-        return DB::transaction(function () use ($pupil, $user, $request, $provision, $occurredAt, $externalId, $body): array {
+        return DB::transaction(function () use ($pupil, $user, $request, $provision, $occurredAt, $externalId, $body, $source): array {
             $existing = null;
 
             if (is_string($externalId) && $externalId !== '') {
@@ -236,12 +240,16 @@ class ImportedInterventionEvidenceUpserter
             }
 
             if ($existing !== null) {
+                if (! $this->evidenceContentChanged($existing, $provision, $occurredAt, $externalId, $body, $source)) {
+                    return ['action' => 'unchanged'];
+                }
+
                 $existing->fill([
                     'author_id' => $user->id,
                     'occurred_at' => $occurredAt,
                     'provision_term_id' => $provision->id,
                     'body' => $body,
-                    'source' => EvidenceSource::Import,
+                    'source' => $source,
                     'external_id' => $externalId,
                 ]);
                 $existing->forceFill([
@@ -258,8 +266,8 @@ class ImportedInterventionEvidenceUpserter
                     resourceType: 'evidence_record',
                     resourceId: $existing->id,
                     metadata: [
-                        'source' => EvidenceSource::Import->value,
-                        'client_type' => 'import',
+                        'source' => $source->value,
+                        'client_type' => $source->value,
                         'pupil_id' => $existing->pupil_id,
                         'type' => $existing->type->value,
                         'lifecycle' => $existing->lifecycle->value,
@@ -279,7 +287,7 @@ class ImportedInterventionEvidenceUpserter
                 'occurred_at' => $occurredAt,
                 'provision_term_id' => $provision->id,
                 'body' => $body,
-                'source' => EvidenceSource::Import,
+                'source' => $source,
                 'external_id' => $externalId,
             ]);
             $record->forceFill([
@@ -296,8 +304,8 @@ class ImportedInterventionEvidenceUpserter
                 resourceType: 'evidence_record',
                 resourceId: $record->id,
                 metadata: [
-                    'source' => EvidenceSource::Import->value,
-                    'client_type' => 'import',
+                    'source' => $source->value,
+                    'client_type' => $source->value,
                     'pupil_id' => $record->pupil_id,
                     'type' => $record->type->value,
                     'lifecycle' => $record->lifecycle->value,
@@ -310,6 +318,45 @@ class ImportedInterventionEvidenceUpserter
 
             return ['action' => 'evidence_created'];
         });
+    }
+
+    private function evidenceContentChanged(
+        EvidenceRecord $existing,
+        ProvisionTerm $provision,
+        string $occurredAt,
+        ?string $externalId,
+        ?string $body,
+        EvidenceSource $source,
+    ): bool {
+        if ($existing->provision_term_id !== $provision->id) {
+            return true;
+        }
+
+        if ($existing->body !== $body) {
+            return true;
+        }
+
+        if ($existing->source !== $source) {
+            return true;
+        }
+
+        if ($existing->external_id !== $externalId) {
+            return true;
+        }
+
+        if ($existing->type !== EvidenceType::Intervention) {
+            return true;
+        }
+
+        if ($existing->lifecycle !== EvidenceLifecycle::Submitted) {
+            return true;
+        }
+
+        if ($existing->occurred_at === null) {
+            return true;
+        }
+
+        return ! $existing->occurred_at->utc()->equalTo(Carbon::parse($occurredAt)->utc());
     }
 
     private function nullableTrimmed(?string $value): ?string

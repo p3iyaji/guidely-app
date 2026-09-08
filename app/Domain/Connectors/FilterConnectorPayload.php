@@ -5,7 +5,8 @@ namespace App\Domain\Connectors;
 /**
  * Drops payload keys that are not opted-in for a School.
  *
- * 6.2 sync must call this; 6.1 proves the filter without a sync job.
+ * 6.2 sync must pass the Tenant Connector; callers must not rely on
+ * Connector::query()->first() under HTTP Auth.
  */
 class FilterConnectorPayload
 {
@@ -13,11 +14,9 @@ class FilterConnectorPayload
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    public function handle(string $schoolId, array $payload): array
+    public function handle(Connector $connector, string $schoolId, array $payload): array
     {
-        $connector = Connector::query()->first();
-
-        if ($connector === null || $connector->enabled !== true) {
+        if ($connector->enabled !== true) {
             return [];
         }
 
