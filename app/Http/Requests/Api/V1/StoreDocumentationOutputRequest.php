@@ -8,6 +8,8 @@ use App\Domain\Outputs\DocumentationOutputType;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Reviews\ReviewCycle;
 use App\Domain\Tenancy\CurrentTenant;
+use App\Domain\Tenancy\FeatureFlagKey;
+use App\Domain\Tenancy\FeatureFlagResolver;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -56,6 +58,12 @@ class StoreDocumentationOutputRequest extends FormRequest
                 }),
             ],
             'type' => ['required', 'string', Rule::in(DocumentationOutputType::values())],
+            'purpose' => [
+                Rule::requiredIf($this->requestsAdvancedType() && $this->advancedPacksEnabled()),
+                'nullable',
+                'string',
+                'max:2000',
+            ],
             'confirmer_user_id' => [
                 'required',
                 'integer',
@@ -78,7 +86,9 @@ class StoreDocumentationOutputRequest extends FormRequest
             'review_cycle_id.required' => 'A Review Cycle is required.',
             'review_cycle_id.exists' => 'The selected Review Cycle is invalid.',
             'type.required' => 'An output type is required.',
-            'type.in' => 'Type must be Review summary or EHCP pack.',
+            'type.in' => 'Type must be Review summary, EHCP pack, Tribunal pack, or Inspection pack.',
+            'purpose.required' => 'A purpose is required for tribunal and inspection packs.',
+            'purpose.required_if' => 'A purpose is required for tribunal and inspection packs.',
             'confirmer_user_id.required' => 'A confirmer is required.',
             'disclaimer_acknowledged.required' => 'Disclaimer acknowledgement is required.',
             'disclaimer_acknowledged.accepted' => 'Disclaimer acknowledgement is required.',
@@ -119,6 +129,17 @@ class StoreDocumentationOutputRequest extends FormRequest
         ];
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('purpose') || ! is_string($this->input('purpose'))) {
+            return;
+        }
+
+        $this->merge([
+            'purpose' => trim($this->string('purpose')->toString()),
+        ]);
+    }
+
     public function pupil(): ?Pupil
     {
         $nested = $this->route('pupil');
@@ -156,5 +177,25 @@ class StoreDocumentationOutputRequest extends FormRequest
     public function type(): DocumentationOutputType
     {
         return DocumentationOutputType::from($this->string('type')->toString());
+    }
+
+    public function purpose(): ?string
+    {
+        $purpose = trim($this->string('purpose')->toString());
+
+        return $purpose === '' ? null : $purpose;
+    }
+
+    private function requestsAdvancedType(): bool
+    {
+        $type = DocumentationOutputType::tryFrom($this->string('type')->toString());
+
+        return $type instanceof DocumentationOutputType && $type->isAdvanced();
+    }
+
+    private function advancedPacksEnabled(): bool
+    {
+        return app(FeatureFlagResolver::class)
+            ->isEnabled(FeatureFlagKey::AdvancedDocumentationPacks);
     }
 }

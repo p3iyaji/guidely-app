@@ -45,6 +45,9 @@ class DocumentationOutputResource extends JsonResource
             'confirmed_at' => $this->confirmed_at?->utc()->toIso8601String(),
             'pack_ready_at' => $this->pack_ready_at?->utc()->toIso8601String(),
             'payload' => $this->payload,
+            'purpose' => $this->purpose,
+            'checksum' => $this->checksum,
+            'has_file' => filled($this->file_path),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

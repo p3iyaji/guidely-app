@@ -46,6 +46,11 @@ class DocumentationOutputFactory extends Factory
                 'evidence_ids' => [],
                 'gap_ids' => [],
             ],
+            'purpose' => null,
+            'file_disk' => null,
+            'file_path' => null,
+            'checksum' => null,
+            'byte_size' => null,
         ];
     }
 
@@ -116,6 +121,34 @@ class DocumentationOutputFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'version' => $version,
+        ]);
+    }
+
+    public function tribunalPack(?string $purpose = 'Tribunal preparation'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => DocumentationOutputType::TribunalPack,
+            'purpose' => $purpose,
+            'payload' => [
+                'kind' => DocumentationOutputType::TribunalPack->value,
+                'determination_ids' => [],
+                'evidence_ids' => [],
+                'gap_ids' => [],
+            ],
+        ]);
+    }
+
+    public function inspectionPack(?string $purpose = 'Inspection preparation'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => DocumentationOutputType::InspectionPack,
+            'purpose' => $purpose,
+            'payload' => [
+                'kind' => DocumentationOutputType::InspectionPack->value,
+                'determination_ids' => [],
+                'evidence_ids' => [],
+                'gap_ids' => [],
+            ],
         ]);
     }
 }

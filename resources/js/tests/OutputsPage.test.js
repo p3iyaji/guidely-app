@@ -61,7 +61,7 @@ describe('OutputsPage', () => {
 
     /**
      * @param {string} [role]
-     * @param {{ outputs?: unknown[], status?: number, generateStatus?: number, generateErrors?: Record<string, string[]>, cycleStatus?: number }} [options]
+     * @param {{ outputs?: unknown[], status?: number, generateStatus?: number, generateErrors?: Record<string, string[]>, cycleStatus?: number, advancedStatus?: number, downloadStatus?: number }} [options]
      */
     async function mountPage(role = 'senco', options = {}) {
         const {
@@ -70,11 +70,40 @@ describe('OutputsPage', () => {
             generateStatus = 201,
             generateErrors = {},
             cycleStatus = 200,
+            advancedStatus = 403,
+            downloadStatus = 200,
         } = options;
 
         fetchMock.mockImplementation(async (url, init = {}) => {
             const href = String(url);
             const method = String(init.method ?? 'GET').toUpperCase();
+
+            if (href.includes('/api/v1/advanced-documentation-packs')) {
+                if (advancedStatus === 200) {
+                    return jsonResponse({
+                        available: true,
+                        feature: 'advanced_documentation_packs',
+                        placeholder: true,
+                    }, 200);
+                }
+
+                return jsonResponse({
+                    message: 'This feature is not available for this Tenant.',
+                    code: 'feature_not_available',
+                    feature: 'advanced_documentation_packs',
+                }, advancedStatus);
+            }
+
+            if (href.includes('/documentation-outputs/') && href.includes('/download')) {
+                if (downloadStatus >= 400) {
+                    return jsonResponse({ message: 'Unable to download output.' }, downloadStatus);
+                }
+
+                return new Response(new Blob(['zip-bytes'], { type: 'application/zip' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/zip' },
+                });
+            }
 
             if (href.includes('/api/v1/documentation-outputs') && method === 'POST') {
                 if (generateStatus >= 400) {
@@ -176,6 +205,10 @@ describe('OutputsPage', () => {
         expect(wrapper.find('[data-testid="output-pupil-name"]').text()).toContain('Maya Okonkwo');
         expect(wrapper.find('[data-testid="output-review-cycle-label"]').text()).toContain('Annual Review');
         expect(wrapper.find('[data-testid="outputs-generate-form"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="output-download"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="output-type-tribunal"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="output-type-inspection"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="output-purpose-field"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="output-confirmer-name"]').text()).toContain('Alex SENCO');
         expect(wrapper.find('[data-testid="output-disclaimer-ack"]').exists()).toBe(true);
         expect(wrapper.text().toLowerCase()).not.toContain('confidence');
@@ -188,6 +221,147 @@ describe('OutputsPage', () => {
         expect(wrapper.find('[data-testid="outputs-list"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="outputs-generate-form"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="output-generate-submit"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="output-download"]').exists()).toBe(true);
+    });
+
+    it('hides advanced types when the flag probe returns feature_not_available', async () => {
+        const { wrapper } = await mountPage('senco', { advancedStatus: 403 });
+
+        const optionValues = wrapper
+            .find('[data-testid="output-type"]')
+            .findAll('option')
+            .map((option) => option.attributes('value'));
+
+        expect(optionValues).toContain('review_summary');
+        expect(optionValues).toContain('ehcp_pack');
+        expect(optionValues).not.toContain('tribunal_pack');
+        expect(optionValues).not.toContain('inspection_pack');
+        expect(wrapper.find('[data-testid="output-purpose-field"]').exists()).toBe(false);
+    });
+
+    it('shows advanced types and a purpose field when the flag probe is 200', async () => {
+        const { wrapper } = await mountPage('senco', { advancedStatus: 200 });
+
+        expect(wrapper.find('[data-testid="output-type-tribunal"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="output-type-inspection"]').exists()).toBe(true);
+
+        await wrapper.find('[data-testid="output-type"]').setValue('tribunal_pack');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="output-purpose-field"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="output-purpose"]').exists()).toBe(true);
+    });
+
+    it('posts purpose when generating an advanced pack', async () => {
+        const { wrapper } = await mountPage('senco', { advancedStatus: 200 });
+
+        await wrapper.find('[data-testid="output-pupil"]').setValue('pup_1');
+        await flushPromises();
+        await wrapper.find('[data-testid="output-review-cycle"]').setValue('rc_1');
+        await wrapper.find('[data-testid="output-type"]').setValue('tribunal_pack');
+        await wrapper.find('[data-testid="output-purpose"]').setValue('Tribunal hearing bundle');
+        await wrapper.find('[data-testid="output-disclaimer-ack"]').setValue(true);
+        await wrapper.find('[data-testid="outputs-generate-form"] form').trigger('submit');
+        await flushPromises();
+
+        const createCall = fetchMock.mock.calls.find(([url, init]) => {
+            return String(url).includes('/api/v1/documentation-outputs')
+                && String(init?.method ?? 'GET').toUpperCase() === 'POST';
+        });
+
+        expect(createCall).toBeTruthy();
+        expect(JSON.parse(createCall[1].body)).toEqual({
+            pupil_id: 'pup_1',
+            review_cycle_id: 'rc_1',
+            type: 'tribunal_pack',
+            confirmer_user_id: 'usr_1',
+            disclaimer_acknowledged: true,
+            purpose: 'Tribunal hearing bundle',
+        });
+    });
+
+    it('downloads a portable file from a list row', async () => {
+        vi.useFakeTimers();
+        URL.createObjectURL = vi.fn(() => 'blob:output');
+        URL.revokeObjectURL = vi.fn();
+        const createElement = document.createElement.bind(document);
+        const click = vi.fn();
+        vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+            const element = createElement(tag);
+
+            if (tag === 'a') {
+                element.click = click;
+            }
+
+            return element;
+        });
+
+        const { wrapper } = await mountPage('senco');
+
+        await wrapper.find('[data-testid="output-download"]').trigger('click');
+        await flushPromises();
+
+        const downloadCall = fetchMock.mock.calls.find(([url]) => {
+            return String(url).includes('/api/v1/documentation-outputs/out_1/download');
+        });
+
+        expect(downloadCall).toBeTruthy();
+        expect(click).toHaveBeenCalled();
+        expect(URL.createObjectURL).toHaveBeenCalled();
+        expect(document.body.querySelector('a[download="review-summary-v1.zip"]')).toBeTruthy();
+
+        vi.runAllTimers();
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:output');
+        vi.useRealTimers();
+    });
+
+    it('shows download error and does not save when download is forbidden', async () => {
+        const createElement = document.createElement.bind(document);
+        const click = vi.fn();
+        vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+            const element = createElement(tag);
+
+            if (tag === 'a') {
+                element.click = click;
+            }
+
+            return element;
+        });
+
+        const { wrapper } = await mountPage('senco', { downloadStatus: 403 });
+
+        await wrapper.find('[data-testid="output-download"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="outputs-download-error"]').text()).toContain(
+            'Unable to download output.',
+        );
+        expect(click).not.toHaveBeenCalled();
+    });
+
+    it('keeps Generate disabled when advanced type has a blank purpose', async () => {
+        const { wrapper } = await mountPage('senco', { advancedStatus: 200 });
+
+        await wrapper.find('[data-testid="output-pupil"]').setValue('pup_1');
+        await flushPromises();
+        await wrapper.find('[data-testid="output-review-cycle"]').setValue('rc_1');
+        await wrapper.find('[data-testid="output-type"]').setValue('tribunal_pack');
+        await wrapper.find('[data-testid="output-disclaimer-ack"]').setValue(true);
+
+        expect(wrapper.find('[data-testid="output-purpose"]').attributes('maxlength')).toBe('2000');
+        expect(wrapper.find('[data-testid="output-generate-submit"]').attributes('disabled')).toBeDefined();
+
+        await wrapper.find('[data-testid="outputs-generate-form"] form').trigger('submit');
+        await flushPromises();
+
+        const postCalls = fetchMock.mock.calls.filter(([, init]) => {
+            return String(init?.method ?? 'GET').toUpperCase() === 'POST';
+        });
+
+        expect(postCalls).toHaveLength(0);
+        expect(wrapper.find('[data-testid="output-purpose-error"]').text()).toContain(
+            'A purpose is required for tribunal and inspection packs.',
+        );
     });
 
     it('blocks Generate without disclaimer acknowledgement', async () => {

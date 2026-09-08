@@ -3,7 +3,8 @@
         <div>
             <h1 class="text-heading font-semibold text-text">Outputs</h1>
             <p class="mt-1 text-body text-text-muted">
-                Confirmed review summaries and EHCP packs for Pupils in your School.
+                Download confirmed Documentation Outputs for Pupils in your School.
+                Tribunal and inspection packs can be generated when they are available for this Tenant.
             </p>
         </div>
 
@@ -81,9 +82,38 @@
                     >
                         <option value="review_summary">Review summary</option>
                         <option value="ehcp_pack">EHCP pack</option>
+                        <option
+                            v-if="advancedPacksAvailable"
+                            value="tribunal_pack"
+                            data-testid="output-type-tribunal"
+                        >
+                            Tribunal pack
+                        </option>
+                        <option
+                            v-if="advancedPacksAvailable"
+                            value="inspection_pack"
+                            data-testid="output-type-inspection"
+                        >
+                            Inspection pack
+                        </option>
                     </select>
                     <p v-if="fieldErrors.type" class="mt-1 text-meta text-danger" data-testid="output-type-error">
                         {{ fieldErrors.type }}
+                    </p>
+                </div>
+
+                <div v-if="isAdvancedType" data-testid="output-purpose-field">
+                    <label class="block text-body text-text" for="output-purpose">Purpose</label>
+                    <input
+                        id="output-purpose"
+                        v-model="generateForm.purpose"
+                        type="text"
+                        maxlength="2000"
+                        class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        data-testid="output-purpose"
+                    >
+                    <p v-if="fieldErrors.purpose" class="mt-1 text-meta text-danger" data-testid="output-purpose-error">
+                        {{ fieldErrors.purpose }}
                     </p>
                 </div>
 
@@ -165,28 +195,47 @@
                 :key="output.id"
                 data-testid="output-row"
             >
-                <div class="flex flex-col gap-1 px-4 py-3">
-                    <p class="text-body font-medium text-text" data-testid="output-type-label">
-                        {{ output.type_label || typeLabel(output.type) }}
-                        <span class="text-meta text-text-muted">v{{ output.version }}</span>
-                    </p>
-                    <p class="text-meta text-text-muted" data-testid="output-pupil-name">
-                        {{ pupilName(output.pupil ?? output) }}
-                    </p>
-                    <p
-                        v-if="isRecord(output.review_cycle)"
-                        class="text-meta text-text-muted"
-                        data-testid="output-review-cycle-label"
+                <div class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="flex flex-col gap-1">
+                        <p class="text-body font-medium text-text" data-testid="output-type-label">
+                            {{ output.type_label || typeLabel(output.type) }}
+                            <span class="text-meta text-text-muted">v{{ output.version }}</span>
+                        </p>
+                        <p class="text-meta text-text-muted" data-testid="output-pupil-name">
+                            {{ pupilName(output.pupil ?? output) }}
+                        </p>
+                        <p
+                            v-if="isRecord(output.review_cycle)"
+                            class="text-meta text-text-muted"
+                            data-testid="output-review-cycle-label"
+                        >
+                            {{ cycleLabel(output.review_cycle) }}
+                        </p>
+                        <p class="text-meta text-text-muted" data-testid="output-confirmed-at">
+                            Confirmed {{ formatConfirmedAt(output.confirmed_at) }}
+                            <span v-if="isRecord(output.confirmer)"> by {{ output.confirmer.name }}</span>
+                        </p>
+                    </div>
+                    <ButtonSecondary
+                        type="button"
+                        :disabled="downloadingId === output.id"
+                        data-testid="output-download"
+                        @click="downloadOutput(output)"
                     >
-                        {{ cycleLabel(output.review_cycle) }}
-                    </p>
-                    <p class="text-meta text-text-muted" data-testid="output-confirmed-at">
-                        Confirmed {{ formatConfirmedAt(output.confirmed_at) }}
-                        <span v-if="isRecord(output.confirmer)"> by {{ output.confirmer.name }}</span>
-                    </p>
+                        {{ downloadingId === output.id ? 'Downloading…' : 'Download' }}
+                    </ButtonSecondary>
                 </div>
             </li>
         </ul>
+
+        <p
+            v-if="downloadError"
+            class="mt-4 text-body text-danger"
+            role="alert"
+            data-testid="outputs-download-error"
+        >
+            {{ downloadError }}
+        </p>
     </div>
 </template>
 
@@ -195,6 +244,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
+import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
 import Card from '../shared/ui/Card.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 
@@ -211,10 +261,14 @@ const generating = ref(false);
 const generateError = ref('');
 const pupilsLoadError = ref('');
 const cyclesLoadError = ref('');
+const downloadError = ref('');
+const downloadingId = ref('');
+const advancedPacksAvailable = ref(false);
 const fieldErrors = reactive({
     pupil_id: '',
     review_cycle_id: '',
     type: '',
+    purpose: '',
     confirmer_user_id: '',
     disclaimer_acknowledged: '',
 });
@@ -222,6 +276,7 @@ const generateForm = reactive({
     pupil_id: '',
     review_cycle_id: '',
     type: 'review_summary',
+    purpose: '',
     disclaimer_acknowledged: false,
 });
 
@@ -229,17 +284,32 @@ const cyclesForSelectedPupil = computed(() => {
     return cycles.value.filter((cycle) => cycle.pupil_id === generateForm.pupil_id);
 });
 
+const isAdvancedType = computed(() => {
+    return generateForm.type === 'tribunal_pack' || generateForm.type === 'inspection_pack';
+});
+
 const canGenerate = computed(() => {
     return Boolean(
         generateForm.disclaimer_acknowledged
         && generateForm.pupil_id
-        && generateForm.review_cycle_id,
+        && generateForm.review_cycle_id
+        && (!isAdvancedType.value || generateForm.purpose.trim()),
     );
 });
 
 onMounted(async () => {
     await Promise.all([loadOutputs(), loadGenerateOptionsIfSenco()]);
 });
+
+watch(
+    () => generateForm.type,
+    (type) => {
+        if (type !== 'tribunal_pack' && type !== 'inspection_pack') {
+            generateForm.purpose = '';
+            fieldErrors.purpose = '';
+        }
+    },
+);
 
 watch(
     () => generateForm.pupil_id,
@@ -291,6 +361,7 @@ async function loadGenerateOptionsIfSenco() {
     }
 
     pupilsLoadError.value = '';
+    await probeAdvancedPacks();
 
     try {
         const pupilsResponse = await apiFetch('/api/v1/pupils');
@@ -306,6 +377,17 @@ async function loadGenerateOptionsIfSenco() {
     } catch {
         pupils.value = [];
         pupilsLoadError.value = 'Unable to load Pupils.';
+    }
+}
+
+async function probeAdvancedPacks() {
+    advancedPacksAvailable.value = false;
+
+    try {
+        const response = await apiFetch('/api/v1/advanced-documentation-packs');
+        advancedPacksAvailable.value = response.status === 200;
+    } catch {
+        advancedPacksAvailable.value = false;
     }
 }
 
@@ -344,11 +426,19 @@ async function generateOutput() {
     fieldErrors.pupil_id = '';
     fieldErrors.review_cycle_id = '';
     fieldErrors.type = '';
+    fieldErrors.purpose = '';
     fieldErrors.confirmer_user_id = '';
     fieldErrors.disclaimer_acknowledged = '';
 
     if (!generateForm.disclaimer_acknowledged) {
         fieldErrors.disclaimer_acknowledged = 'Disclaimer acknowledgement is required.';
+        generating.value = false;
+
+        return;
+    }
+
+    if (isAdvancedType.value && !generateForm.purpose.trim()) {
+        fieldErrors.purpose = 'A purpose is required for tribunal and inspection packs.';
         generating.value = false;
 
         return;
@@ -364,6 +454,7 @@ async function generateOutput() {
                 type: generateForm.type,
                 confirmer_user_id: session.user.value?.id ?? null,
                 disclaimer_acknowledged: true,
+                ...(isAdvancedType.value ? { purpose: generateForm.purpose.trim() } : {}),
             }),
         });
 
@@ -384,6 +475,7 @@ async function generateOutput() {
         }
 
         generateForm.disclaimer_acknowledged = false;
+        generateForm.purpose = '';
         await loadOutputs();
     } catch {
         generateError.value = 'Unable to generate output.';
@@ -419,6 +511,8 @@ function typeLabel(type) {
     const labels = {
         review_summary: 'Review summary',
         ehcp_pack: 'EHCP pack',
+        tribunal_pack: 'Tribunal pack',
+        inspection_pack: 'Inspection pack',
         annual_review: 'Annual Review',
         interim: 'Interim',
         other: 'Other',
@@ -466,6 +560,54 @@ function formatConfirmedAt(confirmedAt) {
         timeStyle: 'short',
         timeZone: 'Europe/London',
     });
+}
+
+/**
+ * @param {Record<string, unknown>} output
+ */
+async function downloadOutput(output) {
+    if (downloadingId.value) {
+        return;
+    }
+
+    downloadingId.value = String(output.id ?? '');
+    downloadError.value = '';
+
+    try {
+        const response = await apiFetch(`/api/v1/documentation-outputs/${output.id}/download`);
+
+        if (!response.ok) {
+            downloadError.value = 'Unable to download output.';
+
+            return;
+        }
+
+        const blob = await response.blob();
+
+        if (blob.size === 0) {
+            downloadError.value = 'Unable to download output.';
+
+            return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const type = typeof output.type === 'string' ? output.type.replaceAll('_', '-') : 'output';
+        const version = output.version ?? 1;
+        link.href = url;
+        link.download = `${type}-v${version}.zip`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        window.setTimeout(() => {
+            URL.revokeObjectURL(url);
+            link.remove();
+        }, 0);
+    } catch {
+        downloadError.value = 'Unable to download output.';
+    } finally {
+        downloadingId.value = '';
+    }
 }
 
 /**

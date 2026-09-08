@@ -43,6 +43,7 @@ class DocumentationOutput extends Model
             'payload' => 'array',
             'confirmed_at' => 'datetime',
             'pack_ready_at' => 'datetime',
+            'byte_size' => 'integer',
         ];
     }
 

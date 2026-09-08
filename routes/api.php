@@ -120,6 +120,8 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.documentation-outputs.index');
         Route::post('/documentation-outputs', [DocumentationOutputController::class, 'store'])
             ->name('api.v1.documentation-outputs.store');
+        Route::get('/documentation-outputs/{documentationOutput}/download', [DocumentationOutputController::class, 'download'])
+            ->name('api.v1.documentation-outputs.download');
         Route::get('/documentation-outputs/{documentationOutput}', [DocumentationOutputController::class, 'show'])
             ->name('api.v1.documentation-outputs.show');
         Route::post('/pupils/{pupil}/review-cycles/{reviewCycle}/outputs', [DocumentationOutputController::class, 'store'])

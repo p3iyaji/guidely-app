@@ -63,6 +63,13 @@ class BuildDocumentationOutput
                 $evidence,
                 $gaps,
             ),
+            DocumentationOutputType::TribunalPack,
+            DocumentationOutputType::InspectionPack => $this->advancedPack(
+                $type,
+                $determinations,
+                $submittedIds,
+                $gaps,
+            ),
         };
     }
 
@@ -124,6 +131,24 @@ class BuildDocumentationOutput
                 ->all(),
             'gap_ids' => $gaps->modelKeys(),
         ];
+    }
+
+    /**
+     * @param  Collection<int, Determination>  $determinations
+     * @param  list<string>  $submittedIds
+     * @param  Collection<int, Gap>  $gaps
+     * @return array<string, mixed>
+     */
+    private function advancedPack(
+        DocumentationOutputType $type,
+        Collection $determinations,
+        array $submittedIds,
+        Collection $gaps,
+    ): array {
+        $payload = $this->reviewSummary($determinations, $submittedIds, $gaps);
+        $payload['kind'] = $type->value;
+
+        return $payload;
     }
 
     /**
