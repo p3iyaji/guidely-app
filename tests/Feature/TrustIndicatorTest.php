@@ -3,10 +3,14 @@
 namespace Tests\Feature;
 
 use App\Domain\Identity\AccessMessages;
+use App\Domain\Ontology\Rule;
+use App\Domain\Ontology\RuleCategory;
 use App\Domain\Pupils\DocumentationStatus;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Reporting\TrustIndicator;
 use App\Domain\Reviews\ReviewCycle;
+use App\Domain\Sre\Determination;
+use App\Domain\Sre\DeterminationResult;
 use App\Domain\Tenancy\FeatureFlagKey;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
@@ -62,7 +66,14 @@ class TrustIndicatorTest extends TestCase
             ->assertJsonPath('data.schools.1.gaps', 0)
             ->assertJsonPath('data.schools.1.gap_density', 0)
             ->assertJsonPath('data.schools.1.open_cycles', 0)
-            ->assertJsonPath('data.schools.1.lateness_rate', 0);
+            ->assertJsonPath('data.schools.1.lateness_rate', 0)
+            ->assertJsonPath('data.escalated_pupils', 0)
+            ->assertJsonPath('data.flagged_schools', 0)
+            ->assertJsonPath('data.escalations', [])
+            ->assertJsonPath('data.schools.0.escalated_pupils', 0)
+            ->assertJsonPath('data.schools.0.escalations', [])
+            ->assertJsonPath('data.schools.1.escalated_pupils', 0)
+            ->assertJsonPath('data.schools.1.escalations', []);
 
         $this->assertCount(2, $response->json('data.schools'));
         $this->assertSame(4, array_sum($response->json('data.by_status')));
@@ -170,6 +181,9 @@ class TrustIndicatorTest extends TestCase
             ->assertJsonPath('data.by_status.uncovered', 0)
             ->assertJsonPath('data.by_status.not-started', 0)
             ->assertJsonPath('data.by_status.evaluating', 0)
+            ->assertJsonPath('data.escalated_pupils', 0)
+            ->assertJsonPath('data.flagged_schools', 0)
+            ->assertJsonPath('data.escalations', [])
             ->assertJsonPath('data.schools', []);
     }
 
@@ -193,6 +207,119 @@ class TrustIndicatorTest extends TestCase
             ->assertJsonPath('data.open_cycles', 1)
             ->assertJsonPath('data.overdue_open_cycles', 0)
             ->assertJsonPath('data.lateness_rate', 0);
+    }
+
+    public function test_trust_send_lead_sees_current_escalation_rule_citation_without_pupil_names(): void
+    {
+        [$tenant, $oak, $ridge] = $this->twoActiveSchools();
+        $lead = $this->trustSendLead($tenant);
+        $maya = $this->pupilWithStatus($oak, DocumentationStatus::Gaps, 'Maya', 'Okonkwo');
+        $this->pupilWithStatus($ridge, DocumentationStatus::Ready, 'Sam', 'Patel');
+        $rule = $this->escalationRule();
+        $this->currentDetermination($maya, $rule, DeterminationResult::Escalated);
+
+        $response = $this->actingAs($lead)->getJson('/api/v1/trust-dashboard');
+
+        $response->assertOk()
+            ->assertJsonPath('data.escalated_pupils', 1)
+            ->assertJsonPath('data.flagged_schools', 1)
+            ->assertJsonPath('data.escalations.0.rule_id', $rule->id)
+            ->assertJsonPath('data.escalations.0.rule_code', $rule->code)
+            ->assertJsonPath('data.escalations.0.rule_label', $rule->label)
+            ->assertJsonPath('data.escalations.0.pupil_count', 1)
+            ->assertJsonPath('data.schools.0.school_id', $oak->id)
+            ->assertJsonPath('data.schools.0.escalated_pupils', 1)
+            ->assertJsonPath('data.schools.0.flagged_schools', 1)
+            ->assertJsonPath('data.schools.0.escalations.0.rule_code', $rule->code)
+            ->assertJsonPath('data.schools.1.school_id', $ridge->id)
+            ->assertJsonPath('data.schools.1.escalated_pupils', 0)
+            ->assertJsonPath('data.schools.1.escalations', []);
+
+        $this->assertCount(1, $response->json('data.escalations'));
+        $this->assertStringNotContainsString('Maya', $response->getContent());
+        $this->assertStringNotContainsString('Okonkwo', $response->getContent());
+        $this->assertStringNotContainsString('reasoning_pathway', $response->getContent());
+    }
+
+    public function test_trust_executive_sees_escalation_citations_without_schools_key(): void
+    {
+        [$tenant, $oak] = $this->twoActiveSchools();
+        $executive = $this->trustExecutive($tenant);
+        $maya = $this->pupilWithStatus($oak, DocumentationStatus::Gaps, 'Maya', 'Okonkwo');
+        $rule = $this->escalationRule();
+        $this->currentDetermination($maya, $rule, DeterminationResult::Escalated);
+
+        $response = $this->actingAs($executive)->getJson('/api/v1/trust-dashboard');
+
+        $response->assertOk()
+            ->assertJsonPath('data.escalated_pupils', 1)
+            ->assertJsonPath('data.flagged_schools', 1)
+            ->assertJsonPath('data.escalations.0.rule_id', $rule->id)
+            ->assertJsonPath('data.escalations.0.rule_code', $rule->code)
+            ->assertJsonPath('data.escalations.0.pupil_count', 1);
+
+        $this->assertArrayNotHasKey('schools', $response->json('data'));
+        $this->assertStringNotContainsString('Maya', $response->getContent());
+    }
+
+    public function test_stale_escalation_determination_is_not_flagged(): void
+    {
+        [$tenant, $oak] = $this->twoActiveSchools();
+        $lead = $this->trustSendLead($tenant);
+        $maya = $this->pupilWithStatus($oak, DocumentationStatus::Gaps, 'Maya', 'Okonkwo');
+        $rule = $this->escalationRule();
+        Determination::factory()
+            ->forPupil($maya)
+            ->forRule($rule)
+            ->withResult(DeterminationResult::Escalated)
+            ->create(['is_current' => false]);
+
+        $this->actingAs($lead)
+            ->getJson('/api/v1/trust-dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.escalated_pupils', 0)
+            ->assertJsonPath('data.flagged_schools', 0)
+            ->assertJsonPath('data.escalations', []);
+    }
+
+    public function test_current_met_and_non_escalation_rules_are_not_flagged(): void
+    {
+        [$tenant, $oak] = $this->twoActiveSchools();
+        $lead = $this->trustSendLead($tenant);
+        $maya = $this->pupilWithStatus($oak, DocumentationStatus::Ready, 'Maya', 'Okonkwo');
+        $documentation = $this->documentationRule();
+        $reviewThreshold = $this->reviewThresholdRule();
+        $this->currentDetermination($maya, $documentation, DeterminationResult::Met);
+        $this->currentDetermination($maya, $reviewThreshold, DeterminationResult::Escalated);
+
+        $this->actingAs($lead)
+            ->getJson('/api/v1/trust-dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.escalated_pupils', 0)
+            ->assertJsonPath('data.escalations', []);
+    }
+
+    public function test_inactive_school_escalation_is_omitted(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $this->enableTrustDashboard($tenant);
+        $active = School::factory()->forTenant($tenant)->create(['name' => 'Oak Academy']);
+        $inactive = School::factory()->forTenant($tenant)->inactive()->create(['name' => 'Closed Academy']);
+        $lead = $this->trustSendLead($tenant);
+        $this->pupilWithStatus($active, DocumentationStatus::Ready, 'Maya', 'Okonkwo');
+        $hidden = $this->pupilWithStatus($inactive, DocumentationStatus::Gaps, 'Hidden', 'Pupil');
+        $this->currentDetermination($hidden, $this->escalationRule(), DeterminationResult::Escalated);
+
+        $response = $this->actingAs($lead)->getJson('/api/v1/trust-dashboard');
+
+        $response->assertOk()
+            ->assertJsonPath('data.escalated_pupils', 0)
+            ->assertJsonPath('data.flagged_schools', 0)
+            ->assertJsonPath('data.escalations', [])
+            ->assertJsonCount(1, 'data.schools');
+
+        $this->assertStringNotContainsString('Hidden', $response->getContent());
+        $this->assertStringNotContainsString('Closed Academy', $response->getContent());
     }
 
     public function test_closed_overdue_cycle_is_omitted_from_lateness(): void
@@ -305,6 +432,43 @@ class TrustIndicatorTest extends TestCase
             'family_name' => $familyName,
             'documentation_status' => $status,
         ]);
+    }
+
+    private function escalationRule(): Rule
+    {
+        return Rule::factory()->create([
+            'code' => 'ESC_SEQ_REVIEW',
+            'label' => 'Sequential Compliance — escalation review path',
+            'category' => RuleCategory::Escalation,
+        ]);
+    }
+
+    private function documentationRule(): Rule
+    {
+        return Rule::factory()->create([
+            'code' => 'SEQ_DOC_INITIAL',
+            'label' => 'Sequential Compliance — initial documentation sequence',
+            'category' => RuleCategory::Documentation,
+        ]);
+    }
+
+    private function reviewThresholdRule(): Rule
+    {
+        return Rule::factory()->create([
+            'code' => 'REV_THR_EVID',
+            'label' => 'Evidential Sufficiency — review threshold gate',
+            'category' => RuleCategory::ReviewThreshold,
+        ]);
+    }
+
+    private function currentDetermination(Pupil $pupil, Rule $rule, DeterminationResult $result): Determination
+    {
+        return Determination::factory()
+            ->forPupil($pupil)
+            ->forRule($rule)
+            ->withResult($result)
+            ->current()
+            ->create();
     }
 
     private function assertForbiddenFields(TestResponse $response): void

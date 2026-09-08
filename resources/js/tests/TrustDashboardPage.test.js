@@ -20,6 +20,9 @@ const leadPayload = {
         'not-started': 1,
         evaluating: 0,
     },
+    escalated_pupils: 0,
+    flagged_schools: 0,
+    escalations: [],
     schools: [
         {
             school_id: 'sch_oak',
@@ -37,6 +40,9 @@ const leadPayload = {
                 'not-started': 0,
                 evaluating: 0,
             },
+            escalated_pupils: 0,
+            flagged_schools: 0,
+            escalations: [],
         },
         {
             school_id: 'sch_ridge',
@@ -54,6 +60,9 @@ const leadPayload = {
                 'not-started': 1,
                 evaluating: 0,
             },
+            escalated_pupils: 0,
+            flagged_schools: 0,
+            escalations: [],
         },
     ],
 };
@@ -72,6 +81,16 @@ const executivePayload = {
         'not-started': 1,
         evaluating: 0,
     },
+    escalated_pupils: 1,
+    flagged_schools: 1,
+    escalations: [
+        {
+            rule_id: 'rule_esc',
+            rule_code: 'ESC_SEQ_REVIEW',
+            rule_label: 'Sequential Compliance — escalation review path',
+            pupil_count: 1,
+        },
+    ],
 };
 
 describe('TrustDashboardPage', () => {
@@ -161,7 +180,7 @@ describe('TrustDashboardPage', () => {
         expect(wrapper.text()).not.toMatch(/Coming soon/i);
 
         const kpis = wrapper.findAll('[data-testid="kpi-card"]');
-        expect(kpis).toHaveLength(4);
+        expect(kpis).toHaveLength(5);
         expect(kpis[0].text()).toContain('Lateness');
         expect(kpis[0].find('[data-testid="kpi-value"]').text()).toContain('50%');
         expect(kpis[0].find('[data-testid="kpi-value"]').text()).toContain('1 of 2');
@@ -171,6 +190,9 @@ describe('TrustDashboardPage', () => {
         expect(kpis[2].find('[data-testid="kpi-value"]').text()).toBe('4');
         expect(kpis[3].text()).toContain('Ready');
         expect(kpis[3].find('[data-testid="kpi-value"]').text()).toBe('1');
+        expect(kpis[4].text()).toContain('Flagged Schools');
+        expect(kpis[4].find('[data-testid="kpi-value"]').text()).toBe('0');
+        expect(wrapper.find('[data-testid="trust-dashboard-escalations-empty"]').exists()).toBe(true);
 
         expect(wrapper.findAll('[data-testid="trust-dashboard-status-row"]')).toHaveLength(5);
         expect(wrapper.findAll('[data-testid="status-pill"]').length).toBeGreaterThan(0);
@@ -182,6 +204,36 @@ describe('TrustDashboardPage', () => {
         );
         expect(wrapper.text()).not.toContain('Maya');
         expect(wrapper.find('a[href*="/pupils/"]').exists()).toBe(false);
+        expect(wrapper.findAll('[data-testid="trust-dashboard-school-escalations"]').at(0)?.text()).toBe('0');
+    });
+
+    it('cites escalation Rules without pupil names for Trust SEND Lead', async () => {
+        const { wrapper } = await mountPage({
+            payload: {
+                ...leadPayload,
+                escalated_pupils: 1,
+                flagged_schools: 1,
+                escalations: executivePayload.escalations,
+                schools: [
+                    {
+                        ...leadPayload.schools[0],
+                        escalated_pupils: 1,
+                        flagged_schools: 1,
+                        escalations: executivePayload.escalations,
+                    },
+                    leadPayload.schools[1],
+                ],
+            },
+        });
+
+        expect(wrapper.find('[data-testid="trust-dashboard-escalations-list"]').text()).toContain('ESC_SEQ_REVIEW');
+        expect(wrapper.findAll('[data-testid="trust-dashboard-school-escalations"]').at(0)?.text()).toBe('1');
+        expect(wrapper.findAll('[data-testid="trust-dashboard-school-escalations"]').at(1)?.text()).toBe('0');
+        expect(wrapper.find('[data-testid="trust-dashboard-school-link-sch_oak"]').attributes('href')).toContain(
+            'school_id=sch_oak',
+        );
+        expect(wrapper.text()).not.toContain('Maya');
+        expect(wrapper.findAll('[data-testid="kpi-card"]').at(4)?.find('[data-testid="kpi-value"]').text()).toBe('1');
     });
 
     it('omits the School table for Trust Executive aggregates', async () => {
@@ -190,6 +242,10 @@ describe('TrustDashboardPage', () => {
         expect(wrapper.find('[data-testid="trust-dashboard-kpis"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="trust-dashboard-schools"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="trust-dashboard-empty"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="trust-dashboard-escalations"]').text()).toContain('ESC_SEQ_REVIEW');
+        expect(wrapper.find('[data-testid="trust-dashboard-escalations"]').text()).toContain(
+            'Sequential Compliance — escalation review path',
+        );
         expect(wrapper.find('a[href*="school_id"]').exists()).toBe(false);
     });
 
@@ -218,6 +274,9 @@ describe('TrustDashboardPage', () => {
                     'not-started': 0,
                     evaluating: 0,
                 },
+                escalated_pupils: 0,
+                flagged_schools: 0,
+                escalations: [],
                 schools: [],
             },
         });

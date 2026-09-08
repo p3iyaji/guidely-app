@@ -2,9 +2,12 @@
 
 namespace App\Domain\Reporting;
 
+use App\Domain\Ontology\RuleCategory;
 use App\Domain\Pupils\DocumentationStatus;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Reviews\ReviewCycle;
+use App\Domain\Sre\Determination;
+use App\Domain\Sre\DeterminationResult;
 use App\Domain\Tenancy\School;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -22,12 +25,13 @@ class BuildTrustIndicators
         $empty = $this->emptyStatusCounts();
 
         if ($schools->isEmpty()) {
-            return $this->makeIndicator($empty, 0, 0, $includeSchools ? [] : null);
+            return $this->makeIndicator($empty, 0, 0, $this->emptyEscalationSummary(), $includeSchools ? [] : null);
         }
 
         $schoolIds = $schools->pluck('id');
         $statusBySchool = $this->statusCountsBySchool($schoolIds);
         $cycleCountsBySchool = $this->cycleCountsBySchool($schoolIds);
+        $escalationsBySchool = $this->escalationsBySchool($schoolIds);
 
         $totalStatus = $empty;
         $totalOpen = 0;
@@ -51,11 +55,13 @@ class BuildTrustIndicators
             $overdueOpenCycles = $cycleCountsBySchool[$school->id]['overdue'] ?? 0;
             $totalOpen += $openCycles;
             $totalOverdue += $overdueOpenCycles;
+            $escalation = $escalationsBySchool[$school->id] ?? $this->emptyEscalationSummary();
 
             $schoolRows[] = [
                 'school_id' => $school->id,
                 'name' => $school->name,
                 ...$this->metricPayload($byStatus, $openCycles, $overdueOpenCycles),
+                ...$escalation,
             ];
         }
 
@@ -63,16 +69,23 @@ class BuildTrustIndicators
             $totalStatus,
             $totalOpen,
             $totalOverdue,
+            $this->tenantEscalationSummary($escalationsBySchool),
             $includeSchools ? $schoolRows : null,
         );
     }
 
     /**
      * @param  array{ready: int, gaps: int, uncovered: int, not-started: int, evaluating: int}  $byStatus
-     * @param  list<array{school_id: string, name: string, pupils_in_scope: int, by_status: array{ready: int, gaps: int, uncovered: int, not-started: int, evaluating: int}, gap_density: float, gaps: int, lateness_rate: float, overdue_open_cycles: int, open_cycles: int}>|null  $schools
+     * @param  array{escalated_pupils: int, flagged_schools: int, escalations: list<array{rule_id: string, rule_code: string, rule_label: string, pupil_count: int}>}  $escalation
+     * @param  list<array<string, mixed>>|null  $schools
      */
-    private function makeIndicator(array $byStatus, int $openCycles, int $overdueOpenCycles, ?array $schools): TrustIndicator
-    {
+    private function makeIndicator(
+        array $byStatus,
+        int $openCycles,
+        int $overdueOpenCycles,
+        array $escalation,
+        ?array $schools,
+    ): TrustIndicator {
         $metrics = $this->metricPayload($byStatus, $openCycles, $overdueOpenCycles);
 
         return new TrustIndicator(
@@ -83,6 +96,9 @@ class BuildTrustIndicators
             latenessRate: $metrics['lateness_rate'],
             overdueOpenCycles: $metrics['overdue_open_cycles'],
             openCycles: $metrics['open_cycles'],
+            escalatedPupils: $escalation['escalated_pupils'],
+            flaggedSchools: $escalation['flagged_schools'],
+            escalations: $escalation['escalations'],
             schools: $schools,
         );
     }
@@ -179,6 +195,143 @@ class BuildTrustIndicators
         }
 
         return $counts;
+    }
+
+    /**
+     * @param  Collection<int, string>  $schoolIds
+     * @return array<string, array{escalated_pupils: int, flagged_schools: int, escalations: list<array{rule_id: string, rule_code: string, rule_label: string, pupil_count: int}>}>
+     */
+    private function escalationsBySchool(Collection $schoolIds): array
+    {
+        $determinations = Determination::query()
+            ->current()
+            ->where('result', DeterminationResult::Escalated)
+            ->whereHas(
+                'rule',
+                function (Builder $rules): void {
+                    $rules->where('category', RuleCategory::Escalation);
+                },
+            )
+            ->whereHas(
+                'pupil',
+                function (Builder $pupils) use ($schoolIds): void {
+                    $pupils->whereIn('school_id', $schoolIds);
+                },
+            )
+            ->with([
+                'rule:id,code,label,category,rule_library_version_id',
+                'pupil:id,school_id',
+            ])
+            ->get(['id', 'pupil_id', 'rule_id', 'result']);
+
+        $grouped = [];
+
+        foreach ($determinations as $determination) {
+            $schoolId = $determination->pupil?->school_id;
+            $rule = $determination->rule;
+
+            if (! is_string($schoolId) || $schoolId === '' || $rule === null) {
+                continue;
+            }
+
+            $ruleId = $rule->id;
+            $grouped[$schoolId][$ruleId] ??= [
+                'rule_id' => $ruleId,
+                'rule_code' => $rule->code,
+                'rule_label' => $rule->label,
+                'pupil_ids' => [],
+            ];
+            $grouped[$schoolId][$ruleId]['pupil_ids'][$determination->pupil_id] = true;
+        }
+
+        $bySchool = [];
+
+        foreach ($grouped as $schoolId => $rules) {
+            $pupilIds = [];
+            $escalations = [];
+
+            foreach ($rules as $rule) {
+                $rulePupilIds = array_keys($rule['pupil_ids']);
+                foreach ($rulePupilIds as $pupilId) {
+                    $pupilIds[$pupilId] = true;
+                }
+
+                $escalations[] = [
+                    'rule_id' => $rule['rule_id'],
+                    'rule_code' => $rule['rule_code'],
+                    'rule_label' => $rule['rule_label'],
+                    'pupil_count' => count($rulePupilIds),
+                ];
+            }
+
+            usort(
+                $escalations,
+                fn (array $left, array $right): int => [$left['rule_code'], $left['rule_id']] <=> [$right['rule_code'], $right['rule_id']],
+            );
+
+            $escalatedPupils = count($pupilIds);
+            $bySchool[$schoolId] = [
+                'escalated_pupils' => $escalatedPupils,
+                'flagged_schools' => $escalatedPupils > 0 ? 1 : 0,
+                'escalations' => $escalations,
+            ];
+        }
+
+        return $bySchool;
+    }
+
+    /**
+     * @param  array<string, array{escalated_pupils: int, flagged_schools: int, escalations: list<array{rule_id: string, rule_code: string, rule_label: string, pupil_count: int}>}>  $escalationsBySchool
+     * @return array{escalated_pupils: int, flagged_schools: int, escalations: list<array{rule_id: string, rule_code: string, rule_label: string, pupil_count: int}>}
+     */
+    private function tenantEscalationSummary(array $escalationsBySchool): array
+    {
+        $flaggedSchools = 0;
+        $pupilTotal = 0;
+        $byRule = [];
+
+        foreach ($escalationsBySchool as $summary) {
+            if ($summary['escalated_pupils'] > 0) {
+                $flaggedSchools++;
+            }
+
+            $pupilTotal += $summary['escalated_pupils'];
+
+            foreach ($summary['escalations'] as $escalation) {
+                $ruleId = $escalation['rule_id'];
+                $byRule[$ruleId] ??= [
+                    'rule_id' => $ruleId,
+                    'rule_code' => $escalation['rule_code'],
+                    'rule_label' => $escalation['rule_label'],
+                    'pupil_count' => 0,
+                ];
+                $byRule[$ruleId]['pupil_count'] += $escalation['pupil_count'];
+            }
+        }
+
+        $escalations = array_values($byRule);
+        usort(
+            $escalations,
+            fn (array $left, array $right): int => [$left['rule_code'], $left['rule_id']] <=> [$right['rule_code'], $right['rule_id']],
+        );
+
+        return [
+            'escalated_pupils' => $pupilTotal,
+            'flagged_schools' => $flaggedSchools,
+            'escalations' => $escalations,
+        ];
+    }
+
+    /**
+     * @return array{escalated_pupils: int, flagged_schools: int, escalations: list<array{rule_id: string, rule_code: string, rule_label: string, pupil_count: int}>}
+     */
+    private function emptyEscalationSummary(): array
+    {
+        return [
+            'escalated_pupils' => 0,
+            'flagged_schools' => 0,
+            'escalations' => [],
+        ];
     }
 
     private function rate(int $numerator, int $denominator): float

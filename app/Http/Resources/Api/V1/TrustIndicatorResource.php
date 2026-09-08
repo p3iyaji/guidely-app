@@ -24,6 +24,9 @@ class TrustIndicatorResource extends JsonResource
             'lateness_rate' => $this->latenessRate,
             'overdue_open_cycles' => $this->overdueOpenCycles,
             'open_cycles' => $this->openCycles,
+            'escalated_pupils' => $this->escalatedPupils,
+            'flagged_schools' => $this->flaggedSchools,
+            'escalations' => $this->escalations,
         ];
 
         if ($this->schools !== null) {

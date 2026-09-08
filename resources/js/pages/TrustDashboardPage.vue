@@ -7,8 +7,8 @@
                 <h1 class="text-heading font-semibold text-text">Trust Dashboard</h1>
                 <p class="mt-1 text-body text-text-muted">
                     Documentation Indicators across enabled Schools — Review Cycle lateness,
-                    Gap density, and Documentation Status mix. These are documentation
-                    Indicators, not diagnoses.
+                    Gap density, Documentation Status mix, and Escalation Indicators. These are
+                    documentation Indicators, not diagnoses.
                 </p>
             </div>
 
@@ -36,7 +36,7 @@
             </Card>
 
             <template v-else>
-                <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-testid="trust-dashboard-kpis">
+                <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5" data-testid="trust-dashboard-kpis">
                     <KpiCard
                         v-for="kpi in kpis"
                         :key="kpi.key"
@@ -83,6 +83,32 @@
                     </table>
                 </Card>
 
+                <Card class="mt-6" data-testid="trust-dashboard-escalations">
+                    <h2 class="text-body font-semibold text-text">Escalation Indicators</h2>
+                    <p class="mt-1 text-meta text-text-muted">
+                        Flags cite encoded escalation Rules. They are not diagnoses or eligibility decisions.
+                    </p>
+                    <p
+                        v-if="escalations.length === 0"
+                        class="mt-4 text-body text-text-muted"
+                        data-testid="trust-dashboard-escalations-empty"
+                    >
+                        No Escalation Indicators for enabled Schools.
+                    </p>
+                    <ul v-else class="mt-4 space-y-2" data-testid="trust-dashboard-escalations-list">
+                        <li
+                            v-for="flag in escalations"
+                            :key="flag.rule_id"
+                            class="text-body text-text"
+                            data-testid="trust-dashboard-escalation-row"
+                        >
+                            <span class="font-medium">{{ flag.rule_code }}</span>
+                            — {{ flag.rule_label }}
+                            ({{ flag.pupil_count }})
+                        </li>
+                    </ul>
+                </Card>
+
                 <Card
                     v-if="schools.length === 0 && pupilsInScope === 0"
                     class="mt-6"
@@ -110,6 +136,7 @@
                                 <th scope="col" class="px-3 py-2 font-medium text-text">Ready</th>
                                 <th scope="col" class="px-3 py-2 font-medium text-text">Gap density</th>
                                 <th scope="col" class="px-3 py-2 font-medium text-text">Lateness</th>
+                                <th scope="col" class="px-3 py-2 font-medium text-text">Escalation Indicators</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-border">
@@ -134,6 +161,9 @@
                                 </td>
                                 <td class="px-3 py-2 text-text">
                                     {{ formatRate(school.lateness_rate, school.overdue_open_cycles, school.open_cycles) }}
+                                </td>
+                                <td class="px-3 py-2 text-text" data-testid="trust-dashboard-school-escalations">
+                                    {{ school.escalated_pupils }}
                                 </td>
                             </tr>
                         </tbody>
@@ -163,6 +193,7 @@ let loadSeq = 0;
 
 const pupilsInScope = computed(() => indicators.value.pupils_in_scope);
 const schools = computed(() => indicators.value.schools);
+const escalations = computed(() => indicators.value.escalations);
 
 const kpis = computed(() => [
     {
@@ -185,6 +216,7 @@ const kpis = computed(() => [
     },
     { key: 'in-scope', label: 'Pupils in scope', value: indicators.value.pupils_in_scope },
     { key: 'ready', label: 'Ready', value: indicators.value.by_status.ready },
+    { key: 'flagged-schools', label: 'Flagged Schools', value: indicators.value.flagged_schools },
 ]);
 
 const statusRows = computed(() => statusOrder.map((status) => ({
@@ -270,6 +302,11 @@ function normaliseIndicators(value) {
             'not-started': Number(byStatus['not-started'] ?? 0),
             evaluating: Number(byStatus.evaluating ?? 0),
         },
+        escalated_pupils: Number(record.escalated_pupils ?? 0),
+        flagged_schools: Number(record.flagged_schools ?? 0),
+        escalations: Array.isArray(record.escalations)
+            ? record.escalations.filter(isRecord).map(normaliseEscalation).filter((flag) => flag.rule_id !== '')
+            : [],
         schools: Array.isArray(record.schools)
             ? record.schools.filter(isRecord).map(normaliseSchool).filter((school) => school.school_id !== '')
             : [],
@@ -299,6 +336,25 @@ function normaliseSchool(school) {
             'not-started': Number(byStatus['not-started'] ?? 0),
             evaluating: Number(byStatus.evaluating ?? 0),
         },
+        escalated_pupils: Number(school.escalated_pupils ?? 0),
+        flagged_schools: Number(school.flagged_schools ?? 0),
+        escalations: Array.isArray(school.escalations)
+            ? school.escalations.filter(isRecord).map(normaliseEscalation).filter((flag) => flag.rule_id !== '')
+            : [],
+    };
+}
+
+/**
+ * @param {Record<string, unknown>} flag
+ */
+function normaliseEscalation(flag) {
+    const ruleId = typeof flag.rule_id === 'string' ? flag.rule_id.trim() : '';
+
+    return {
+        rule_id: ruleId,
+        rule_code: typeof flag.rule_code === 'string' ? flag.rule_code : '',
+        rule_label: typeof flag.rule_label === 'string' ? flag.rule_label : '',
+        pupil_count: Number(flag.pupil_count ?? 0),
     };
 }
 
