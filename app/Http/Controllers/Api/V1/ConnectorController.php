@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\V1;
 use App\Domain\Audit\AuditEventType;
 use App\Domain\Audit\AuditWriter;
 use App\Domain\Connectors\Connector;
+use App\Domain\Connectors\ConnectorAdapterRegistry;
 use App\Domain\Connectors\ConnectorField;
 use App\Domain\Connectors\ConnectorType;
+use App\Domain\Connectors\UnsupportedConnectorTypeException;
 use App\Domain\Tenancy\CurrentTenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SyncConnectorRequest;
@@ -19,7 +21,10 @@ use Illuminate\Support\Facades\DB;
 
 class ConnectorController extends Controller
 {
-    public function __construct(private AuditWriter $audit) {}
+    public function __construct(
+        private AuditWriter $audit,
+        private ConnectorAdapterRegistry $adapters,
+    ) {}
 
     public function index(): ConnectorResource
     {
@@ -51,7 +56,21 @@ class ConnectorController extends Controller
             $this->authorize('update', $existing);
         }
 
-        $connector = DB::transaction(function () use ($request): Connector {
+        if ($request->exists('type')) {
+            $type = $request->type();
+        } elseif ($existing === null) {
+            $type = ConnectorType::PilotStub;
+        } else {
+            $type = $existing->type;
+
+            if (! $type instanceof ConnectorType) {
+                throw new UnsupportedConnectorTypeException;
+            }
+        }
+
+        $this->adapters->for($type);
+
+        $connector = DB::transaction(function () use ($request, $type): Connector {
             /** @var Connector $connector */
             $connector = Connector::query()->lockForUpdate()->first()
                 ?? new Connector([
@@ -61,7 +80,7 @@ class ConnectorController extends Controller
             $beforeShares = $connector->normalizedFieldShares();
 
             $updates = [
-                'type' => $request->exists('type') ? $request->type() : ($connector->type ?? ConnectorType::PilotStub),
+                'type' => $type,
                 'enabled' => $request->enabled((bool) $connector->enabled),
             ];
 
@@ -110,6 +129,14 @@ class ConnectorController extends Controller
                 'code' => 'connector_disabled',
             ], 422);
         }
+
+        $type = $existing->type;
+
+        if (! $type instanceof ConnectorType) {
+            throw new UnsupportedConnectorTypeException;
+        }
+
+        $this->adapters->for($type);
 
         $user = $request->user();
 

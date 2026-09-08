@@ -3,10 +3,13 @@
 namespace App\Jobs;
 
 use App\Domain\Connectors\Connector;
+use App\Domain\Connectors\ConnectorAdapterRegistry;
 use App\Domain\Connectors\ConnectorField;
 use App\Domain\Connectors\ConnectorPupilUpserter;
+use App\Domain\Connectors\ConnectorType;
 use App\Domain\Connectors\FilterConnectorPayload;
 use App\Domain\Connectors\Import\ImportedInterventionEvidenceUpserter;
+use App\Domain\Connectors\UnsupportedConnectorTypeException;
 use App\Domain\Evidence\EvidenceSource;
 use App\Domain\Sre\EnqueueSreReevaluation;
 use App\Domain\Tenancy\CurrentTenant;
@@ -38,6 +41,7 @@ class ConnectorSync implements ShouldQueue
         ConnectorPupilUpserter $pupilUpserter,
         ImportedInterventionEvidenceUpserter $evidenceUpserter,
         EnqueueSreReevaluation $enqueueSreReevaluation,
+        ConnectorAdapterRegistry $adapters,
     ): void {
         try {
             CurrentTenant::using($this->tenantId, function () use (
@@ -45,12 +49,14 @@ class ConnectorSync implements ShouldQueue
                 $pupilUpserter,
                 $evidenceUpserter,
                 $enqueueSreReevaluation,
+                $adapters,
             ): void {
                 $this->sync(
                     $filter,
                     $pupilUpserter,
                     $evidenceUpserter,
                     $enqueueSreReevaluation,
+                    $adapters,
                 );
             });
         } catch (Throwable $exception) {
@@ -68,6 +74,7 @@ class ConnectorSync implements ShouldQueue
         ConnectorPupilUpserter $pupilUpserter,
         ImportedInterventionEvidenceUpserter $evidenceUpserter,
         EnqueueSreReevaluation $enqueueSreReevaluation,
+        ConnectorAdapterRegistry $adapters,
     ): void {
         $connector = Connector::withoutGlobalScope('tenant')
             ->where('tenant_id', $this->tenantId)
@@ -102,8 +109,15 @@ class ConnectorSync implements ShouldQueue
         }
 
         $request = Request::create('/api/v1/connectors/sync', 'POST');
+        $type = $connector->type;
 
-        foreach ($this->pupils as $pupilPayload) {
+        if (! $type instanceof ConnectorType) {
+            throw new UnsupportedConnectorTypeException;
+        }
+
+        $pupils = $adapters->for($type)->pull($connector, $school, $this->pupils);
+
+        foreach ($pupils as $pupilPayload) {
             if (! is_array($pupilPayload)) {
                 continue;
             }

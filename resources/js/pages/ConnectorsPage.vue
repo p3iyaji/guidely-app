@@ -36,7 +36,7 @@
                 <Card>
                     <h2 class="text-body font-semibold text-text">Connector</h2>
                     <p class="mt-1 text-body text-text-muted">
-                        Type: Pilot stub. Use Run sync below to upsert a School payload without duplicating Pupils.
+                        Pilot stub is the supported type until OQ-4. Use Run sync below to upsert a School payload without duplicating Pupils.
                     </p>
                     <label class="mt-4 flex items-center gap-2 text-body text-text">
                         <input

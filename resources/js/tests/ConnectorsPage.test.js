@@ -129,6 +129,8 @@ describe('ConnectorsPage', () => {
         expect(wrapper.find('[data-testid="connector-sync-mis-key"]').exists()).toBe(true);
         expect(wrapper.text()).toContain('Oak Primary');
         expect(wrapper.text()).toContain('Run sync');
+        expect(wrapper.text()).toContain('Pilot stub is the supported type until OQ-4');
+        expect(wrapper.text()).not.toMatch(/Wonde|Groupcall|Arbor|SIMS|Bromcom/i);
         expect(wrapper.text()).not.toMatch(/Coming soon/i);
         expect(wrapper.text()).not.toContain('Live MIS sync is not part of this screen.');
     });

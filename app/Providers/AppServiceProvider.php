@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Domain\Connectors\Connector;
+use App\Domain\Connectors\ConnectorAdapterRegistry;
+use App\Domain\Connectors\PilotStubAdapter;
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Identity\Role;
 use App\Domain\Outputs\DocumentationOutput;
@@ -39,7 +41,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ConnectorAdapterRegistry::class, function (): ConnectorAdapterRegistry {
+            return new ConnectorAdapterRegistry([
+                new PilotStubAdapter,
+            ]);
+        });
     }
 
     /**

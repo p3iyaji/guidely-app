@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Domain\Audit\AuditEventType;
 use App\Domain\Connectors\Connector;
+use App\Domain\Connectors\ConnectorAdapterRegistry;
 use App\Domain\Connectors\ConnectorField;
 use App\Domain\Connectors\ConnectorPupilUpserter;
 use App\Domain\Connectors\FilterConnectorPayload;
@@ -234,6 +235,7 @@ class ConnectorSyncTest extends TestCase
             app(ConnectorPupilUpserter::class),
             app(ImportedInterventionEvidenceUpserter::class),
             app(EnqueueSreReevaluation::class),
+            app(ConnectorAdapterRegistry::class),
         );
 
         $pupil = Pupil::withoutGlobalScope('tenant')
@@ -305,6 +307,7 @@ class ConnectorSyncTest extends TestCase
             app(ConnectorPupilUpserter::class),
             app(ImportedInterventionEvidenceUpserter::class),
             app(EnqueueSreReevaluation::class),
+            app(ConnectorAdapterRegistry::class),
         );
 
         $this->assertSame(0, Pupil::withoutGlobalScope('tenant')->where('mis_key', 'MIS-FAIL')->count());
