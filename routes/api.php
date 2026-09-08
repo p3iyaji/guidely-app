@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ConnectorController;
 use App\Http\Controllers\Api\V1\DeterminationOverrideController;
 use App\Http\Controllers\Api\V1\DocumentationOutputController;
 use App\Http\Controllers\Api\V1\DraftController;
@@ -174,9 +175,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/trust-dashboard', [FeatureStubController::class, 'trustDashboard'])
             ->middleware('feature:trust_dashboard')
             ->name('api.v1.trust-dashboard');
-        Route::get('/connectors', [FeatureStubController::class, 'connectors'])
+        Route::get('/connectors', [ConnectorController::class, 'index'])
             ->middleware('feature:connectors')
             ->name('api.v1.connectors');
+        Route::put('/connectors', [ConnectorController::class, 'upsert'])
+            ->middleware('feature:connectors')
+            ->name('api.v1.connectors.upsert');
         Route::get('/advanced-documentation-packs', [FeatureStubController::class, 'advancedDocumentationPacks'])
             ->middleware('feature:advanced_documentation_packs')
             ->name('api.v1.advanced-documentation-packs');

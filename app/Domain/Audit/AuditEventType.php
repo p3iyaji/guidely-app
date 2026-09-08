@@ -43,4 +43,5 @@ enum AuditEventType: string
     case ReviewCycleClosed = 'review_cycle.closed';
     case DocumentationOutputGenerated = 'documentation_output.generated';
     case DocumentationOutputDownloaded = 'documentation_output.downloaded';
+    case ConnectorUpdated = 'connector.updated';
 }

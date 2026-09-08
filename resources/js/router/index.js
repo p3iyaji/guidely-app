@@ -4,6 +4,7 @@ import AppShell from '../layouts/AppShell.vue';
 import GuestLayout from '../layouts/GuestLayout.vue';
 import AccessDenied from '../pages/AccessDenied.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
+import ConnectorsPage from '../pages/ConnectorsPage.vue';
 import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
 import GapsPage from '../pages/GapsPage.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
@@ -147,7 +148,8 @@ const routes = [
             {
                 path: 'connectors',
                 name: 'connectors',
-                ...stub('Connectors'),
+                component: ConnectorsPage,
+                meta: { title: 'Connectors', requiresAuth: true },
             },
             {
                 path: 'feature-flags',

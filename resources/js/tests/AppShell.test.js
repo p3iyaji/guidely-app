@@ -41,6 +41,7 @@ import ReviewCyclesPage from '../pages/ReviewCyclesPage.vue';
 import OutputsPage from '../pages/OutputsPage.vue';
 import SchoolReportPage from '../pages/SchoolReportPage.vue';
 import ComingSoonPage from '../pages/ComingSoonPage.vue';
+import ConnectorsPage from '../pages/ConnectorsPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
 describe('Role nav IA', () => {
@@ -290,6 +291,19 @@ describe('Role nav IA', () => {
         const leaf = resolved.matched[resolved.matched.length - 1];
 
         expect(leaf?.components?.default ?? leaf?.component).toBe(SchoolReportPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses ConnectorsPage for production connectors route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/connectors');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(ConnectorsPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 });

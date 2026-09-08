@@ -8,18 +8,13 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * Placeholder endpoints that prove feature gates open when a flag is enabled.
- * Full Trust / Connector / pack product surfaces land in later epics.
+ * Full Trust / pack product surfaces land in later epics.
  */
 class FeatureStubController extends Controller
 {
     public function trustDashboard(): JsonResponse
     {
         return $this->placeholder(FeatureFlagKey::TrustDashboard);
-    }
-
-    public function connectors(): JsonResponse
-    {
-        return $this->placeholder(FeatureFlagKey::Connectors);
     }
 
     public function advancedDocumentationPacks(): JsonResponse

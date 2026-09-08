@@ -108,8 +108,11 @@ class FeatureFlagTest extends TestCase
 
         $this->actingAs($user)->getJson('/api/v1/connectors')
             ->assertOk()
-            ->assertJsonPath('available', true)
-            ->assertJsonPath('feature', 'connectors');
+            ->assertJsonPath('data.type', 'pilot_stub')
+            ->assertJsonPath('data.enabled', false)
+            ->assertJsonPath('data.has_secret', false)
+            ->assertJsonMissing(['placeholder' => true])
+            ->assertJsonMissing(['secret']);
     }
 
     public function test_patch_unknown_key_returns_422(): void
@@ -229,7 +232,6 @@ class FeatureFlagTest extends TestCase
     {
         return [
             'trust_dashboard' => [FeatureFlagKey::TrustDashboard, '/api/v1/trust-dashboard'],
-            'connectors' => [FeatureFlagKey::Connectors, '/api/v1/connectors'],
             'advanced_documentation_packs' => [
                 FeatureFlagKey::AdvancedDocumentationPacks,
                 '/api/v1/advanced-documentation-packs',

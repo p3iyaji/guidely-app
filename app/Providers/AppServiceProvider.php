@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Connectors\Connector;
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Identity\Role;
 use App\Domain\Outputs\DocumentationOutput;
@@ -13,6 +14,7 @@ use App\Domain\Sre\Gap;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
+use App\Policies\ConnectorPolicy;
 use App\Policies\DeterminationPolicy;
 use App\Policies\DocumentationOutputPolicy;
 use App\Policies\EvidenceRecordPolicy;
@@ -45,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Connector::class, ConnectorPolicy::class);
         Gate::policy(School::class, SchoolPolicy::class);
         Gate::policy(Pupil::class, PupilPolicy::class);
         Gate::policy(Tenant::class, TenantPolicy::class);
