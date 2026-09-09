@@ -36,8 +36,14 @@ return new class extends Migration
             $table->json('payload');
             $table->timestamps();
 
-            $table->index(['tenant_id', 'pupil_id', 'review_cycle_id', 'type']);
-            $table->unique(['pupil_id', 'review_cycle_id', 'type', 'version']);
+            $table->index(
+                ['tenant_id', 'pupil_id', 'review_cycle_id', 'type'],
+                'doc_outputs_lookup_idx'
+            );            
+            $table->unique(
+                ['pupil_id', 'review_cycle_id', 'type', 'version'],
+                'doc_outputs_version_unique'
+            );        
         });
     }
 

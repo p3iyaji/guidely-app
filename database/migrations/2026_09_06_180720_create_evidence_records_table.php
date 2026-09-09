@@ -15,7 +15,7 @@ return new class extends Migration
             $table->ulid('id')->primary();
             $table->foreignUlid('tenant_id')->constrained('tenants')->cascadeOnDelete();
             $table->foreignUlid('pupil_id')->constrained('pupils')->cascadeOnDelete();
-            $table->foreignUlid('author_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('author_id')->constrained('users')->restrictOnDelete();
             $table->string('type');
             $table->string('lifecycle');
             $table->timestamp('occurred_at');
