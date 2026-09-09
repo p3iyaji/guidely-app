@@ -1,73 +1,62 @@
 <template>
     <div data-testid="pupils-page">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <h1 class="text-heading font-semibold text-text">{{ pageTitle }}</h1>
-                <p class="mt-1 text-body text-text-muted">
-                    View Pupils in your list, including documentation status.
-                </p>
-            </div>
-            <ButtonSecondary
-                v-if="canManage && !loading && !loadError"
-                data-testid="pupils-add-open"
-                @click="openCreateForm"
-            >
-                Add Pupil
-            </ButtonSecondary>
-        </div>
+        <PageHero
+            eyebrow="Pupils"
+            :title="pageTitle"
+            description="View Pupils in your list, including documentation status."
+        >
+            <template v-if="canManage && !loading && !loadError" #action>
+                <ButtonPrimary
+                    data-testid="pupils-add-open"
+                    @click="openCreateForm"
+                >
+                    Add Pupil
+                </ButtonPrimary>
+            </template>
+        </PageHero>
 
-        <div class="mt-6 max-w-md">
-            <label class="block text-body text-text" for="pupils-search">Search</label>
-            <input
-                id="pupils-search"
-                v-model="searchQuery"
-                type="search"
-                placeholder="Search by name or year group"
-                class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                data-testid="pupils-search"
-                title="Search is limited to Pupils within your scope"
-            >
-        </div>
+        <CrudSearch
+            id="pupils-search"
+            v-model="searchQuery"
+            placeholder="Search by name or year group"
+            title="Search is limited to Pupils within your scope"
+            test-id="pupils-search"
+        />
 
         <p
             v-if="schoolsLoadError"
-            class="mt-4 text-body text-danger"
+            class="mb-4 rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-body text-danger"
             data-testid="pupils-schools-error"
             role="alert"
         >
             {{ schoolsLoadError }}
         </p>
 
-        <div v-if="loading" class="mt-6 space-y-3" data-testid="pupils-loading">
+        <div v-if="loading" class="space-y-3" data-testid="pupils-loading">
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="card" />
         </div>
 
-        <Card
+        <p
             v-else-if="loadError"
-            class="mt-6"
+            class="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-body text-danger"
             data-testid="pupils-error"
+            role="alert"
         >
-            <p class="text-body text-danger" role="alert">{{ loadError }}</p>
-        </Card>
+            {{ loadError }}
+        </p>
 
         <template v-else>
-            <Card
+            <EmptyState
                 v-if="pupils.length === 0"
-                class="mt-6"
-                data-testid="pupils-empty"
+                test-id="pupils-empty"
+                actions-test-id="pupils-empty-ctas"
             >
-                <p class="text-body text-text">
-                    {{ isTeacherOrSupport
-                        ? 'No Pupils assigned yet. Ask your SENCO to assign Pupils to you.'
-                        : 'No Pupils in your list.' }}
-                </p>
-                <div
-                    v-if="canManage"
-                    class="mt-4 flex flex-wrap gap-3"
-                    data-testid="pupils-empty-ctas"
-                >
+                {{ isTeacherOrSupport
+                    ? 'No Pupils assigned yet. Ask your SENCO to assign Pupils to you.'
+                    : 'No Pupils in your list.' }}
+                <template v-if="canManage" #actions>
                     <ButtonSecondary
                         data-testid="pupils-import-cta"
                         @click="goToImport"
@@ -80,86 +69,98 @@
                     >
                         Add Pupil
                     </ButtonPrimary>
-                </div>
-            </Card>
+                </template>
+            </EmptyState>
 
-            <Card
+            <EmptyState
                 v-else-if="pupils.length > 0 && filteredPupils.length === 0"
-                class="mt-6"
-                data-testid="pupils-search-empty"
+                test-id="pupils-search-empty"
             >
-                <p class="text-body text-text-muted">No Pupils match your search.</p>
-            </Card>
+                No Pupils match your search.
+            </EmptyState>
 
-            <ul
+            <DataTable
                 v-else-if="filteredPupils.length > 0"
-                class="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
-                data-testid="pupils-list"
+                test-id="pupils-list"
             >
-                <li
+                <template #head>
+                    <tr>
+                        <th class="px-4 py-3" scope="col">Pupil</th>
+                        <th class="px-4 py-3" scope="col">Year</th>
+                        <th class="px-4 py-3" scope="col">Documentation</th>
+                        <th class="hidden px-4 py-3 lg:table-cell" scope="col">Assigned staff</th>
+                        <th class="px-4 py-3" scope="col">Status</th>
+                        <th class="px-4 py-3" scope="col"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </template>
+                <tr
                     v-for="pupil in filteredPupils"
                     :key="pupil.id"
-                    class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    class="hover:bg-surface-muted/70"
                     data-testid="pupil-row"
                 >
-                    <RouterLink
-                        :to="{ name: 'pupil-detail', params: { id: pupil.id } }"
-                        class="min-w-0 flex-1 text-text hover:underline focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                        :data-testid="`pupil-row-link-${pupil.id}`"
-                    >
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div class="min-w-0">
-                                <p class="text-body font-medium text-text" data-testid="pupil-name">
-                                    {{ displayName(pupil) }}
-                                </p>
-                                <p class="text-meta text-text-muted" data-testid="pupil-year">
-                                    {{ pupil.year_group ?? '—' }}
-                                </p>
-                                <p
-                                    v-if="needSummary(pupil)"
-                                    class="text-meta text-text-muted"
-                                    data-testid="pupil-need"
-                                >
-                                    {{ needSummary(pupil) }}
-                                </p>
-                                <p
-                                    v-if="assigneeSummary(pupil)"
-                                    class="text-meta text-text-muted"
-                                    data-testid="pupil-assignees"
-                                >
-                                    Assigned: {{ assigneeSummary(pupil) }}
-                                </p>
-                            </div>
-                            <div class="flex flex-wrap items-center gap-3 sm:justify-end">
-                                <StatusPill :status="pupil.documentation_status ?? 'not-started'" />
-                                <span
-                                    class="text-meta text-text-muted"
-                                    data-testid="pupil-next-review"
-                                >
-                                    Next review: {{ formatNextReview(pupil) }}
-                                </span>
-                            </div>
+                    <td class="px-4 py-3">
+                        <RouterLink
+                            :to="{ name: 'pupil-detail', params: { id: pupil.id } }"
+                            class="text-text hover:text-primary focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                            :data-testid="`pupil-row-link-${pupil.id}`"
+                        >
+                            <p class="font-medium text-text" data-testid="pupil-name">
+                                {{ displayName(pupil) }}
+                            </p>
+                            <p
+                                v-if="needSummary(pupil)"
+                                class="text-meta text-text-muted"
+                                data-testid="pupil-need"
+                            >
+                                {{ needSummary(pupil) }}
+                            </p>
+                        </RouterLink>
+                    </td>
+                    <td class="px-4 py-3 text-text-muted" data-testid="pupil-year">
+                        {{ pupil.year_group ?? '—' }}
+                    </td>
+                    <td class="px-4 py-3">
+                        <p class="text-meta text-text-muted" data-testid="pupil-next-review">
+                            Next review: {{ formatNextReview(pupil) }}
+                        </p>
+                    </td>
+                    <td class="hidden px-4 py-3 text-meta text-text-muted lg:table-cell" data-testid="pupil-assignees">
+                        {{ assigneeSummary(pupil) || '—' }}
+                    </td>
+                    <td class="px-4 py-3">
+                        <StatusPill :status="pupil.documentation_status ?? 'not-started'" />
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex flex-wrap justify-end gap-2">
+                            <RouterLink
+                                :to="{ name: 'pupil-detail', params: { id: pupil.id } }"
+                                class="inline-flex size-9 items-center justify-center rounded-md text-primary hover:bg-primary-soft focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                                :aria-label="`Open ${displayName(pupil)}`"
+                                :title="`Open ${displayName(pupil)}`"
+                            >
+                                <AppIcon name="open" class="size-4.5" />
+                                <span class="sr-only">Open {{ displayName(pupil) }}</span>
+                            </RouterLink>
+                            <template v-if="canManage">
+                                <TableAction
+                                    icon="edit"
+                                    :label="`Edit ${displayName(pupil)}`"
+                                    :data-testid="`pupil-edit-${pupil.id}`"
+                                    @click="openEditForm(pupil)"
+                                />
+                                <TableAction
+                                    icon="delete"
+                                    :label="`Delete ${displayName(pupil)}`"
+                                    tone="danger"
+                                    :data-testid="`pupil-delete-${pupil.id}`"
+                                    @click="openDeleteConfirm(pupil)"
+                                />
+                            </template>
                         </div>
-                    </RouterLink>
-                    <div
-                        v-if="canManage"
-                        class="flex flex-wrap gap-2 sm:justify-end"
-                    >
-                        <ButtonOutline
-                            :data-testid="`pupil-edit-${pupil.id}`"
-                            @click="openEditForm(pupil)"
-                        >
-                            Edit
-                        </ButtonOutline>
-                        <ButtonOutline
-                            :data-testid="`pupil-delete-${pupil.id}`"
-                            @click="openDeleteConfirm(pupil)"
-                        >
-                            Delete
-                        </ButtonOutline>
-                    </div>
-                </li>
-            </ul>
+                    </td>
+                </tr>
+            </DataTable>
         </template>
 
         <Modal
@@ -513,13 +514,17 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
-import ButtonOutline from '../shared/ui/ButtonOutline.vue';
+import AppIcon from '../shared/ui/AppIcon.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
-import Card from '../shared/ui/Card.vue';
+import CrudSearch from '../shared/ui/CrudSearch.vue';
+import DataTable from '../shared/ui/DataTable.vue';
+import EmptyState from '../shared/ui/EmptyState.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 import Modal from '../shared/ui/Modal.vue';
+import PageHero from '../shared/ui/PageHero.vue';
 import StatusPill from '../shared/ui/StatusPill.vue';
+import TableAction from '../shared/ui/TableAction.vue';
 
 const EVALUATING_POLL_MS = 2000;
 const EVALUATING_POLL_MAX_ATTEMPTS = 30;

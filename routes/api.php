@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ComplianceAlertController;
 use App\Http\Controllers\Api\V1\ComplianceAlertThresholdController;
 use App\Http\Controllers\Api\V1\ConnectorController;
+use App\Http\Controllers\Api\V1\DashboardSummaryController;
 use App\Http\Controllers\Api\V1\DeterminationOverrideController;
 use App\Http\Controllers\Api\V1\DocumentationOutputController;
 use App\Http\Controllers\Api\V1\DraftController;
@@ -68,6 +69,8 @@ Route::prefix('v1')->group(function () {
         Route::patch('/me', [MeController::class, 'update'])->name('api.v1.me.update');
         Route::patch('/me/password', [MeController::class, 'updatePassword'])
             ->name('api.v1.me.password');
+        Route::get('/dashboard-summary', [DashboardSummaryController::class, 'show'])
+            ->name('api.v1.dashboard-summary.show');
 
         Route::get('/tenant', [TenantController::class, 'show'])->name('api.v1.tenant.show');
         Route::patch('/tenant', [TenantController::class, 'update'])->name('api.v1.tenant.update');

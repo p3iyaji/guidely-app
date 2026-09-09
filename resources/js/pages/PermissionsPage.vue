@@ -1,112 +1,113 @@
 <template>
     <div data-testid="permissions-page">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <h1 class="text-heading font-semibold text-text">Permissions</h1>
-                <p class="mt-1 text-body text-text-muted">
-                    Built-in Permissions describe product capabilities. Edit labels and grouping, or create custom
-                    Permissions for this Tenant and assign them to Roles. Built-in keys cannot be changed.
-                </p>
-            </div>
-            <ButtonSecondary
-                v-if="canManage && !loading && !loadError"
-                data-testid="permissions-add-open"
-                @click="openCreateForm"
-            >
-                Add Permission
-            </ButtonSecondary>
-        </div>
+        <PageHero
+            eyebrow="Access"
+            title="Permissions"
+            description="Built-in Permissions describe product capabilities. Edit labels and grouping, or create custom Permissions for this Tenant and assign them to Roles. Built-in keys cannot be changed."
+        >
+            <template v-if="canManage && !loading && !loadError" #action>
+                <ButtonPrimary
+                    data-testid="permissions-add-open"
+                    @click="openCreateForm"
+                >
+                    Add Permission
+                </ButtonPrimary>
+            </template>
+        </PageHero>
 
-        <div class="mt-6 max-w-md">
-            <label class="block text-body text-text" for="permissions-search">Search</label>
-            <input
-                id="permissions-search"
-                v-model="searchQuery"
-                type="search"
-                placeholder="Search by label, key, or group"
-                class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                data-testid="permissions-search"
-            >
-        </div>
+        <CrudSearch
+            id="permissions-search"
+            v-model="searchQuery"
+            placeholder="Search by label, key, or group"
+            test-id="permissions-search"
+        />
 
-        <div v-if="loading" class="mt-6 space-y-3" data-testid="permissions-loading">
+        <div v-if="loading" class="space-y-3" data-testid="permissions-loading">
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="card" />
         </div>
 
-        <Card
+        <p
             v-else-if="loadError"
-            class="mt-6"
+            class="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-body text-danger"
             data-testid="permissions-error"
+            role="alert"
         >
-            <p class="text-body text-danger" role="alert">{{ loadError }}</p>
-        </Card>
+            {{ loadError }}
+        </p>
 
         <template v-else>
-            <Card
+            <EmptyState
                 v-if="permissions.length === 0"
-                class="mt-6"
-                data-testid="permissions-empty"
+                test-id="permissions-empty"
             >
-                <p class="text-body text-text">No Permissions in this Tenant.</p>
-                <div v-if="canManage" class="mt-4">
+                No Permissions in this Tenant.
+                <template v-if="canManage" #actions>
                     <ButtonPrimary
                         data-testid="permissions-add-cta"
                         @click="openCreateForm"
                     >
                         Add Permission
                     </ButtonPrimary>
-                </div>
-            </Card>
+                </template>
+            </EmptyState>
 
-            <Card
+            <EmptyState
                 v-else-if="permissions.length > 0 && filteredPermissions.length === 0"
-                class="mt-6"
-                data-testid="permissions-search-empty"
+                test-id="permissions-search-empty"
             >
-                <p class="text-body text-text-muted">No Permissions match your search.</p>
-            </Card>
+                No Permissions match your search.
+            </EmptyState>
 
-            <ul
+            <DataTable
                 v-else-if="filteredPermissions.length > 0"
-                class="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
-                data-testid="permissions-list"
+                test-id="permissions-list"
             >
-                <li
+                <template #head>
+                    <tr>
+                        <th class="px-4 py-3" scope="col">Permission</th>
+                        <th class="px-4 py-3" scope="col">Key</th>
+                        <th class="px-4 py-3" scope="col">Kind</th>
+                        <th class="px-4 py-3" scope="col"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </template>
+                <tr
                     v-for="permission in filteredPermissions"
                     :key="permission.id"
-                    class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    class="hover:bg-surface-muted/70"
                     data-testid="permission-row"
                 >
-                    <div class="min-w-0">
-                        <p class="text-body font-medium text-text" data-testid="permission-label">
-                            {{ permission.label }}
-                        </p>
-                        <p class="text-meta text-text-muted" data-testid="permission-key">
-                            {{ permission.key }}
-                        </p>
-                        <p class="text-meta text-text-muted" data-testid="permission-kind">
-                            {{ permission.is_system ? 'Built-in' : 'Custom' }}
-                            <span v-if="permission.group"> · {{ permission.group }}</span>
-                        </p>
-                    </div>
-                    <div v-if="canManage" class="flex flex-wrap gap-2 sm:justify-end">
-                        <ButtonOutline
-                            :data-testid="`permission-edit-${permission.id}`"
-                            @click="openEditForm(permission)"
-                        >
-                            Edit
-                        </ButtonOutline>
-                        <ButtonOutline
-                            :data-testid="`permission-delete-${permission.id}`"
-                            @click="openDeleteConfirm(permission)"
-                        >
-                            Delete
-                        </ButtonOutline>
-                    </div>
-                </li>
-            </ul>
+                    <td class="px-4 py-3">
+                        <p class="font-medium text-text" data-testid="permission-label">{{ permission.label }}</p>
+                        <p v-if="permission.group" class="text-meta text-text-muted">{{ permission.group }}</p>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-meta text-text-muted" data-testid="permission-key">
+                        {{ permission.key }}
+                    </td>
+                    <td class="px-4 py-3 text-text-muted" data-testid="permission-kind">
+                        {{ permission.is_system ? 'Built-in' : 'Custom' }}
+                        <span v-if="permission.group"> · {{ permission.group }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div v-if="canManage" class="flex flex-wrap justify-end gap-2">
+                            <TableAction
+                                icon="edit"
+                                :label="`Edit ${permission.label}`"
+                                :data-testid="`permission-edit-${permission.id}`"
+                                @click="openEditForm(permission)"
+                            />
+                            <TableAction
+                                icon="delete"
+                                :label="`Delete ${permission.label}`"
+                                tone="danger"
+                                :data-testid="`permission-delete-${permission.id}`"
+                                @click="openDeleteConfirm(permission)"
+                            />
+                        </div>
+                    </td>
+                </tr>
+            </DataTable>
         </template>
 
         <Modal
@@ -243,12 +244,15 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
-import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
-import Card from '../shared/ui/Card.vue';
+import CrudSearch from '../shared/ui/CrudSearch.vue';
+import DataTable from '../shared/ui/DataTable.vue';
+import EmptyState from '../shared/ui/EmptyState.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 import Modal from '../shared/ui/Modal.vue';
+import PageHero from '../shared/ui/PageHero.vue';
+import TableAction from '../shared/ui/TableAction.vue';
 
 const session = useSession();
 const canManage = computed(() => session.role.value === 'tenant_admin');

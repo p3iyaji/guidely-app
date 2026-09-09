@@ -1,123 +1,125 @@
 <template>
     <div data-testid="users-page">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <h1 class="text-heading font-semibold text-text">Users</h1>
-                <p class="mt-1 text-body text-text-muted">
-                    Create and update Tenant Users, assign Roles and Schools, reset passwords, and deactivate accounts. Users are not deleted.
-                </p>
-            </div>
-            <ButtonSecondary
-                v-if="!loading && !loadError"
-                data-testid="users-add-open"
-                @click="openCreateForm"
-            >
-                Add User
-            </ButtonSecondary>
-        </div>
+        <PageHero
+            eyebrow="Access"
+            title="Users"
+            description="Create and update Tenant Users, assign Roles and Schools, reset passwords, and deactivate accounts. Users are not deleted."
+        >
+            <template v-if="!loading && !loadError" #action>
+                <ButtonPrimary
+                    data-testid="users-add-open"
+                    @click="openCreateForm"
+                >
+                    Add User
+                </ButtonPrimary>
+            </template>
+        </PageHero>
 
-        <div class="mt-6 max-w-md">
-            <label class="block text-body text-text" for="users-search">Search</label>
-            <input
-                id="users-search"
-                v-model="searchQuery"
-                type="search"
-                placeholder="Search by name, email, or Role"
-                class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                data-testid="users-search"
-            >
-        </div>
+        <CrudSearch
+            id="users-search"
+            v-model="searchQuery"
+            placeholder="Search by name, email, or Role"
+            test-id="users-search"
+        />
 
-        <div v-if="loading" class="mt-6 space-y-3" data-testid="users-loading">
+        <div v-if="loading" class="space-y-3" data-testid="users-loading">
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="card" />
         </div>
 
-        <Card
+        <p
             v-else-if="loadError"
-            class="mt-6"
+            class="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-body text-danger"
             data-testid="users-error"
+            role="alert"
         >
-            <p class="text-body text-danger" role="alert">{{ loadError }}</p>
-        </Card>
+            {{ loadError }}
+        </p>
 
         <template v-else>
-            <Card
+            <EmptyState
                 v-if="users.length === 0"
-                class="mt-6"
-                data-testid="users-empty"
+                test-id="users-empty"
             >
-                <p class="text-body text-text">No Users in this Tenant.</p>
-                <div class="mt-4">
+                No Users in this Tenant.
+                <template #actions>
                     <ButtonPrimary
                         data-testid="users-add-cta"
                         @click="openCreateForm"
                     >
                         Add User
                     </ButtonPrimary>
-                </div>
-            </Card>
+                </template>
+            </EmptyState>
 
-            <Card
+            <EmptyState
                 v-else-if="users.length > 0 && filteredUsers.length === 0"
-                class="mt-6"
-                data-testid="users-search-empty"
+                test-id="users-search-empty"
             >
-                <p class="text-body text-text-muted">No Users match your search.</p>
-            </Card>
+                No Users match your search.
+            </EmptyState>
 
-            <ul
+            <DataTable
                 v-else-if="filteredUsers.length > 0"
-                class="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
-                data-testid="users-list"
+                test-id="users-list"
             >
-                <li
+                <template #head>
+                    <tr>
+                        <th class="px-4 py-3" scope="col">User</th>
+                        <th class="px-4 py-3" scope="col">Role</th>
+                        <th class="px-4 py-3" scope="col">Status</th>
+                        <th class="hidden px-4 py-3 lg:table-cell" scope="col">Schools</th>
+                        <th class="px-4 py-3" scope="col"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </template>
+                <tr
                     v-for="row in filteredUsers"
                     :key="row.id"
-                    class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    class="hover:bg-surface-muted/70"
                     data-testid="user-row"
                 >
-                    <div class="min-w-0">
-                        <p class="text-body font-medium text-text" data-testid="user-name">
-                            {{ row.name }}
-                        </p>
-                        <p class="text-meta text-text-muted" data-testid="user-email">
-                            {{ row.email }}
-                        </p>
-                        <p class="mt-1 text-meta text-text-muted">
-                            <span data-testid="user-role">{{ roleLabel(row.role) }}</span>
-                            <span aria-hidden="true"> · </span>
-                            <span data-testid="user-status">{{ row.deactivated_at ? 'Deactivated' : 'Active' }}</span>
-                            <span aria-hidden="true"> · </span>
-                            <span data-testid="user-schools">{{ schoolNamesFor(row) }}</span>
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap gap-2 sm:justify-end">
-                        <ButtonOutline
-                            :disabled="Boolean(row.deactivated_at)"
-                            :data-testid="`user-edit-${row.id}`"
-                            @click="openEditForm(row)"
-                        >
-                            Edit
-                        </ButtonOutline>
-                        <ButtonOutline
-                            :disabled="Boolean(row.deactivated_at)"
-                            :data-testid="`user-password-${row.id}`"
-                            @click="openPasswordForm(row)"
-                        >
-                            Reset password
-                        </ButtonOutline>
-                        <ButtonOutline
-                            :disabled="Boolean(row.deactivated_at)"
-                            :data-testid="`user-deactivate-${row.id}`"
-                            @click="openDeactivateConfirm(row)"
-                        >
-                            Deactivate
-                        </ButtonOutline>
-                    </div>
-                </li>
-            </ul>
+                    <td class="px-4 py-3">
+                        <p class="font-medium text-text" data-testid="user-name">{{ row.name }}</p>
+                        <p class="text-meta text-text-muted" data-testid="user-email">{{ row.email }}</p>
+                    </td>
+                    <td class="px-4 py-3 text-text-muted" data-testid="user-role">
+                        {{ roleLabel(row.role) }}
+                    </td>
+                    <td class="px-4 py-3" data-testid="user-status">
+                        {{ row.deactivated_at ? 'Deactivated' : 'Active' }}
+                    </td>
+                    <td class="hidden px-4 py-3 text-meta text-text-muted lg:table-cell" data-testid="user-schools">
+                        {{ schoolNamesFor(row) }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex flex-wrap justify-end gap-2">
+                            <TableAction
+                                icon="edit"
+                                :label="`Edit ${row.name}`"
+                                :disabled="Boolean(row.deactivated_at)"
+                                :data-testid="`user-edit-${row.id}`"
+                                @click="openEditForm(row)"
+                            />
+                            <TableAction
+                                icon="key"
+                                :label="`Reset password for ${row.name}`"
+                                :disabled="Boolean(row.deactivated_at)"
+                                :data-testid="`user-password-${row.id}`"
+                                @click="openPasswordForm(row)"
+                            />
+                            <TableAction
+                                icon="deactivate"
+                                :label="`Deactivate ${row.name}`"
+                                tone="danger"
+                                :disabled="Boolean(row.deactivated_at)"
+                                :data-testid="`user-deactivate-${row.id}`"
+                                @click="openDeactivateConfirm(row)"
+                            />
+                        </div>
+                    </td>
+                </tr>
+            </DataTable>
         </template>
 
         <Modal
@@ -471,12 +473,15 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { apiFetch } from '../api/client';
-import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
-import Card from '../shared/ui/Card.vue';
+import CrudSearch from '../shared/ui/CrudSearch.vue';
+import DataTable from '../shared/ui/DataTable.vue';
+import EmptyState from '../shared/ui/EmptyState.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 import Modal from '../shared/ui/Modal.vue';
+import PageHero from '../shared/ui/PageHero.vue';
+import TableAction from '../shared/ui/TableAction.vue';
 
 const ROLE_OPTIONS = [
     { value: 'teacher', label: 'Teacher' },

@@ -1,43 +1,49 @@
 <template>
-    <div class="flex min-h-screen flex-col bg-canvas" data-testid="app-shell">
-        <TopBar
-            :user-name="resolvedUserName"
-            :show-menu-toggle="showMenuToggle"
-            :aria-expanded="navOpen"
-            :signing-out="signingOut"
-            :can-search-review-cycles="reviewCycleSearchEnabled"
-            @toggle-nav="navOpen = !navOpen"
-            @sign-out="onSignOut"
+    <div class="flex min-h-screen bg-canvas" data-testid="app-shell">
+        <div class="sticky top-0 hidden h-screen shrink-0 lg:flex">
+            <Sidebar :items="navItems" :workspace-label="workspaceLabel" />
+        </div>
+
+        <div
+            v-if="navOpen"
+            class="fixed inset-0 z-30 bg-black/45 lg:hidden"
+            data-testid="nav-backdrop"
+            @click="navOpen = false"
         />
-
-        <div class="relative flex min-h-0 flex-1">
-            <!-- Desktop / large tablet sidebar (≥1024) -->
-            <div class="hidden lg:flex">
-                <Sidebar :items="navItems" />
-            </div>
-
-            <!-- Mid-width / mobile collapsible drawer -->
-            <div
-                v-if="navOpen"
-                class="fixed inset-0 z-30 bg-black/40 lg:hidden"
-                data-testid="nav-backdrop"
-                @click="navOpen = false"
+        <div
+            class="fixed inset-y-0 left-0 z-40 flex h-full transition-transform duration-200 lg:hidden"
+            :class="navOpen ? 'translate-x-0' : '-translate-x-full'"
+            :inert="!navOpen"
+            :aria-hidden="navOpen ? 'false' : 'true'"
+            data-testid="mobile-nav-panel"
+        >
+            <Sidebar
+                :items="navItems"
+                :workspace-label="workspaceLabel"
+                aria-label="Role navigation menu"
             />
-            <div
-                class="fixed inset-y-0 left-0 z-40 flex h-full transition-transform lg:hidden"
-                :class="navOpen ? 'translate-x-0' : '-translate-x-full'"
-                :inert="!navOpen"
-                :aria-hidden="navOpen ? 'false' : 'true'"
-                data-testid="mobile-nav-panel"
-            >
-                <Sidebar :items="navItems" aria-label="Role navigation menu" />
-            </div>
+        </div>
 
+        <div class="flex min-w-0 flex-1 flex-col">
+            <TopBar
+                :user-name="resolvedUserName"
+                :show-menu-toggle="showMenuToggle"
+                :aria-expanded="navOpen"
+                :signing-out="signingOut"
+                :can-search-review-cycles="reviewCycleSearchEnabled"
+                :page-title="pageTitle"
+                :workspace-label="workspaceLabel"
+                :role-label="roleLabel"
+                @toggle-nav="navOpen = !navOpen"
+                @sign-out="onSignOut"
+            />
             <main
-                class="min-w-0 flex-1 overflow-auto p-page"
+                class="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
                 :class="showBottomNav ? 'pb-20' : ''"
             >
-                <RouterView />
+                <div class="mx-auto w-full max-w-[1600px]">
+                    <RouterView />
+                </div>
             </main>
         </div>
 
@@ -106,6 +112,27 @@ const navItems = computed(() => navItemsForRole(effectiveRole.value));
 const reviewCycleSearchEnabled = computed(() => canSearchReviewCycles(effectiveRole.value));
 const showBottomNav = computed(() => usesTeacherSupportBottomNav(effectiveRole.value));
 const bottomNavItems = computed(() => (showBottomNav.value ? TEACHER_SUPPORT_BOTTOM_NAV : []));
+const roleLabel = computed(() => {
+    const role = effectiveRole.value;
+
+    if (!role) {
+        return 'Staff';
+    }
+
+    if (String(role).toLowerCase() === 'senco') {
+        return 'SENCO';
+    }
+
+    return String(role)
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+});
+const workspaceLabel = computed(() => `${roleLabel.value} workspace`);
+const pageTitle = computed(() => route.meta.title ?? (
+    effectiveRole.value === 'trust_send_lead' || effectiveRole.value === 'trust_executive'
+        ? 'Trust overview'
+        : 'Dashboard'
+));
 /** Hamburger for mid widths / Roles without relying on bottom nav alone. */
 const showMenuToggle = computed(() => true);
 

@@ -9,6 +9,7 @@ vi.mock('../features/evidence/startOfflineFlushListener.js', () => ({
 }));
 
 import { useSession } from '../features/auth/session.js';
+import { LOCAL_STORAGE_QUEUE_KEY } from '../features/evidence/offlineDraftQueue.js';
 import { startOfflineFlushListener } from '../features/evidence/startOfflineFlushListener.js';
 import { isNavItemActive } from '../features/shell/isNavItemActive.js';
 import {
@@ -908,14 +909,124 @@ describe('AppShell smoke', () => {
     });
 });
 
-describe('HomeDashboard KPI placeholders', () => {
-    it('shows placeholder KPI row', () => {
-        const wrapper = mount(HomeDashboard);
+describe('HomeDashboard live summary', () => {
+    afterEach(() => {
+        localStorage.removeItem(LOCAL_STORAGE_QUEUE_KEY);
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
 
+    it('renders live counts including numeric zero', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: {
+                    pupils_in_scope: 4,
+                    open_gaps: 2,
+                    review_cycles_due: 0,
+                    drafts: 3,
+                    window_days: 30,
+                },
+            }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const wrapper = mount(HomeDashboard);
+        await flushPromises();
+
+        expect(fetchMock).toHaveBeenCalledWith('/api/v1/dashboard-summary', expect.any(Object));
         expect(wrapper.find('[data-testid="kpi-row"]').exists()).toBe(true);
-        expect(wrapper.findAll('[data-testid="kpi-card"]').length).toBeGreaterThanOrEqual(3);
-        expect(wrapper.findAll('[data-testid="kpi-value"]').every((node) => node.text() === '—')).toBe(true);
+        expect(wrapper.findAll('[data-testid="kpi-value"]').map((node) => node.text())).toEqual(['4', '2', '0', '3']);
         expect(wrapper.find('[data-testid="kpi-card-select"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="dashboard-summary-error"]').exists()).toBe(false);
+        expect(wrapper.text()).toContain('Overdue and due within 30 days');
+    });
+
+    it('keeps unavailable metrics as dashes while authorized empty counts show zero', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: {
+                    pupils_in_scope: 0,
+                    open_gaps: null,
+                    review_cycles_due: 0,
+                    drafts: null,
+                    window_days: 30,
+                },
+            }),
+        }));
+
+        const wrapper = mount(HomeDashboard);
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-testid="kpi-value"]').map((node) => node.text())).toEqual(['0', '—', '0', '—']);
+    });
+
+    it('adds only new device-local drafts to the complete server count', async () => {
+        localStorage.setItem(LOCAL_STORAGE_QUEUE_KEY, JSON.stringify([
+            { id: 'local_1', createdAt: 1, type: 'observation', payload: {} },
+            { id: 'local_2', createdAt: 2, type: 'response', payload: {} },
+            {
+                id: 'local_edit',
+                createdAt: 3,
+                type: 'observation',
+                payload: {},
+                serverDraftId: 'server_1',
+            },
+        ]));
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: {
+                    pupils_in_scope: 1,
+                    open_gaps: null,
+                    review_cycles_due: null,
+                    drafts: 3,
+                    window_days: 30,
+                },
+            }),
+        }));
+
+        const wrapper = mount(HomeDashboard);
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-testid="kpi-value"]')[3].text()).toBe('5');
+    });
+
+    it('keeps the server draft count when device storage cannot be read', async () => {
+        vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+            throw new Error('Storage unavailable');
+        });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: {
+                    pupils_in_scope: 1,
+                    open_gaps: null,
+                    review_cycles_due: null,
+                    drafts: 3,
+                    window_days: 30,
+                },
+            }),
+        }));
+
+        const wrapper = mount(HomeDashboard);
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-testid="kpi-value"]')[3].text()).toBe('3');
+    });
+
+    it('shows an accessible error while preserving placeholders and actions', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+        const wrapper = mount(HomeDashboard);
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-testid="kpi-value"]').every((node) => node.text() === '—')).toBe(true);
+        expect(wrapper.find('[data-testid="dashboard-summary-error"]').attributes('role')).toBe('alert');
+        expect(wrapper.find('[data-testid="dashboard-summary-error"]').text()).toBe('Unable to load dashboard summary.');
+        expect(wrapper.text()).toContain('Needs attention');
+        expect(wrapper.text()).toContain('Quick actions');
     });
 });
 

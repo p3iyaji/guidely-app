@@ -1,27 +1,29 @@
 <template>
     <header
-        class="flex h-topbar shrink-0 items-center gap-4 bg-topbar px-[var(--spacing-page)] text-text-inverse"
+        class="sticky top-0 z-20 flex min-h-16 shrink-0 items-center gap-3 border-b border-border bg-topbar px-4 text-text sm:px-6 lg:px-8"
         data-testid="top-bar"
     >
-        <div class="flex items-center gap-3">
-            <button
-                v-if="showMenuToggle"
-                type="button"
-                class="inline-flex h-10 w-10 items-center justify-center rounded-md text-text-inverse hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-white lg:hidden"
-                aria-label="Toggle navigation"
-                :aria-expanded="ariaExpanded"
-                data-testid="nav-toggle"
-                @click="$emit('toggle-nav')"
-            >
-                <span aria-hidden="true" class="text-heading leading-none">☰</span>
-            </button>
-            <BrandWordmark />
+        <button
+            v-if="showMenuToggle"
+            type="button"
+            class="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-border text-text hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-focus-ring lg:hidden"
+            aria-label="Toggle navigation"
+            :aria-expanded="ariaExpanded"
+            data-testid="nav-toggle"
+            @click="$emit('toggle-nav')"
+        >
+            <AppIcon name="menu" class="size-5" />
+        </button>
+
+        <div class="min-w-0">
+            <p class="truncate text-body font-semibold text-text">{{ pageTitle }}</p>
+            <p class="truncate text-meta text-text-muted">{{ workspaceLabel }}</p>
         </div>
 
-        <div class="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3 sm:gap-4">
+        <div class="ml-auto flex min-w-0 items-center justify-end gap-3 sm:gap-4">
             <form
                 v-if="canSearchReviewCycles"
-                class="relative hidden min-w-0 max-w-xs flex-1 sm:block md:max-w-sm"
+                class="relative hidden w-56 lg:block xl:w-72"
                 data-testid="search-stub"
                 @submit.prevent="onSearch"
             >
@@ -31,15 +33,21 @@
                     v-model="searchQuery"
                     type="search"
                     placeholder="Search Review Cycles"
-                    class="w-full rounded-sm border-0 bg-white/95 px-3 py-1.5 text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-white"
+                    class="w-full rounded-md border border-border bg-surface-muted px-3 py-2 text-body text-text placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-focus-ring"
                     title="Search is limited to Review Cycles within your scope"
                 >
             </form>
 
+            <div class="hidden h-8 w-px bg-border sm:block" />
+            <div v-if="userName" class="hidden min-w-0 text-right sm:block">
+                <p class="max-w-40 truncate text-body font-semibold text-text">{{ userName }}</p>
+                <p class="max-w-40 truncate text-meta text-text-muted">{{ roleLabel }}</p>
+            </div>
+
             <div ref="accountMenuRoot" class="relative" data-testid="account-menu">
                 <button
                     type="button"
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-label font-medium text-text-inverse hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-label font-semibold text-primary-foreground hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-focus-ring"
                     :title="userName"
                     :aria-label="accountMenuOpen ? 'Close account menu' : 'Open account menu'"
                     :aria-expanded="accountMenuOpen"
@@ -92,7 +100,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
-import BrandWordmark from './BrandWordmark.vue';
+import AppIcon from './AppIcon.vue';
 
 const props = defineProps({
     userName: {
@@ -114,6 +122,18 @@ const props = defineProps({
     canSearchReviewCycles: {
         type: Boolean,
         default: false,
+    },
+    pageTitle: {
+        type: String,
+        default: 'Dashboard',
+    },
+    workspaceLabel: {
+        type: String,
+        default: 'GuidelyEdu workspace',
+    },
+    roleLabel: {
+        type: String,
+        default: '',
     },
 });
 
