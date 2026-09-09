@@ -31,8 +31,8 @@
 
         <section class="flex min-h-screen items-center justify-center bg-canvas px-5 py-10 sm:px-10">
             <div class="w-full max-w-110">
-                <div class="mb-10 inline-flex rounded-md bg-primary p-3 lg:hidden">
-                    <BrandWordmark />
+                <div class="mb-10 inline-flex rounded-lg bg-white p-2 shadow-sm ring-1 ring-black/5 lg:hidden">
+                    <BrandWordmark height="h-8" />
                 </div>
                 <RouterView />
             </div>
