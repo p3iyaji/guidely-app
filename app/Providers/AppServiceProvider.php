@@ -6,7 +6,10 @@ use App\Domain\Connectors\Connector;
 use App\Domain\Connectors\ConnectorAdapterRegistry;
 use App\Domain\Connectors\PilotStubAdapter;
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Identity\AccessPermission;
+use App\Domain\Identity\AccessRole;
 use App\Domain\Identity\Role;
+use App\Domain\Ontology\ProvisionTerm;
 use App\Domain\Outputs\DocumentationOutput;
 use App\Domain\Pupils\Pupil;
 use App\Domain\Pupils\SafeguardingSignal;
@@ -19,12 +22,15 @@ use App\Domain\Sre\Gap;
 use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
+use App\Policies\AccessPermissionPolicy;
+use App\Policies\AccessRolePolicy;
 use App\Policies\ComplianceAlertPolicy;
 use App\Policies\ConnectorPolicy;
 use App\Policies\DeterminationPolicy;
 use App\Policies\DocumentationOutputPolicy;
 use App\Policies\EvidenceRecordPolicy;
 use App\Policies\GapPolicy;
+use App\Policies\ProvisionTermPolicy;
 use App\Policies\PupilPolicy;
 use App\Policies\ReviewCyclePolicy;
 use App\Policies\SafeguardingSignalPolicy;
@@ -59,8 +65,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(AccessRole::class, AccessRolePolicy::class);
+        Gate::policy(AccessPermission::class, AccessPermissionPolicy::class);
         Gate::policy(Connector::class, ConnectorPolicy::class);
         Gate::policy(School::class, SchoolPolicy::class);
+        Gate::policy(ProvisionTerm::class, ProvisionTermPolicy::class);
         Gate::policy(Pupil::class, PupilPolicy::class);
         Gate::policy(SafeguardingSignal::class, SafeguardingSignalPolicy::class);
         Gate::policy(Tenant::class, TenantPolicy::class);

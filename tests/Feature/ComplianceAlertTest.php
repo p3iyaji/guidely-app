@@ -16,7 +16,9 @@ use App\Domain\Tenancy\School;
 use App\Domain\Tenancy\Tenant;
 use App\Domain\Tenancy\TenantFeatureFlag;
 use App\Models\User;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class ComplianceAlertTest extends TestCase
@@ -45,6 +47,38 @@ class ComplianceAlertTest extends TestCase
         $this->assertDatabaseMissing('audit_events', [
             'event_type' => AuditEventType::ComplianceAlertCreated->value,
         ]);
+    }
+
+    public function test_evaluate_compliance_alerts_is_scheduled_hourly_in_london(): void
+    {
+        Artisan::call('schedule:list');
+
+        $this->assertStringContainsString('guidely:evaluate-compliance-alerts', Artisan::output());
+
+        $event = collect(app(Schedule::class)->events())->first(
+            fn ($scheduled): bool => str_contains((string) $scheduled->command, 'guidely:evaluate-compliance-alerts'),
+        );
+
+        $this->assertNotNull($event);
+        $this->assertTrue($event->withoutOverlapping);
+        $this->assertSame('0 * * * *', $event->expression);
+        $this->assertSame('Europe/London', $event->timezone);
+    }
+
+    public function test_snapshot_trust_indicators_is_scheduled_monthly_in_london(): void
+    {
+        Artisan::call('schedule:list');
+
+        $this->assertStringContainsString('guidely:snapshot-trust-indicators', Artisan::output());
+
+        $event = collect(app(Schedule::class)->events())->first(
+            fn ($scheduled): bool => str_contains((string) $scheduled->command, 'guidely:snapshot-trust-indicators'),
+        );
+
+        $this->assertNotNull($event);
+        $this->assertTrue($event->withoutOverlapping);
+        $this->assertSame('0 1 1 * *', $event->expression);
+        $this->assertSame('Europe/London', $event->timezone);
     }
 
     public function test_evaluate_opens_school_gap_density_alert_and_create_audit_once(): void

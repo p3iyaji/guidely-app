@@ -64,6 +64,15 @@
                     >
                         {{ userName }}
                     </p>
+                    <RouterLink
+                        to="/profile"
+                        role="menuitem"
+                        class="block w-full px-3 py-2 text-left text-body text-text hover:bg-surface-muted focus:outline-none focus:bg-surface-muted"
+                        data-testid="account-menu-profile"
+                        @click="accountMenuOpen = false"
+                    >
+                        Profile
+                    </RouterLink>
                     <button
                         type="button"
                         role="menuitem"
@@ -82,7 +91,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import BrandWordmark from './BrandWordmark.vue';
 
 const props = defineProps({

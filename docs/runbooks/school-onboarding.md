@@ -41,11 +41,13 @@ Exit code is non-zero when the Tenant is missing or validation fails.
 
 ## Connectors / MIS
 
-Live MIS Connector configuration is **out of scope** for this runbook (Epic 6 / OQ-4). Until Connectors ship, use the Pilot toolkit **Import Template** placeholder download (`GET /api/v1/pilot/import-template`) as the fallback data path. Do not invent Connector credentials or sync steps here.
+Import Template remains the fallback for cohort load (`GET /api/v1/import/template` and Pilot toolkit download). A **Pilot stub** Connector can be enabled from Tenant Admin **Connectors** when the `connectors` flag is on. Live Wonde/Groupcall/MIS adapters are blocked until OQ-4 names the Pilot primary.
 
 ## After onboarding
 
 1. Confirm the Tenant Admin can sign in at `/login`.
 2. Open **Pilot toolkit** to review the disclaimer pack and export the success-metrics stub.
-3. Toggle remaining flags from Tenant Admin **Feature flags** when ready.
-4. See [UK residency deploy notes](../deploy-uk-residency.md) for primary DB, object storage, and backup targets.
+3. Toggle remaining flags from Tenant Admin **Feature flags** (`/feature-flags`).
+4. SENCO: Import or add Pupils, set Need categories, and **assign Teachers** so classroom capture is not an empty list.
+5. Keep a queue worker running so SRE can leave `evaluating`.
+6. See [UK residency deploy notes](../deploy-uk-residency.md) for primary DB, object storage, and backup targets.

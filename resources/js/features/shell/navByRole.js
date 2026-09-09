@@ -3,7 +3,9 @@
  * Vue menus are presentation only — they never authorise APIs.
  */
 
-/** @typedef {{ key: string, label: string, to: string }} NavItem */
+/**
+ * @typedef {{ key: string, label: string, to?: string, children?: NavItem[] }} NavItem
+ */
 
 /** @type {Record<string, NavItem[]>} */
 export const NAV_BY_ROLE = {
@@ -25,20 +27,38 @@ export const NAV_BY_ROLE = {
         { key: 'dashboard', label: 'Dashboard', to: '/' },
         { key: 'pupils', label: 'Pupils', to: '/pupils' },
         { key: 'capture', label: 'Capture', to: '/capture' },
-        { key: 'review-cycles', label: 'Review Cycles', to: '/review-cycles' },
-        { key: 'gaps', label: 'Gaps', to: '/gaps' },
-        { key: 'outputs', label: 'Outputs', to: '/outputs' },
-        { key: 'school-report', label: 'School Report', to: '/school-report' },
-        { key: 'alerts', label: 'Alerts', to: '/alerts' },
-        { key: 'safeguarding-context', label: 'Safeguarding context', to: '/safeguarding-context' },
+        {
+            key: 'reviews',
+            label: 'Reviews',
+            children: [
+                { key: 'review-cycles', label: 'Review Cycles', to: '/review-cycles' },
+                { key: 'gaps', label: 'Gaps', to: '/gaps' },
+                { key: 'outputs', label: 'Outputs', to: '/outputs' },
+            ],
+        },
+        {
+            key: 'oversight',
+            label: 'Oversight',
+            children: [
+                { key: 'school-report', label: 'School Report', to: '/school-report' },
+                { key: 'alerts', label: 'Alerts', to: '/alerts' },
+                { key: 'safeguarding-context', label: 'Safeguarding context', to: '/safeguarding-context' },
+            ],
+        },
         { key: 'import', label: 'Import', to: '/import' },
         { key: 'settings', label: 'Settings', to: '/settings' },
     ],
     school_leader: [
         { key: 'dashboard', label: 'Dashboard', to: '/' },
-        { key: 'school-report', label: 'School Report', to: '/school-report' },
-        { key: 'safeguarding-context', label: 'Safeguarding context', to: '/safeguarding-context' },
-        { key: 'review-cycles', label: 'Review Cycles', to: '/review-cycles' },
+        {
+            key: 'oversight',
+            label: 'Oversight',
+            children: [
+                { key: 'school-report', label: 'School Report', to: '/school-report' },
+                { key: 'safeguarding-context', label: 'Safeguarding context', to: '/safeguarding-context' },
+                { key: 'review-cycles', label: 'Review Cycles', to: '/review-cycles' },
+            ],
+        },
         { key: 'settings', label: 'Settings', to: '/settings' },
     ],
     trust_send_lead: [
@@ -54,13 +74,40 @@ export const NAV_BY_ROLE = {
         { key: 'settings', label: 'Settings', to: '/settings' },
     ],
     tenant_admin: [
-        { key: 'users', label: 'Users', to: '/users' },
-        { key: 'schools', label: 'Schools', to: '/schools' },
-        { key: 'pupils', label: 'Pupils', to: '/pupils' },
-        { key: 'import', label: 'Import', to: '/import' },
-        { key: 'connectors', label: 'Connectors', to: '/connectors' },
-        { key: 'feature-flags', label: 'Feature flags', to: '/feature-flags' },
-        { key: 'pilot-toolkit', label: 'Pilot toolkit', to: '/pilot-toolkit' },
+        {
+            key: 'access',
+            label: 'Access',
+            children: [
+                { key: 'users', label: 'Users', to: '/users' },
+                { key: 'roles', label: 'Roles', to: '/roles' },
+                { key: 'permissions', label: 'Permissions', to: '/permissions' },
+            ],
+        },
+        {
+            key: 'organisation',
+            label: 'Organisation',
+            children: [
+                { key: 'schools', label: 'Schools', to: '/schools' },
+                { key: 'pupils', label: 'Pupils', to: '/pupils' },
+            ],
+        },
+        {
+            key: 'integrations',
+            label: 'Integrations',
+            children: [
+                { key: 'import', label: 'Import', to: '/import' },
+                { key: 'connectors', label: 'Connectors', to: '/connectors' },
+            ],
+        },
+        {
+            key: 'configuration',
+            label: 'Configuration',
+            children: [
+                { key: 'feature-flags', label: 'Feature flags', to: '/feature-flags' },
+                { key: 'provision-terms', label: 'Provision terms', to: '/provision-terms' },
+                { key: 'pilot-toolkit', label: 'Pilot toolkit', to: '/pilot-toolkit' },
+            ],
+        },
         { key: 'settings', label: 'Settings', to: '/settings' },
     ],
     platform_operator: [
@@ -91,6 +138,27 @@ function normalizeRole(role) {
 }
 
 /**
+ * Leaf destinations only — group parents are presentation, not routes.
+ *
+ * @param {NavItem[]} items
+ * @returns {NavItem[]}
+ */
+export function flattenNavItems(items) {
+    const leaves = [];
+
+    for (const item of items ?? []) {
+        if (Array.isArray(item.children) && item.children.length > 0) {
+            leaves.push(...flattenNavItems(item.children));
+            continue;
+        }
+
+        leaves.push(item);
+    }
+
+    return leaves;
+}
+
+/**
  * @param {string|null|undefined} role
  * @returns {NavItem[]}
  */
@@ -110,7 +178,7 @@ export function navItemsForRole(role) {
  * @returns {boolean}
  */
 export function canSearchReviewCycles(role) {
-    return navItemsForRole(role).some((item) => item.key === 'review-cycles');
+    return flattenNavItems(navItemsForRole(role)).some((item) => item.key === 'review-cycles');
 }
 
 /**
@@ -124,13 +192,14 @@ export function usesTeacherSupportBottomNav(role) {
 }
 
 /**
- * Labels never include Messages (not in PRD).
+ * Labels never include Messages (not in PRD). Group parents are omitted —
+ * this is the destination IA, not the sidebar chrome.
  *
  * @param {string|null|undefined} role
  * @returns {string[]}
  */
 export function navLabelsForRole(role) {
-    return navItemsForRole(role).map((item) => item.label);
+    return flattenNavItems(navItemsForRole(role)).map((item) => item.label);
 }
 
 /**
@@ -142,8 +211,10 @@ export function allNavTargets() {
     const targets = new Set();
 
     for (const items of Object.values(NAV_BY_ROLE)) {
-        for (const item of items) {
-            targets.add(item.to);
+        for (const item of flattenNavItems(items)) {
+            if (item.to) {
+                targets.add(item.to);
+            }
         }
     }
 

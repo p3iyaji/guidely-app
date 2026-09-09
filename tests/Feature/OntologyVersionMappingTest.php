@@ -319,13 +319,17 @@ class OntologyVersionMappingTest extends TestCase
         }
     }
 
-    public function test_tenant_admin_cannot_list_ontology_domains(): void
+    public function test_tenant_admin_can_list_need_terms_but_not_capture_ontology_domains(): void
     {
         $tenant = Tenant::factory()->create();
         $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+        $version = PilotOntology::ensurePublishedVersion();
+
+        $this->actingAs($admin)->getJson('/api/v1/ontology/need-terms')
+            ->assertOk()
+            ->assertJsonPath('data.0.ontology_version_id', $version->id);
 
         foreach ([
-            '/api/v1/ontology/need-terms',
             '/api/v1/ontology/outcome-terms',
             '/api/v1/ontology/threshold-terms',
             '/api/v1/ontology/relationship-mappings',

@@ -527,6 +527,55 @@ class PupilAssignmentTest extends TestCase
         ]);
     }
 
+    public function test_senco_lists_assignable_staff_for_school(): void
+    {
+        [$tenant, $school, $senco] = $this->tenantSchoolAndSenco();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create(['name' => 'Alex Teacher']);
+        $teacher->schools()->attach($school->id);
+        $support = User::factory()->forTenant($tenant)->supportStaff()->create(['name' => 'Pat Support']);
+        $support->schools()->attach($school->id);
+        $otherSchool = School::factory()->forTenant($tenant)->create();
+        $otherTeacher = User::factory()->forTenant($tenant)->teacher()->create(['name' => 'Other School']);
+        $otherTeacher->schools()->attach($otherSchool->id);
+        $leader = User::factory()->forTenant($tenant)->schoolLeader()->create(['name' => 'Leader']);
+        $leader->schools()->attach($school->id);
+
+        $response = $this->actingAs($senco)->getJson('/api/v1/schools/'.$school->id.'/assignable-staff');
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$teacher->id, $support->id], $ids);
+        $this->assertNotContains($senco->id, $ids);
+        $this->assertNotContains($otherTeacher->id, $ids);
+        $this->assertNotContains($leader->id, $ids);
+    }
+
+    public function test_teacher_cannot_list_assignable_staff(): void
+    {
+        [$tenant, $school] = $this->tenantSchoolAndSenco();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create();
+        $teacher->schools()->attach($school->id);
+
+        $this->assertForbidden(
+            $this->actingAs($teacher)->getJson('/api/v1/schools/'.$school->id.'/assignable-staff')
+        );
+    }
+
+    public function test_pupil_list_includes_assigned_staff(): void
+    {
+        [$tenant, $school, $senco] = $this->tenantSchoolAndSenco();
+        $teacher = User::factory()->forTenant($tenant)->teacher()->create(['name' => 'Alex Teacher']);
+        $teacher->schools()->attach($school->id);
+        $pupil = Pupil::factory()->forSchool($school)->create();
+        $pupil->assignTo($teacher, ['class_label' => '7A']);
+
+        $this->actingAs($senco)->getJson('/api/v1/pupils')
+            ->assertOk()
+            ->assertJsonPath('data.0.assigned_staff.0.id', $teacher->id)
+            ->assertJsonPath('data.0.assigned_staff.0.name', 'Alex Teacher')
+            ->assertJsonPath('data.0.assigned_staff.0.class_label', '7A');
+    }
+
     /**
      * @return array<string, array{0: string}>
      */

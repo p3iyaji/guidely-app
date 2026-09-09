@@ -21,6 +21,17 @@ class SchoolFactory extends Factory
         return [
             'tenant_id' => Tenant::factory(),
             'name' => fake()->company().' School',
+            'address' => fake()->streetAddress(),
+            'postcode' => fake()->postcode(),
+            'city' => fake()->city(),
+            'county' => fake()->randomElement([
+                'Greater Manchester',
+                'West Yorkshire',
+                'Kent',
+                'Essex',
+                'Hampshire',
+            ]),
+            'country' => 'United Kingdom',
             'is_active' => true,
         ];
     }

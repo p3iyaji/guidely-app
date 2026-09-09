@@ -32,6 +32,16 @@ class PupilResource extends JsonResource
             'next_review_at' => $this->nextOpenReviewDueOn(),
             'primary_need' => $this->needPayload($this->primaryNeedTerm, $this->primary_need_notes),
             'secondary_need' => $this->needPayload($this->secondaryNeedTerm, $this->secondary_need_notes),
+            'assigned_staff' => $this->when(
+                $this->relationLoaded('assignedUsers'),
+                fn () => $this->assignedUsers->map(fn ($user): array => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'role' => $user->role?->value,
+                    'class_label' => $user->pivot?->class_label,
+                    'cohort_label' => $user->pivot?->cohort_label,
+                ])->values()->all(),
+            ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'deleted_at' => $this->deleted_at?->toIso8601String(),

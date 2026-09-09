@@ -41,13 +41,21 @@ npm run dev
 
 Keep `php artisan serve` running in another terminal while developing the SPA.
 
-**Queue worker:**
+**Queue worker (required for SRE / Documentation Status):**
+
+Submitted evidence sets Documentation Status to `evaluating` until `SreReevaluatePupil` runs. Local default queue driver is `database`. Leave a worker running:
 
 ```bash
 php artisan queue:work
 ```
 
-Local default queue driver is `database`. Non-local environments should use Redis.
+Or start API, queue worker, and Vite together:
+
+```bash
+composer run dev
+```
+
+Non-local environments should use Redis.
 
 ## Verification
 

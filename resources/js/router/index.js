@@ -3,35 +3,30 @@ import { useSession } from '../features/auth/session';
 import AppShell from '../layouts/AppShell.vue';
 import GuestLayout from '../layouts/GuestLayout.vue';
 import AccessDenied from '../pages/AccessDenied.vue';
-import ComingSoonPage from '../pages/ComingSoonPage.vue';
 import ConnectorsPage from '../pages/ConnectorsPage.vue';
 import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
+import FeatureFlagsPage from '../pages/FeatureFlagsPage.vue';
 import GapsPage from '../pages/GapsPage.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
+import ProfilePage from '../pages/ProfilePage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
+import PermissionsPage from '../pages/PermissionsPage.vue';
+import ProvisionTermsPage from '../pages/ProvisionTermsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
 import CapturePage from '../pages/CapturePage.vue';
 import DraftsPage from '../pages/DraftsPage.vue';
 import ReviewCyclesPage from '../pages/ReviewCyclesPage.vue';
+import RolesPage from '../pages/RolesPage.vue';
 import OutputsPage from '../pages/OutputsPage.vue';
 import SchoolReportPage from '../pages/SchoolReportPage.vue';
 import TrustDashboardPage from '../pages/TrustDashboardPage.vue';
 import AlertsPage from '../pages/AlertsPage.vue';
 import SafeguardingContextPage from '../pages/SafeguardingContextPage.vue';
-
-/**
- * Stub page for unfinished domains (UK English empty state — not fake data).
- *
- * @param {string} title
- */
-function stub(title) {
-    return {
-        component: ComingSoonPage,
-        meta: { title, requiresAuth: true },
-    };
-}
+import SchoolsPage from '../pages/SchoolsPage.vue';
+import SettingsPage from '../pages/SettingsPage.vue';
+import UsersPage from '../pages/UsersPage.vue';
 
 /**
  * Product SPA routes. Keep wireframe parent/LMS/clinician/EduConnect IA out of this table.
@@ -95,7 +90,14 @@ const routes = [
             {
                 path: 'settings',
                 name: 'settings',
-                ...stub('Settings'),
+                component: SettingsPage,
+                meta: { title: 'Settings', requiresAuth: true },
+            },
+            {
+                path: 'profile',
+                name: 'profile',
+                component: ProfilePage,
+                meta: { title: 'Profile', requiresAuth: true },
             },
             {
                 path: 'review-cycles',
@@ -136,7 +138,8 @@ const routes = [
             {
                 path: 'schools',
                 name: 'schools',
-                ...stub('Schools'),
+                component: SchoolsPage,
+                meta: { title: 'Schools', requiresAuth: true },
             },
             {
                 path: 'alerts',
@@ -153,7 +156,20 @@ const routes = [
             {
                 path: 'users',
                 name: 'users',
-                ...stub('Users'),
+                component: UsersPage,
+                meta: { title: 'Users', requiresAuth: true },
+            },
+            {
+                path: 'roles',
+                name: 'roles',
+                component: RolesPage,
+                meta: { title: 'Roles', requiresAuth: true },
+            },
+            {
+                path: 'permissions',
+                name: 'permissions',
+                component: PermissionsPage,
+                meta: { title: 'Permissions', requiresAuth: true },
             },
             {
                 path: 'connectors',
@@ -164,7 +180,14 @@ const routes = [
             {
                 path: 'feature-flags',
                 name: 'feature-flags',
-                ...stub('Feature flags'),
+                component: FeatureFlagsPage,
+                meta: { title: 'Feature flags', requiresAuth: true },
+            },
+            {
+                path: 'provision-terms',
+                name: 'provision-terms',
+                component: ProvisionTermsPage,
+                meta: { title: 'Provision terms', requiresAuth: true },
             },
             {
                 path: 'pilot-toolkit',

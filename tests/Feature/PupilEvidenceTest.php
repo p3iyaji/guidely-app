@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Audit\AuditEvent;
+use App\Domain\Audit\AuditEventType;
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
 use App\Domain\Evidence\EvidenceSource;
@@ -80,6 +82,32 @@ class PupilEvidenceTest extends TestCase
         $this->assertSame([$newer->id, $older->id], $ids);
         $this->assertSame(EvidenceLifecycle::Submitted->value, $response->json('data.0.lifecycle'));
         $this->assertSame(EvidenceType::Intervention->value, $response->json('data.0.type'));
+    }
+
+    public function test_opening_pupil_record_emits_evidence_viewed_audit_without_evidence_body(): void
+    {
+        [, $school, $senco] = $this->tenantSchoolAndSenco();
+        $pupil = Pupil::factory()->forSchool($school)->create();
+        $setting = $this->settingTerm('CLASSROOM');
+        EvidenceRecord::factory()
+            ->forPupil($pupil)
+            ->authoredBy($senco)
+            ->withSetting($setting)
+            ->create(['body' => 'Must not appear in audit metadata']);
+
+        $this->actingAs($senco)->getJson('/api/v1/pupils/'.$pupil->id)->assertOk();
+
+        $audit = AuditEvent::query()
+            ->where('event_type', AuditEventType::PupilEvidenceViewed)
+            ->where('resource_id', $pupil->id)
+            ->latest('created_at')
+            ->first();
+
+        $this->assertNotNull($audit);
+        $this->assertSame($senco->id, $audit->user_id);
+        $this->assertSame('pupil', $audit->resource_type);
+        $this->assertNull($audit->metadata);
+        $this->assertStringNotContainsString('Must not appear in audit metadata', json_encode($audit->toArray()));
     }
 
     public function test_filters_by_type_source_and_review_note(): void

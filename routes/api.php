@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccessPermissionController;
+use App\Http\Controllers\Api\V1\AccessRoleController;
+use App\Http\Controllers\Api\V1\AssignableStaffController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ComplianceAlertController;
 use App\Http\Controllers\Api\V1\ComplianceAlertThresholdController;
@@ -61,7 +64,10 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('api.v1.logout');
-        Route::get('/me', MeController::class)->name('api.v1.me');
+        Route::get('/me', [MeController::class, 'show'])->name('api.v1.me');
+        Route::patch('/me', [MeController::class, 'update'])->name('api.v1.me.update');
+        Route::patch('/me/password', [MeController::class, 'updatePassword'])
+            ->name('api.v1.me.password');
 
         Route::get('/tenant', [TenantController::class, 'show'])->name('api.v1.tenant.show');
         Route::patch('/tenant', [TenantController::class, 'update'])->name('api.v1.tenant.update');
@@ -77,6 +83,8 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.tenant.feature-flags.update');
 
         Route::apiResource('schools', SchoolController::class)->names('api.v1.schools');
+        Route::get('/schools/{school}/assignable-staff', [AssignableStaffController::class, 'index'])
+            ->name('api.v1.schools.assignable-staff.index');
 
         Route::apiResource('pupils', PupilController::class)->names('api.v1.pupils');
         Route::post('/pupils/{pupil}/assignments', [PupilAssignmentController::class, 'store'])
@@ -142,8 +150,9 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.evidence.versions.index');
         Route::get('/ontology/setting-terms', [SettingTermController::class, 'index'])
             ->name('api.v1.ontology.setting-terms.index');
-        Route::get('/ontology/provision-terms', [ProvisionTermController::class, 'index'])
-            ->name('api.v1.ontology.provision-terms.index');
+        Route::apiResource('ontology/provision-terms', ProvisionTermController::class)
+            ->parameters(['provision-terms' => 'provisionTerm'])
+            ->names('api.v1.ontology.provision-terms');
         Route::get('/ontology/need-terms', [NeedTermController::class, 'index'])
             ->name('api.v1.ontology.need-terms.index');
         Route::get('/ontology/outcome-terms', [OutcomeTermController::class, 'index'])
@@ -159,6 +168,13 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.import.template');
         Route::post('/import/pupils', [ImportController::class, 'uploadPupils'])
             ->name('api.v1.import.pupils');
+
+        Route::apiResource('roles', AccessRoleController::class)
+            ->parameters(['roles' => 'accessRole'])
+            ->names('api.v1.roles');
+        Route::apiResource('permissions', AccessPermissionController::class)
+            ->parameters(['permissions' => 'accessPermission'])
+            ->names('api.v1.permissions');
 
         Route::apiResource('users', UserController::class)
             ->except(['destroy'])

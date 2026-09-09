@@ -8,6 +8,13 @@ enum AuditEventType: string
     case LoginFailed = 'auth.login.failed';
     case Logout = 'auth.logout';
 
+    case AccessRoleCreated = 'access_role.created';
+    case AccessRoleUpdated = 'access_role.updated';
+    case AccessRoleDeleted = 'access_role.deleted';
+    case AccessPermissionCreated = 'access_permission.created';
+    case AccessPermissionUpdated = 'access_permission.updated';
+    case AccessPermissionDeleted = 'access_permission.deleted';
+
     case UserCreated = 'user.created';
     case UserUpdated = 'user.updated';
     case UserDeactivated = 'user.deactivated';
@@ -21,6 +28,7 @@ enum AuditEventType: string
     case PupilUpdated = 'pupil.updated';
     case PupilDeleted = 'pupil.deleted';
     case PupilAssignmentUpdated = 'pupil.assignment.updated';
+    case PupilEvidenceViewed = 'pupil.evidence.viewed';
 
     case TenantCreated = 'tenant.created';
     case TenantCohortUpdated = 'tenant.cohort.updated';
@@ -39,6 +47,9 @@ enum AuditEventType: string
     case EvidenceReviewNoteCreated = 'evidence.review_note.created';
     case SreOverrideCreated = 'sre.override.created';
     case LibraryPublished = 'ontology.library.published';
+    case ProvisionTermCreated = 'ontology.provision_term.created';
+    case ProvisionTermUpdated = 'ontology.provision_term.updated';
+    case ProvisionTermDeleted = 'ontology.provision_term.deleted';
     case ReviewCycleCreated = 'review_cycle.created';
     case ReviewCycleClosed = 'review_cycle.closed';
     case DocumentationOutputGenerated = 'documentation_output.generated';

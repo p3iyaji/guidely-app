@@ -23,6 +23,14 @@ return Application::configure(basePath: dirname(__DIR__))
             ->daily()
             ->timezone('Europe/London')
             ->withoutOverlapping();
+        $schedule->command('guidely:evaluate-compliance-alerts')
+            ->hourly()
+            ->timezone('Europe/London')
+            ->withoutOverlapping();
+        $schedule->command('guidely:snapshot-trust-indicators')
+            ->monthlyOn(1, '01:00')
+            ->timezone('Europe/London')
+            ->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();

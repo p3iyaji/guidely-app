@@ -347,14 +347,21 @@ class InterventionTest extends TestCase
         $this->assertNotContains('FOREIGN', $codes);
     }
 
-    public function test_tenant_admin_cannot_list_provision_terms(): void
+    public function test_tenant_admin_can_list_provision_terms_including_inactive(): void
     {
         $tenant = Tenant::factory()->create();
         $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+        $inactive = $this->provisionTerm('SEMH_SUPPORT');
+        $inactive->forceFill(['is_active' => false])->save();
 
         $response = $this->actingAs($admin)->getJson('/api/v1/ontology/provision-terms');
 
-        $this->assertForbidden($response);
+        $response->assertOk();
+
+        $codes = collect($response->json('data'))->pluck('code')->all();
+
+        $this->assertContains('UNIVERSAL', $codes);
+        $this->assertContains('SEMH_SUPPORT', $codes);
     }
 
     private function assertForbidden($response): void

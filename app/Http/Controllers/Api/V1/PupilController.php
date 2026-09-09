@@ -45,7 +45,7 @@ class PupilController extends Controller
         $user = $request->user();
 
         $query = Pupil::query()
-            ->with(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles'])
+            ->with(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles', 'assignedUsers'])
             ->orderBy('family_name')
             ->orderBy('given_name')
             ->orderBy('id');
@@ -82,7 +82,7 @@ class PupilController extends Controller
             ]);
         }
 
-        $pupil->load(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles']);
+        $this->loadPupilResourceRelations($pupil);
 
         $hasNeedValues = $this->pupilHasNeedValues($pupil);
 
@@ -102,11 +102,19 @@ class PupilController extends Controller
             ->setStatusCode(201);
     }
 
-    public function show(Pupil $pupil): PupilResource
+    public function show(Request $request, Pupil $pupil): PupilResource
     {
         $this->authorize('view', $pupil);
 
-        $pupil->loadMissing(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles']);
+        $this->loadPupilResourceRelations($pupil);
+
+        $this->audit->record(
+            AuditEventType::PupilEvidenceViewed,
+            $request,
+            $request->user(),
+            resourceType: 'pupil',
+            resourceId: $pupil->id,
+        );
 
         return new PupilResource($pupil);
     }
@@ -123,7 +131,8 @@ class PupilController extends Controller
             ]);
         }
 
-        $pupil->refresh()->load(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles']);
+        $pupil->refresh();
+        $this->loadPupilResourceRelations($pupil);
 
         $this->audit->record(
             AuditEventType::PupilUpdated,
@@ -232,5 +241,10 @@ class PupilController extends Controller
         }
 
         $this->enqueueSreReevaluation->handle($pupil, 'need_changed', 'pupil');
+    }
+
+    private function loadPupilResourceRelations(Pupil $pupil): void
+    {
+        $pupil->load(['primaryNeedTerm', 'secondaryNeedTerm', 'openReviewCycles', 'assignedUsers']);
     }
 }

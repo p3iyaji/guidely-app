@@ -74,6 +74,164 @@ class MeEndpointTest extends TestCase
             ->assertJsonPath('data.school_ids', []);
     }
 
+    public function test_authenticated_user_can_update_own_name_and_email(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->forTenant($tenant)->teacher()->create([
+            'name' => 'Shell User',
+            'email' => 'shell@example.com',
+            'role' => Role::Teacher,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson('/api/v1/me', [
+                'name' => 'Ada Lovelace',
+                'email' => 'Ada.Lovelace@Example.com',
+                'role' => Role::TenantAdmin->value,
+                'password' => 'hijack-password',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $user->id)
+            ->assertJsonPath('data.name', 'Ada Lovelace')
+            ->assertJsonPath('data.email', 'ada.lovelace@example.com')
+            ->assertJsonPath('data.role', Role::Teacher->value)
+            ->assertJsonMissingPath('data.password');
+
+        $fresh = $user->fresh();
+
+        $this->assertSame('Ada Lovelace', $fresh->name);
+        $this->assertSame('ada.lovelace@example.com', $fresh->email);
+        $this->assertSame(Role::Teacher, $fresh->role);
+        $this->assertTrue(Hash::check('password', $fresh->password));
+
+        $this->assertDatabaseHas('audit_events', [
+            'event_type' => 'user.updated',
+            'user_id' => $user->id,
+            'resource_type' => 'user',
+            'resource_id' => $user->id,
+        ]);
+    }
+
+    public function test_duplicate_profile_email_returns_422(): void
+    {
+        $tenant = Tenant::factory()->create();
+        User::factory()->forTenant($tenant)->create([
+            'email' => 'taken@example.com',
+        ]);
+        $user = User::factory()->forTenant($tenant)->teacher()->create([
+            'email' => 'mine@example.com',
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson('/api/v1/me', [
+                'email' => 'taken@example.com',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertSame('mine@example.com', $user->fresh()->email);
+    }
+
+    public function test_profile_update_requires_authentication(): void
+    {
+        $this->patchJson('/api/v1/me', [
+            'name' => 'Nobody',
+        ])
+            ->assertUnauthorized()
+            ->assertJsonStructure(['message']);
+    }
+
+    public function test_authenticated_user_can_change_own_password(): void
+    {
+        $user = $this->provisionedUser([
+            'role' => Role::Teacher,
+            'password' => Hash::make('password'),
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson('/api/v1/me/password', [
+                'current_password' => 'password',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $user->id)
+            ->assertJsonMissingPath('data.password');
+
+        $this->assertTrue(Hash::check('password123', $user->fresh()->password));
+        $this->assertFalse(Hash::check('password', $user->fresh()->password));
+
+        $this->assertDatabaseHas('audit_events', [
+            'event_type' => 'user.password_reset',
+            'user_id' => $user->id,
+            'resource_type' => 'user',
+            'resource_id' => $user->id,
+        ]);
+    }
+
+    public function test_password_change_rejects_wrong_current_password(): void
+    {
+        $user = $this->provisionedUser([
+            'role' => Role::Teacher,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson('/api/v1/me/password', [
+                'current_password' => 'not-the-password',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->assertTrue(Hash::check('password', $user->fresh()->password));
+    }
+
+    public function test_password_change_rejects_unconfirmed_or_weak_password(): void
+    {
+        $user = $this->provisionedUser([
+            'role' => Role::Teacher,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson('/api/v1/me/password', [
+                'current_password' => 'password',
+                'password' => 'short',
+                'password_confirmation' => 'different',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['password']);
+
+        $this->assertTrue(Hash::check('password', $user->fresh()->password));
+    }
+
+    public function test_password_change_requires_authentication(): void
+    {
+        $this->patchJson('/api/v1/me/password', [
+            'current_password' => 'password',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])
+            ->assertUnauthorized()
+            ->assertJsonStructure(['message']);
+    }
+
+    public function test_platform_operator_can_update_profile(): void
+    {
+        $operator = User::factory()->platformOperator()->create([
+            'name' => 'Operator',
+            'email' => 'operator@example.com',
+        ]);
+
+        $this->actingAs($operator)
+            ->patchJson('/api/v1/me', [
+                'name' => 'Platform Operator',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Platform Operator')
+            ->assertJsonPath('data.email', 'operator@example.com');
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      */

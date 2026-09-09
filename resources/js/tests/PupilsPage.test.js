@@ -56,9 +56,36 @@ describe('PupilsPage', () => {
                 return jsonResponse({ data: samplePupils });
             }
 
+            if (path.includes('/ontology/need-terms')) {
+                return jsonResponse({
+                    data: [
+                        { id: 'need_ci', code: 'CI', label: 'Communication and interaction' },
+                        { id: 'need_cl', code: 'CL', label: 'Cognition and learning' },
+                    ],
+                });
+            }
+
+            if (path.includes('/assignable-staff')) {
+                return jsonResponse({
+                    data: [
+                        { id: 11, name: 'Alex Teacher', role: 'teacher' },
+                        { id: 12, name: 'Pat Support', role: 'support_staff' },
+                    ],
+                });
+            }
+
             if (path.includes('/api/v1/schools')) {
                 return jsonResponse({
                     data: [{ id: 'sch_1', name: 'Northbridge Primary', is_active: true }],
+                });
+            }
+
+            if (path.includes('/assignments') && method === 'POST') {
+                return jsonResponse({
+                    data: {
+                        id: 'pup_new',
+                        assigned_staff: [{ id: 11, name: 'Alex Teacher', role: 'teacher' }],
+                    },
                 });
             }
 
@@ -186,6 +213,8 @@ describe('PupilsPage', () => {
         expect(wrapper.findAll('[data-testid="status-pill"]').length).toBe(2);
         expect(wrapper.find('[data-testid="pupil-next-review"]').text()).toContain('—');
         expect(wrapper.find('[data-testid="pupils-empty-ctas"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="pupil-edit-pup_1"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="pupils-add-open"]').exists()).toBe(false);
         expect(wrapper.text()).not.toMatch(/Coming soon/i);
         expect(wrapper.text()).not.toMatch(/never colour alone/i);
     });
@@ -221,7 +250,9 @@ describe('PupilsPage', () => {
     it('shows empty copy without Add/Import CTAs for Teacher', async () => {
         const { wrapper } = await mountPage('teacher', []);
 
-        expect(wrapper.find('[data-testid="pupils-empty"]').text()).toContain('No Pupils in your list.');
+        expect(wrapper.find('[data-testid="pupils-empty"]').text()).toContain(
+            'No Pupils assigned yet. Ask your SENCO to assign Pupils to you.',
+        );
         expect(wrapper.find('[data-testid="pupils-empty-ctas"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="pupils-import-cta"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="pupils-add-cta"]').exists()).toBe(false);
@@ -230,13 +261,15 @@ describe('PupilsPage', () => {
     it('shows empty copy without Add/Import CTAs for Support Staff', async () => {
         const { wrapper } = await mountPage('support_staff', []);
 
-        expect(wrapper.find('[data-testid="pupils-empty"]').text()).toContain('No Pupils in your list.');
+        expect(wrapper.find('[data-testid="pupils-empty"]').text()).toContain(
+            'No Pupils assigned yet. Ask your SENCO to assign Pupils to you.',
+        );
         expect(wrapper.find('[data-testid="pupils-empty-ctas"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="pupils-import-cta"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="pupils-add-cta"]').exists()).toBe(false);
     });
 
-    it('shows SENCO empty CTAs for Import and Add Pupil, and hides them when form opens', async () => {
+    it('shows SENCO empty CTAs for Import and Add Pupil, and opens Add in a dialog', async () => {
         const { wrapper, router } = await mountPage('senco', []);
 
         expect(wrapper.find('[data-testid="pupils-empty"]').text()).toContain('No Pupils in your list.');
@@ -254,10 +287,51 @@ describe('PupilsPage', () => {
         await wrapper.find('[data-testid="pupils-add-cta"]').trigger('click');
         await flushPromises();
 
-        expect(wrapper.find('[data-testid="pupils-add-form"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="pupils-empty"]').exists()).toBe(false);
-        expect(wrapper.find('[data-testid="pupils-empty-ctas"]').exists()).toBe(false);
+        const dialog = wrapper.find('[data-testid="pupils-add-form"]');
+        expect(dialog.exists()).toBe(true);
+        expect(dialog.attributes('role')).toBe('dialog');
+        expect(dialog.attributes('aria-modal')).toBe('true');
+        expect(wrapper.find('[data-testid="pupils-empty"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="pupil-send-status"]').html()).toContain('Neither');
+        expect(wrapper.find('[data-testid="pupil-primary-need"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="pupil-assignments"]').exists()).toBe(true);
+    });
+
+    it('saves Need and Teacher assignment when SENCO creates a Pupil', async () => {
+        const { wrapper } = await mountPage('senco');
+
+        await wrapper.find('[data-testid="pupils-add-open"]').trigger('click');
+        await flushPromises();
+
+        await wrapper.find('[data-testid="pupil-school"]').setValue('sch_1');
+        await wrapper.find('[data-testid="pupil-given-name"]').setValue('Sam');
+        await wrapper.find('[data-testid="pupil-family-name"]').setValue('Patel');
+        await wrapper.find('[data-testid="pupil-year-group"]').setValue('Year 7');
+        await wrapper.find('[data-testid="pupil-primary-need"]').setValue('need_ci');
+        expect(wrapper.find('[data-testid="pupil-assignee-11"]').exists()).toBe(true);
+        await wrapper.find('[data-testid="pupil-assignee-11"]').setValue(true);
+        await wrapper.find('form').trigger('submit.prevent');
+        await flushPromises();
+
+        const postPupil = fetchMock.mock.calls.find(([url, options]) => {
+            const path = String(url);
+            const method = String(options?.method ?? 'GET').toUpperCase();
+
+            return path.includes('/api/v1/pupils') && method === 'POST' && !path.includes('/assignments');
+        });
+
+        expect(postPupil).toBeTruthy();
+        expect(JSON.parse(String(postPupil[1].body)).primary_need_term_id).toBe('need_ci');
+
+        const postAssign = fetchMock.mock.calls.find((call) => {
+            const path = String(call[0]);
+            const method = String(call[1]?.method ?? 'GET').toUpperCase();
+
+            return path.includes('/assignments') && method === 'POST';
+        });
+
+        expect(postAssign).toBeTruthy();
+        expect(JSON.parse(String(postAssign[1].body)).user_id).toBe(11);
     });
 
     it('shows loading skeleton before pupils resolve', async () => {
@@ -534,10 +608,134 @@ describe('PupilsPage', () => {
             family_name: 'Patel',
             year_group: 'Year 7',
             send_status: 'neither',
+            mis_key: null,
+            date_of_birth: null,
+            notes: null,
+            primary_need_term_id: null,
+            primary_need_notes: null,
+            secondary_need_term_id: null,
+            secondary_need_notes: null,
         });
         expect(wrapper.find('[data-testid="pupils-search"]').element.value).toBe('');
         expect(wrapper.find('[data-testid="pupils-list"]').exists()).toBe(true);
         expect(wrapper.text()).toContain('Sam Patel');
+        expect(wrapper.find('[data-testid="pupils-add-form"]').exists()).toBe(false);
+    });
+
+    it('updates a Pupil via PATCH from the Edit dialog', async () => {
+        const { wrapper } = await mountPage('senco', [
+            {
+                id: 'pup_1',
+                given_name: 'Alex',
+                family_name: 'Rivera',
+                year_group: 'Year 8',
+                documentation_status: 'not-started',
+                school_id: 'sch_1',
+                send_status: 'neither',
+            },
+        ]);
+
+        fetchMock.mockImplementation(async (url, options = {}) => {
+            const path = String(url);
+            const method = (options.method ?? 'GET').toUpperCase();
+
+            if (path.includes('/api/v1/schools')) {
+                return jsonResponse({
+                    data: [{ id: 'sch_1', name: 'Northbridge Primary', is_active: true }],
+                });
+            }
+
+            if (path.includes('/api/v1/pupils/pup_1') && method === 'PATCH') {
+                return jsonResponse({
+                    data: {
+                        id: 'pup_1',
+                        given_name: 'Alexandra',
+                        family_name: 'Rivera',
+                        year_group: 'Year 9',
+                        documentation_status: 'not-started',
+                        school_id: 'sch_1',
+                        send_status: 'sen_support',
+                    },
+                });
+            }
+
+            return jsonResponse({ data: [] });
+        });
+
+        await wrapper.find('[data-testid="pupil-edit-pup_1"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="pupils-add-form"]').text()).toContain('Edit Pupil');
+        expect(wrapper.find('[data-testid="pupils-list"]').exists()).toBe(true);
+
+        await wrapper.find('[data-testid="pupil-given-name"]').setValue('Alexandra');
+        await wrapper.find('[data-testid="pupil-year-group"]').setValue('Year 9');
+        await wrapper.find('[data-testid="pupil-send-status"]').setValue('sen_support');
+        await wrapper.find('[data-testid="pupils-add-form"] form').trigger('submit.prevent');
+        await flushPromises();
+
+        const patchCall = fetchMock.mock.calls.find(
+            ([url, options]) =>
+                String(url).includes('/api/v1/pupils/pup_1') && (options?.method ?? 'GET').toUpperCase() === 'PATCH',
+        );
+
+        expect(patchCall).toBeTruthy();
+        expect(JSON.parse(patchCall[1].body)).toMatchObject({
+            given_name: 'Alexandra',
+            year_group: 'Year 9',
+            send_status: 'sen_support',
+        });
+        expect(wrapper.text()).toContain('Alexandra Rivera');
+        expect(wrapper.find('[data-testid="pupils-add-form"]').exists()).toBe(false);
+    });
+
+    it('deletes a Pupil via DELETE after confirm', async () => {
+        const { wrapper } = await mountPage('tenant_admin', [
+            {
+                id: 'pup_1',
+                given_name: 'Alex',
+                family_name: 'Rivera',
+                year_group: 'Year 8',
+                documentation_status: 'not-started',
+                school_id: 'sch_1',
+            },
+        ]);
+
+        fetchMock.mockImplementation(async (url, options = {}) => {
+            const path = String(url);
+            const method = (options.method ?? 'GET').toUpperCase();
+
+            if (path.includes('/api/v1/pupils/pup_1') && method === 'DELETE') {
+                return {
+                    ok: true,
+                    status: 204,
+                    clone() {
+                        return this;
+                    },
+                    async json() {
+                        return {};
+                    },
+                };
+            }
+
+            return jsonResponse({ data: [] });
+        });
+
+        await wrapper.find('[data-testid="pupil-delete-pup_1"]').trigger('click');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="pupils-delete-confirm"]').text()).toContain('Alex Rivera');
+
+        await wrapper.find('[data-testid="pupils-delete-confirm-submit"]').trigger('click');
+        await flushPromises();
+
+        const deleteCall = fetchMock.mock.calls.find(
+            ([url, options]) =>
+                String(url).includes('/api/v1/pupils/pup_1') && (options?.method ?? 'GET').toUpperCase() === 'DELETE',
+        );
+
+        expect(deleteCall).toBeTruthy();
+        expect(wrapper.text()).not.toContain('Alex Rivera');
+        expect(wrapper.find('[data-testid="pupils-list"]').exists()).toBe(false);
     });
 });
 

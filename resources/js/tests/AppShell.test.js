@@ -45,6 +45,14 @@ import ConnectorsPage from '../pages/ConnectorsPage.vue';
 import TrustDashboardPage from '../pages/TrustDashboardPage.vue';
 import AlertsPage from '../pages/AlertsPage.vue';
 import SafeguardingContextPage from '../pages/SafeguardingContextPage.vue';
+import SchoolsPage from '../pages/SchoolsPage.vue';
+import SettingsPage from '../pages/SettingsPage.vue';
+import FeatureFlagsPage from '../pages/FeatureFlagsPage.vue';
+import ProfilePage from '../pages/ProfilePage.vue';
+import ProvisionTermsPage from '../pages/ProvisionTermsPage.vue';
+import PermissionsPage from '../pages/PermissionsPage.vue';
+import RolesPage from '../pages/RolesPage.vue';
+import UsersPage from '../pages/UsersPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
 describe('Role nav IA', () => {
@@ -121,13 +129,50 @@ describe('Role nav IA', () => {
     it('lists Tenant Admin sidebar items', () => {
         expect(navLabelsForRole('tenant_admin')).toEqual([
             'Users',
+            'Roles',
+            'Permissions',
             'Schools',
             'Pupils',
             'Import',
             'Connectors',
             'Feature flags',
+            'Provision terms',
             'Pilot toolkit',
             'Settings',
+        ]);
+    });
+
+    it('nests Tenant Admin destinations under Access Organisation Integrations Configuration', () => {
+        const groups = navItemsForRole('tenant_admin')
+            .filter((item) => item.children?.length)
+            .map((item) => [item.label, item.children.map((child) => child.label)]);
+
+        expect(groups).toEqual([
+            ['Access', ['Users', 'Roles', 'Permissions']],
+            ['Organisation', ['Schools', 'Pupils']],
+            ['Integrations', ['Import', 'Connectors']],
+            ['Configuration', ['Feature flags', 'Provision terms', 'Pilot toolkit']],
+        ]);
+    });
+
+    it('nests SENCO review and school-wide destinations under Reviews and Oversight', () => {
+        const groups = navItemsForRole('senco')
+            .filter((item) => item.children?.length)
+            .map((item) => [item.label, item.children.map((child) => child.label)]);
+
+        expect(groups).toEqual([
+            ['Reviews', ['Review Cycles', 'Gaps', 'Outputs']],
+            ['Oversight', ['School Report', 'Alerts', 'Safeguarding context']],
+        ]);
+    });
+
+    it('nests School Leader school-wide destinations under Oversight', () => {
+        const groups = navItemsForRole('school_leader')
+            .filter((item) => item.children?.length)
+            .map((item) => [item.label, item.children.map((child) => child.label)]);
+
+        expect(groups).toEqual([
+            ['Oversight', ['School Report', 'Safeguarding context', 'Review Cycles']],
         ]);
     });
 
@@ -351,6 +396,110 @@ describe('Role nav IA', () => {
         expect(leaf?.components?.default ?? leaf?.component).toBe(ConnectorsPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
+
+    it('uses UsersPage for production users route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/users');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(UsersPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses RolesPage for production roles route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/roles');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(RolesPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses PermissionsPage for production permissions route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/permissions');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(PermissionsPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses SchoolsPage for production schools route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/schools');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(SchoolsPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses SettingsPage for production settings route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/settings');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(SettingsPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses ProfilePage for production profile route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/profile');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(ProfilePage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses FeatureFlagsPage for production feature-flags route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/feature-flags');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(FeatureFlagsPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses ProvisionTermsPage for production provision-terms route (not ComingSoon)', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/provision-terms');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(ProvisionTermsPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
 });
 
 describe('isNavItemActive', () => {
@@ -392,6 +541,7 @@ describe('shared primitives smoke', () => {
             routes: [
                 { path: '/', component: { template: '<div />' } },
                 { path: '/review-cycles', name: 'review-cycles', component: { template: '<div />' } },
+                { path: '/profile', name: 'profile', component: { template: '<div />' } },
             ],
         });
         await router.push('/');
@@ -422,6 +572,7 @@ describe('shared primitives smoke', () => {
             routes: [
                 { path: '/', component: { template: '<div />' } },
                 { path: '/review-cycles', name: 'review-cycles', component: { template: '<div />' } },
+                { path: '/profile', name: 'profile', component: { template: '<div />' } },
             ],
         });
         await router.push('/');
@@ -442,6 +593,7 @@ describe('shared primitives smoke', () => {
             routes: [
                 { path: '/', component: { template: '<div />' } },
                 { path: '/review-cycles', name: 'review-cycles', component: { template: '<div />' } },
+                { path: '/profile', name: 'profile', component: { template: '<div />' } },
             ],
         });
         await router.push('/');
@@ -458,6 +610,8 @@ describe('shared primitives smoke', () => {
         await wrapper.find('[data-testid="avatar"]').trigger('click');
         expect(wrapper.find('[data-testid="account-menu-panel"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="sign-out"]').text()).toBe('Sign out');
+        expect(wrapper.find('[data-testid="account-menu-profile"]').text()).toBe('Profile');
+        expect(wrapper.find('[data-testid="account-menu-profile"]').attributes('href')).toBe('/profile');
 
         await wrapper.find('[data-testid="sign-out"]').trigger('click');
         expect(wrapper.emitted('sign-out')).toHaveLength(1);
@@ -508,6 +662,7 @@ describe('AppShell smoke', () => {
                         { path: 'capture', component: stub },
                         { path: 'drafts', component: stub },
                         { path: 'settings', component: stub },
+                        { path: 'profile', component: stub },
                         { path: 'review-cycles', component: stub },
                         { path: 'gaps', component: stub },
                         { path: 'outputs', component: stub },
@@ -515,6 +670,14 @@ describe('AppShell smoke', () => {
                         { path: 'alerts', component: stub },
                         { path: 'safeguarding-context', component: stub },
                         { path: 'import', component: stub },
+                        { path: 'users', component: stub },
+                        { path: 'roles', component: stub },
+                        { path: 'permissions', component: stub },
+                        { path: 'schools', component: stub },
+                        { path: 'connectors', component: stub },
+                        { path: 'feature-flags', component: stub },
+                        { path: 'provision-terms', component: stub },
+                        { path: 'pilot-toolkit', component: stub },
                         ...extraChildren,
                     ],
                 },
@@ -565,6 +728,63 @@ describe('AppShell smoke', () => {
         expect(labels).toContain('Gaps');
         expect(labels).toContain('Capture');
         expect(wrapper.find('[data-testid="search-stub"]').exists()).toBe(true);
+    });
+
+    it('hides grouped SENCO children until the parent dropdown is opened', async () => {
+        const wrapper = await mountShell('senco');
+        const desktop = wrapper.findAll('[data-testid="sidebar"]')[0];
+        const reviews = desktop
+            .findAll('[data-testid="sidebar-group"]')
+            .find((node) => node.attributes('data-group-key') === 'reviews');
+
+        expect(reviews).toBeTruthy();
+        expect(reviews.find('[data-testid="sidebar-group-toggle"]').text()).toContain('Reviews');
+        expect(reviews.find('[data-testid="sidebar-group-toggle"]').attributes('aria-expanded')).toBe('false');
+        expect(reviews.find('[data-testid="sidebar-group-panel"]').attributes('hidden')).toBeDefined();
+
+        await reviews.find('[data-testid="sidebar-group-toggle"]').trigger('click');
+
+        expect(reviews.find('[data-testid="sidebar-group-toggle"]').attributes('aria-expanded')).toBe('true');
+        expect(reviews.find('[data-testid="sidebar-group-panel"]').attributes('hidden')).toBeUndefined();
+        expect(reviews.findAll('[data-testid="sidebar-item"]').map((node) => node.text())).toEqual([
+            'Review Cycles',
+            'Gaps',
+            'Outputs',
+        ]);
+    });
+
+    it('opens the parent dropdown when a grouped child route is active', async () => {
+        const router = await createShellRouter();
+        await router.push('/review-cycles');
+
+        const wrapper = mount(AppShell, {
+            props: { role: 'senco', userName: 'Test User' },
+            global: {
+                plugins: [router],
+                stubs: {
+                    BrandWordmark: { template: '<span>GuidelyEdu</span>' },
+                },
+            },
+        });
+
+        const desktop = wrapper.findAll('[data-testid="sidebar"]')[0];
+        const reviews = desktop
+            .findAll('[data-testid="sidebar-group"]')
+            .find((node) => node.attributes('data-group-key') === 'reviews');
+
+        expect(reviews.find('[data-testid="sidebar-group-toggle"]').attributes('aria-expanded')).toBe('true');
+        expect(reviews.find('[data-testid="sidebar-group-panel"]').attributes('hidden')).toBeUndefined();
+    });
+
+    it('renders Tenant Admin parent dropdowns for related admin menus', async () => {
+        const wrapper = await mountShell('tenant_admin');
+        const desktop = wrapper.findAll('[data-testid="sidebar"]')[0];
+        const groupLabels = desktop
+            .findAll('[data-testid="sidebar-group-toggle"]')
+            .map((node) => node.text().replace('▾', '').trim());
+
+        expect(groupLabels).toEqual(['Access', 'Organisation', 'Integrations', 'Configuration']);
+        expect(desktop.findAll('[data-testid="sidebar-item"]').map((node) => node.text())).toContain('Settings');
     });
 
     it('derives Role sidebar and avatar initials from session when props empty', async () => {

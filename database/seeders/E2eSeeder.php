@@ -25,6 +25,7 @@ class E2eSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            AccessCatalogueSeeder::class,
             RuleLibrarySeeder::class,
         ]);
 

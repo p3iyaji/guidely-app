@@ -1,0 +1,530 @@
+<template>
+    <div data-testid="provision-terms-page">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <h1 class="text-heading font-semibold text-text">Provision terms</h1>
+                <p class="mt-1 text-body text-text-muted">
+                    {{ pageIntro }}
+                </p>
+            </div>
+            <ButtonSecondary
+                v-if="canManage && !loading && !loadError"
+                data-testid="provision-terms-add-open"
+                @click="openCreateForm"
+            >
+                Add Provision term
+            </ButtonSecondary>
+        </div>
+
+        <div class="mt-6 max-w-md">
+            <label class="block text-body text-text" for="provision-terms-search">Search</label>
+            <input
+                id="provision-terms-search"
+                v-model="searchQuery"
+                type="search"
+                placeholder="Search by code or label"
+                class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                data-testid="provision-terms-search"
+            >
+        </div>
+
+        <div v-if="loading" class="mt-6 space-y-3" data-testid="provision-terms-loading">
+            <LoadingSkeleton variant="line" />
+            <LoadingSkeleton variant="line" />
+            <LoadingSkeleton variant="card" />
+        </div>
+
+        <Card
+            v-else-if="loadError"
+            class="mt-6"
+            data-testid="provision-terms-error"
+        >
+            <p class="text-body text-danger" role="alert">{{ loadError }}</p>
+        </Card>
+
+        <template v-else>
+            <Card
+                v-if="terms.length === 0"
+                class="mt-6"
+                data-testid="provision-terms-empty"
+            >
+                <p class="text-body text-text">No Provision terms on this Ontology version.</p>
+                <div v-if="canManage" class="mt-4">
+                    <ButtonPrimary
+                        data-testid="provision-terms-add-cta"
+                        @click="openCreateForm"
+                    >
+                        Add Provision term
+                    </ButtonPrimary>
+                </div>
+            </Card>
+
+            <Card
+                v-else-if="terms.length > 0 && filteredTerms.length === 0"
+                class="mt-6"
+                data-testid="provision-terms-search-empty"
+            >
+                <p class="text-body text-text-muted">No Provision terms match your search.</p>
+            </Card>
+
+            <ul
+                v-else-if="filteredTerms.length > 0"
+                class="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
+                data-testid="provision-terms-list"
+            >
+                <li
+                    v-for="term in filteredTerms"
+                    :key="term.id"
+                    class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    data-testid="provision-term-row"
+                >
+                    <div class="min-w-0">
+                        <p class="text-body font-medium text-text" data-testid="provision-term-label">
+                            {{ term.label }}
+                        </p>
+                        <p class="text-meta text-text-muted" data-testid="provision-term-code">
+                            {{ term.code }}
+                        </p>
+                        <p class="text-meta text-text-muted" data-testid="provision-term-status">
+                            {{ term.is_active ? 'Active' : 'Inactive' }}
+                        </p>
+                    </div>
+                    <div v-if="canManage" class="flex flex-wrap gap-2 sm:justify-end">
+                        <ButtonOutline
+                            :data-testid="`provision-term-edit-${term.id}`"
+                            @click="openEditForm(term)"
+                        >
+                            Edit
+                        </ButtonOutline>
+                        <ButtonOutline
+                            :data-testid="`provision-term-delete-${term.id}`"
+                            @click="openDeleteConfirm(term)"
+                        >
+                            Delete
+                        </ButtonOutline>
+                    </div>
+                </li>
+            </ul>
+        </template>
+
+        <Modal
+            :open="canManage && (formMode === 'create' || formMode === 'edit')"
+            :title="formMode === 'edit' ? 'Edit Provision term' : 'Add Provision term'"
+            :close-disabled="saving"
+            data-testid="provision-terms-form"
+            @close="closeForm"
+        >
+            <p class="text-body text-text-muted">
+                Inactive terms stay listed here but are hidden from Capture Intervention pickers.
+            </p>
+
+            <form class="mt-4 space-y-4" @submit.prevent="submitTermForm">
+                <div>
+                    <label class="block text-body text-text" for="provision-term-code">Code</label>
+                    <input
+                        id="provision-term-code"
+                        v-model="termForm.code"
+                        type="text"
+                        required
+                        maxlength="64"
+                        class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        data-testid="provision-term-code-input"
+                    >
+                    <p
+                        v-if="fieldErrors.code"
+                        class="mt-1 text-meta text-danger"
+                        data-testid="error-code"
+                    >
+                        {{ fieldErrors.code }}
+                    </p>
+                </div>
+                <div>
+                    <label class="block text-body text-text" for="provision-term-label">Label</label>
+                    <input
+                        id="provision-term-label"
+                        v-model="termForm.label"
+                        type="text"
+                        required
+                        maxlength="255"
+                        class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        data-testid="provision-term-label-input"
+                    >
+                    <p
+                        v-if="fieldErrors.label"
+                        class="mt-1 text-meta text-danger"
+                        data-testid="error-label"
+                    >
+                        {{ fieldErrors.label }}
+                    </p>
+                </div>
+                <div>
+                    <label class="block text-body text-text" for="provision-term-sort-order">Sort order</label>
+                    <input
+                        id="provision-term-sort-order"
+                        v-model.number="termForm.sort_order"
+                        type="number"
+                        min="0"
+                        max="65535"
+                        class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        data-testid="provision-term-sort-order-input"
+                    >
+                    <p
+                        v-if="fieldErrors.sort_order"
+                        class="mt-1 text-meta text-danger"
+                        data-testid="error-sort_order"
+                    >
+                        {{ fieldErrors.sort_order }}
+                    </p>
+                </div>
+                <label class="flex items-center gap-2 text-body text-text">
+                    <input
+                        v-model="termForm.is_active"
+                        type="checkbox"
+                        data-testid="provision-term-active-input"
+                    >
+                    Active Provision term
+                </label>
+                <p
+                    v-if="fieldErrors.is_active"
+                    class="text-meta text-danger"
+                    data-testid="error-is_active"
+                >
+                    {{ fieldErrors.is_active }}
+                </p>
+                <p
+                    v-if="formError"
+                    class="text-body text-danger"
+                    data-testid="provision-terms-form-error"
+                    role="alert"
+                >
+                    {{ formError }}
+                </p>
+                <div class="flex flex-wrap gap-3">
+                    <ButtonPrimary
+                        type="submit"
+                        :disabled="saving"
+                        data-testid="provision-terms-form-submit"
+                    >
+                        {{ saving ? 'Saving…' : (formMode === 'create' ? 'Save Provision term' : 'Save changes') }}
+                    </ButtonPrimary>
+                    <ButtonSecondary
+                        :disabled="saving"
+                        data-testid="provision-terms-form-cancel"
+                        @click="closeForm"
+                    >
+                        Cancel
+                    </ButtonSecondary>
+                </div>
+            </form>
+        </Modal>
+
+        <Modal
+            :open="canManage && formMode === 'delete' && selectedTerm !== null"
+            title="Delete Provision term"
+            :close-disabled="saving"
+            data-testid="provision-terms-delete-confirm"
+            @close="closeForm"
+        >
+            <p class="text-body text-text">
+                Delete {{ selectedTerm?.label }}? Terms used on Interventions cannot be deleted.
+            </p>
+            <p
+                v-if="formError"
+                class="mt-4 text-body text-danger"
+                data-testid="provision-terms-form-error"
+                role="alert"
+            >
+                {{ formError }}
+            </p>
+            <div class="mt-4 flex flex-wrap gap-3">
+                <ButtonPrimary
+                    :disabled="saving"
+                    data-testid="provision-terms-delete-confirm-submit"
+                    @click="submitDelete"
+                >
+                    {{ saving ? 'Deleting…' : 'Delete Provision term' }}
+                </ButtonPrimary>
+                <ButtonSecondary
+                    :disabled="saving"
+                    data-testid="provision-terms-delete-cancel"
+                    @click="closeForm"
+                >
+                    Cancel
+                </ButtonSecondary>
+            </div>
+        </Modal>
+    </div>
+</template>
+
+<script setup>
+import { computed, onMounted, reactive, ref } from 'vue';
+import { apiFetch } from '../api/client';
+import { useSession } from '../features/auth/session';
+import ButtonOutline from '../shared/ui/ButtonOutline.vue';
+import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
+import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
+import Card from '../shared/ui/Card.vue';
+import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
+import Modal from '../shared/ui/Modal.vue';
+
+const session = useSession();
+const canManage = computed(() => session.role.value === 'tenant_admin');
+const pageIntro = computed(() => {
+    if (canManage.value) {
+        return 'Create, update, and remove Provision terms for Capture Interventions. Inactive terms remain listed here.';
+    }
+
+    return 'Provision terms for this Tenant’s Ontology version. Creating and editing terms is limited to Tenant Admins.';
+});
+
+const terms = ref([]);
+const loading = ref(true);
+const loadError = ref('');
+const searchQuery = ref('');
+const formMode = ref(null);
+const selectedTerm = ref(null);
+const saving = ref(false);
+const formError = ref('');
+const fieldErrors = reactive({
+    code: '',
+    label: '',
+    sort_order: '',
+    is_active: '',
+});
+
+const termForm = reactive({
+    code: '',
+    label: '',
+    sort_order: 0,
+    is_active: true,
+});
+
+const filteredTerms = computed(() => {
+    const query = searchQuery.value.trim().toLowerCase();
+
+    if (query === '') {
+        return terms.value;
+    }
+
+    return terms.value.filter((term) => {
+        const haystack = [term.code, term.label]
+            .map((value) => String(value ?? '').toLowerCase())
+            .join(' ');
+
+        return haystack.includes(query);
+    });
+});
+
+onMounted(async () => {
+    await loadTerms();
+});
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+    return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function clearFieldErrors() {
+    fieldErrors.code = '';
+    fieldErrors.label = '';
+    fieldErrors.sort_order = '';
+    fieldErrors.is_active = '';
+}
+
+function resetTermForm() {
+    termForm.code = '';
+    termForm.label = '';
+    termForm.sort_order = 0;
+    termForm.is_active = true;
+    formError.value = '';
+    clearFieldErrors();
+}
+
+function closeForm() {
+    formMode.value = null;
+    selectedTerm.value = null;
+    resetTermForm();
+}
+
+function openCreateForm() {
+    if (!canManage.value) {
+        return;
+    }
+
+    resetTermForm();
+    selectedTerm.value = null;
+    formMode.value = 'create';
+}
+
+/**
+ * @param {Record<string, unknown>} term
+ */
+function openEditForm(term) {
+    if (!canManage.value) {
+        return;
+    }
+
+    resetTermForm();
+    selectedTerm.value = term;
+    termForm.code = String(term.code ?? '');
+    termForm.label = String(term.label ?? '');
+    termForm.sort_order = Number.isFinite(Number(term.sort_order)) ? Number(term.sort_order) : 0;
+    termForm.is_active = term.is_active !== false;
+    formMode.value = 'edit';
+}
+
+/**
+ * @param {Record<string, unknown>} term
+ */
+function openDeleteConfirm(term) {
+    if (!canManage.value) {
+        return;
+    }
+
+    formError.value = '';
+    selectedTerm.value = term;
+    formMode.value = 'delete';
+}
+
+/**
+ * @param {Record<string, unknown>} payload
+ */
+function applyFieldErrors(payload) {
+    const errors = payload.errors;
+
+    if (!isRecord(errors)) {
+        return;
+    }
+
+    for (const [field, messages] of Object.entries(errors)) {
+        if (field in fieldErrors) {
+            fieldErrors[field] = Array.isArray(messages) ? String(messages[0] ?? '') : String(messages);
+        }
+    }
+}
+
+function sortTerms(rows) {
+    return [...rows].sort((a, b) => {
+        const order = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
+
+        if (order !== 0) {
+            return order;
+        }
+
+        return String(a.label ?? '').localeCompare(String(b.label ?? ''), 'en-GB');
+    });
+}
+
+async function loadTerms() {
+    loading.value = true;
+    loadError.value = '';
+
+    try {
+        const response = await apiFetch('/api/v1/ontology/provision-terms');
+
+        if (!response.ok) {
+            loadError.value = 'Unable to load Provision terms.';
+            terms.value = [];
+
+            return;
+        }
+
+        const payload = await response.json();
+        const rows = Array.isArray(payload.data) ? payload.data : [];
+        terms.value = rows.filter(isRecord);
+    } catch {
+        loadError.value = 'Unable to load Provision terms.';
+        terms.value = [];
+    } finally {
+        loading.value = false;
+    }
+}
+
+async function submitTermForm() {
+    saving.value = true;
+    formError.value = '';
+    clearFieldErrors();
+
+    const body = {
+        code: termForm.code.trim(),
+        label: termForm.label.trim(),
+        sort_order: Number.isFinite(Number(termForm.sort_order)) ? Number(termForm.sort_order) : 0,
+        is_active: termForm.is_active,
+    };
+    const isCreate = formMode.value === 'create';
+    const url = isCreate
+        ? '/api/v1/ontology/provision-terms'
+        : `/api/v1/ontology/provision-terms/${selectedTerm.value?.id}`;
+    const method = isCreate ? 'POST' : 'PATCH';
+
+    try {
+        const response = await apiFetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            if (response.status === 422) {
+                applyFieldErrors(payload);
+            }
+
+            formError.value = payload.message ?? (isCreate ? 'Unable to create Provision term.' : 'Unable to update Provision term.');
+
+            return;
+        }
+
+        const saved = payload.data;
+
+        if (isRecord(saved) && saved.id) {
+            if (isCreate) {
+                terms.value = sortTerms([...terms.value, saved]);
+            } else {
+                terms.value = sortTerms(
+                    terms.value.map((row) => (row.id === saved.id ? saved : row)),
+                );
+            }
+        } else {
+            await loadTerms();
+        }
+
+        searchQuery.value = '';
+        closeForm();
+    } catch {
+        formError.value = isCreate ? 'Unable to create Provision term.' : 'Unable to update Provision term.';
+    } finally {
+        saving.value = false;
+    }
+}
+
+async function submitDelete() {
+    saving.value = true;
+    formError.value = '';
+    const termId = selectedTerm.value?.id;
+
+    try {
+        const response = await apiFetch(`/api/v1/ontology/provision-terms/${termId}`, {
+            method: 'DELETE',
+        });
+
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            formError.value = payload.message ?? 'Unable to delete Provision term.';
+
+            return;
+        }
+
+        terms.value = terms.value.filter((row) => row.id !== termId);
+        closeForm();
+    } catch {
+        formError.value = 'Unable to delete Provision term.';
+    } finally {
+        saving.value = false;
+    }
+}
+</script>

@@ -127,6 +127,66 @@ class TenantIsolationTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
+    public function test_tenant_admin_can_store_and_update_school_address_fields(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+
+        $create = $this->actingAs($user)->postJson('/api/v1/schools', [
+            'name' => 'River Primary',
+            'address' => '12 High Street',
+            'postcode' => 'LS1 2AB',
+            'city' => 'Leeds',
+            'county' => 'West Yorkshire',
+            'country' => 'United Kingdom',
+        ]);
+
+        $create->assertCreated()
+            ->assertJsonPath('data.name', 'River Primary')
+            ->assertJsonPath('data.address', '12 High Street')
+            ->assertJsonPath('data.postcode', 'LS1 2AB')
+            ->assertJsonPath('data.city', 'Leeds')
+            ->assertJsonPath('data.county', 'West Yorkshire')
+            ->assertJsonPath('data.country', 'United Kingdom');
+
+        $schoolId = $create->json('data.id');
+        $this->assertNotNull($schoolId);
+        $this->assertDatabaseHas('schools', [
+            'id' => $schoolId,
+            'address' => '12 High Street',
+            'postcode' => 'LS1 2AB',
+            'city' => 'Leeds',
+            'county' => 'West Yorkshire',
+            'country' => 'United Kingdom',
+        ]);
+
+        $update = $this->actingAs($user)->patchJson('/api/v1/schools/'.$schoolId, [
+            'address' => '',
+            'postcode' => 'M1 1AE',
+            'city' => 'Manchester',
+        ]);
+
+        $update->assertOk()
+            ->assertJsonPath('data.address', null)
+            ->assertJsonPath('data.postcode', 'M1 1AE')
+            ->assertJsonPath('data.city', 'Manchester')
+            ->assertJsonPath('data.county', 'West Yorkshire');
+    }
+
+    public function test_create_school_rejects_oversized_postcode_with_422(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/v1/schools', [
+            'name' => 'River Primary',
+            'postcode' => str_repeat('A', 17),
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['postcode']);
+    }
+
     public function test_deactivate_school_omits_it_from_active_list_but_show_still_works(): void
     {
         $tenant = Tenant::factory()->create();

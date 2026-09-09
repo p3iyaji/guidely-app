@@ -794,6 +794,19 @@ const pupilSubtitle = computed(() => {
         parts.push('EHCP');
     }
 
+    const primaryNeed = pupil.value.primary_need;
+    if (primaryNeed && typeof primaryNeed === 'object' && primaryNeed.label) {
+        parts.push(primaryNeed.label);
+    }
+
+    const staff = Array.isArray(pupil.value.assigned_staff) ? pupil.value.assigned_staff : [];
+    const names = staff
+        .map((row) => (row && typeof row === 'object' ? row.name : ''))
+        .filter(Boolean);
+    if (names.length > 0) {
+        parts.push(`Assigned: ${names.join(', ')}`);
+    }
+
     return parts.join(' · ');
 });
 
