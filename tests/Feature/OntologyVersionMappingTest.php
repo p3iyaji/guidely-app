@@ -329,12 +329,15 @@ class OntologyVersionMappingTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.ontology_version_id', $version->id);
 
+        $this->actingAs($admin)->getJson('/api/v1/ontology/provision-terms')
+            ->assertOk()
+            ->assertJsonPath('data.0.ontology_version_id', $version->id);
+
         foreach ([
             '/api/v1/ontology/outcome-terms',
             '/api/v1/ontology/threshold-terms',
             '/api/v1/ontology/relationship-mappings',
             '/api/v1/ontology/setting-terms',
-            '/api/v1/ontology/provision-terms',
         ] as $path) {
             $this->actingAs($admin)->getJson($path)
                 ->assertForbidden()
