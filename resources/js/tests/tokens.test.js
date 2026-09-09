@@ -10,8 +10,8 @@ describe('DESIGN.md tokens in CSS @theme', () => {
 
     it('defines canvas, primary, secondary, page spacing, radius, and shell sizes', () => {
         expect(css).toMatch(/@theme\s*\{/);
-        expect(css).toMatch(/--color-canvas:\s*#F0F0F5/i);
-        expect(css).toMatch(/--color-primary:\s*#5B63E6/i);
+        expect(css).toMatch(/--color-canvas:\s*#F1F4F8/i);
+        expect(css).toMatch(/--color-primary:\s*#2F6BE8/i);
         expect(css).toMatch(/--color-secondary:\s*#10B981/i);
         expect(css).toMatch(/--spacing-page:\s*24px/);
         expect(css).toMatch(/--radius-lg:\s*12px/);

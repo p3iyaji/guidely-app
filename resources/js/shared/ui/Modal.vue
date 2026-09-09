@@ -14,11 +14,11 @@
             role="dialog"
             aria-modal="true"
             :aria-labelledby="titleId"
-            class="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_3px_rgba(31,41,55,0.08)]"
+            class="relative z-10 flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-md border border-border bg-surface"
             tabindex="-1"
         >
             <div class="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
-                <h2 :id="titleId" class="text-body font-semibold text-text">
+                <h2 :id="titleId" class="font-display text-heading font-bold text-text">
                     {{ title }}
                 </h2>
                 <button

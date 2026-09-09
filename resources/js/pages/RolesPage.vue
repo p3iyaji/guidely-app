@@ -1,118 +1,115 @@
 <template>
     <div data-testid="roles-page">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <h1 class="text-heading font-semibold text-text">Roles</h1>
-                <p class="mt-1 text-body text-text-muted">
-                    Built-in Roles define product access. Edit labels and Permission assignments, or create custom Roles
-                    for this Tenant. Custom Roles are not yet assignable on Users. Built-in keys cannot be changed.
-                </p>
-            </div>
-            <ButtonSecondary
-                v-if="canManage && !loading && !loadError"
-                data-testid="roles-add-open"
-                @click="openCreateForm"
-            >
-                Add Role
-            </ButtonSecondary>
-        </div>
+        <PageHero
+            eyebrow="Access"
+            title="Roles"
+            description="Built-in Roles define product access. Edit labels and Permission assignments, or create custom Roles for this Tenant. Custom Roles are not yet assignable on Users. Built-in keys cannot be changed."
+        >
+            <template v-if="canManage && !loading && !loadError" #action>
+                <ButtonPrimary
+                    data-testid="roles-add-open"
+                    @click="openCreateForm"
+                >
+                    Add Role
+                </ButtonPrimary>
+            </template>
+        </PageHero>
 
-        <div class="mt-6 max-w-md">
-            <label class="block text-body text-text" for="roles-search">Search</label>
-            <input
-                id="roles-search"
-                v-model="searchQuery"
-                type="search"
-                placeholder="Search by label or key"
-                class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                data-testid="roles-search"
-            >
-        </div>
+        <CrudSearch
+            id="roles-search"
+            v-model="searchQuery"
+            placeholder="Search by label or key"
+            test-id="roles-search"
+        />
 
-        <div v-if="loading" class="mt-6 space-y-3" data-testid="roles-loading">
+        <div v-if="loading" class="space-y-3" data-testid="roles-loading">
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="card" />
         </div>
 
-        <Card
+        <p
             v-else-if="loadError"
-            class="mt-6"
+            class="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-body text-danger"
             data-testid="roles-error"
+            role="alert"
         >
-            <p class="text-body text-danger" role="alert">{{ loadError }}</p>
-        </Card>
+            {{ loadError }}
+        </p>
 
         <template v-else>
-            <Card
+            <EmptyState
                 v-if="roles.length === 0"
-                class="mt-6"
-                data-testid="roles-empty"
+                test-id="roles-empty"
             >
-                <p class="text-body text-text">No Roles in this Tenant.</p>
-                <div v-if="canManage" class="mt-4">
+                No Roles in this Tenant.
+                <template v-if="canManage" #actions>
                     <ButtonPrimary
                         data-testid="roles-add-cta"
                         @click="openCreateForm"
                     >
                         Add Role
                     </ButtonPrimary>
-                </div>
-            </Card>
+                </template>
+            </EmptyState>
 
-            <Card
+            <EmptyState
                 v-else-if="roles.length > 0 && filteredRoles.length === 0"
-                class="mt-6"
-                data-testid="roles-search-empty"
+                test-id="roles-search-empty"
             >
-                <p class="text-body text-text-muted">No Roles match your search.</p>
-            </Card>
+                No Roles match your search.
+            </EmptyState>
 
-            <ul
+            <DataTable
                 v-else-if="filteredRoles.length > 0"
-                class="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
-                data-testid="roles-list"
+                test-id="roles-list"
             >
-                <li
+                <template #head>
+                    <tr>
+                        <th class="px-4 py-3" scope="col">Role</th>
+                        <th class="px-4 py-3" scope="col">Key</th>
+                        <th class="px-4 py-3" scope="col">Kind</th>
+                        <th class="hidden px-4 py-3 lg:table-cell" scope="col">Permissions</th>
+                        <th class="px-4 py-3" scope="col"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </template>
+                <tr
                     v-for="role in filteredRoles"
                     :key="role.id"
-                    class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    class="hover:bg-surface-muted/70"
                     data-testid="role-row"
                 >
-                    <div class="min-w-0">
-                        <p class="text-body font-medium text-text" data-testid="role-label">
-                            {{ role.label }}
-                        </p>
-                        <p class="text-meta text-text-muted" data-testid="role-key">
-                            {{ role.key }}
-                        </p>
-                        <p class="text-meta text-text-muted" data-testid="role-kind">
-                            {{ role.is_system ? 'Built-in' : 'Custom' }}
-                        </p>
-                        <p
-                            v-if="permissionSummary(role)"
-                            class="mt-1 text-meta text-text-muted"
-                            data-testid="role-permissions"
-                        >
-                            {{ permissionSummary(role) }}
-                        </p>
-                    </div>
-                    <div v-if="canManage" class="flex flex-wrap gap-2 sm:justify-end">
-                        <ButtonOutline
-                            :data-testid="`role-edit-${role.id}`"
-                            @click="openEditForm(role)"
-                        >
-                            Edit
-                        </ButtonOutline>
-                        <ButtonOutline
-                            :data-testid="`role-delete-${role.id}`"
-                            @click="openDeleteConfirm(role)"
-                        >
-                            Delete
-                        </ButtonOutline>
-                    </div>
-                </li>
-            </ul>
+                    <td class="px-4 py-3 font-medium text-text" data-testid="role-label">
+                        {{ role.label }}
+                    </td>
+                    <td class="px-4 py-3 font-mono text-meta text-text-muted" data-testid="role-key">
+                        {{ role.key }}
+                    </td>
+                    <td class="px-4 py-3 text-text-muted" data-testid="role-kind">
+                        {{ role.is_system ? 'Built-in' : 'Custom' }}
+                    </td>
+                    <td class="hidden px-4 py-3 text-meta text-text-muted lg:table-cell" data-testid="role-permissions">
+                        {{ permissionSummary(role) || '—' }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div v-if="canManage" class="flex flex-wrap justify-end gap-2">
+                            <TableAction
+                                icon="edit"
+                                :label="`Edit ${role.label}`"
+                                :data-testid="`role-edit-${role.id}`"
+                                @click="openEditForm(role)"
+                            />
+                            <TableAction
+                                icon="delete"
+                                :label="`Delete ${role.label}`"
+                                tone="danger"
+                                :data-testid="`role-delete-${role.id}`"
+                                @click="openDeleteConfirm(role)"
+                            />
+                        </div>
+                    </td>
+                </tr>
+            </DataTable>
         </template>
 
         <Modal
@@ -260,12 +257,15 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
-import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
-import Card from '../shared/ui/Card.vue';
+import CrudSearch from '../shared/ui/CrudSearch.vue';
+import DataTable from '../shared/ui/DataTable.vue';
+import EmptyState from '../shared/ui/EmptyState.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 import Modal from '../shared/ui/Modal.vue';
+import PageHero from '../shared/ui/PageHero.vue';
+import TableAction from '../shared/ui/TableAction.vue';
 
 const session = useSession();
 const canManage = computed(() => session.role.value === 'tenant_admin');

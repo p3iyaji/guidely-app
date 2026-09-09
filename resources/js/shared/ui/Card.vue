@@ -1,7 +1,7 @@
 <template>
     <div
-        class="rounded-lg border border-border bg-surface shadow-[0_1px_3px_rgba(31,41,55,0.08)]"
-        :class="padded ? 'p-6' : ''"
+        class="rounded-lg border border-border bg-surface"
+        :class="padded ? 'p-5 sm:p-6' : ''"
     >
         <slot />
     </div>

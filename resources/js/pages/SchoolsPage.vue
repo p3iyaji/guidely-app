@@ -1,114 +1,111 @@
 <template>
     <div data-testid="schools-page">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <h1 class="text-heading font-semibold text-text">Schools</h1>
-                <p class="mt-1 text-body text-text-muted">
-                    {{ pageIntro }}
-                </p>
-            </div>
-            <ButtonSecondary
-                v-if="canManage && !loading && !loadError"
-                data-testid="schools-add-open"
-                @click="openCreateForm"
-            >
-                Add School
-            </ButtonSecondary>
-        </div>
+        <PageHero
+            eyebrow="Organisation"
+            title="Schools"
+            :description="pageIntro"
+        >
+            <template v-if="canManage && !loading && !loadError" #action>
+                <ButtonPrimary
+                    data-testid="schools-add-open"
+                    @click="openCreateForm"
+                >
+                    Add School
+                </ButtonPrimary>
+            </template>
+        </PageHero>
 
-        <div class="mt-6 max-w-md">
-            <label class="block text-body text-text" for="schools-search">Search</label>
-            <input
-                id="schools-search"
-                v-model="searchQuery"
-                type="search"
-                placeholder="Search by name, city, or postcode"
-                class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                data-testid="schools-search"
-            >
-        </div>
+        <CrudSearch
+            id="schools-search"
+            v-model="searchQuery"
+            placeholder="Search by name, city, or postcode"
+            test-id="schools-search"
+        />
 
-        <div v-if="loading" class="mt-6 space-y-3" data-testid="schools-loading">
+        <div v-if="loading" class="space-y-3" data-testid="schools-loading">
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="line" />
             <LoadingSkeleton variant="card" />
         </div>
 
-        <Card
+        <p
             v-else-if="loadError"
-            class="mt-6"
+            class="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-body text-danger"
             data-testid="schools-error"
+            role="alert"
         >
-            <p class="text-body text-danger" role="alert">{{ loadError }}</p>
-        </Card>
+            {{ loadError }}
+        </p>
 
         <template v-else>
-            <Card
+            <EmptyState
                 v-if="schools.length === 0"
-                class="mt-6"
-                data-testid="schools-empty"
+                test-id="schools-empty"
             >
-                <p class="text-body text-text">No Schools in this Tenant.</p>
-                <div v-if="canManage" class="mt-4">
+                No Schools in this Tenant.
+                <template v-if="canManage" #actions>
                     <ButtonPrimary
                         data-testid="schools-add-cta"
                         @click="openCreateForm"
                     >
                         Add School
                     </ButtonPrimary>
-                </div>
-            </Card>
+                </template>
+            </EmptyState>
 
-            <Card
+            <EmptyState
                 v-else-if="schools.length > 0 && filteredSchools.length === 0"
-                class="mt-6"
-                data-testid="schools-search-empty"
+                test-id="schools-search-empty"
             >
-                <p class="text-body text-text-muted">No Schools match your search.</p>
-            </Card>
+                No Schools match your search.
+            </EmptyState>
 
-            <ul
+            <DataTable
                 v-else-if="filteredSchools.length > 0"
-                class="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
-                data-testid="schools-list"
+                test-id="schools-list"
             >
-                <li
+                <template #head>
+                    <tr>
+                        <th class="px-4 py-3" scope="col">School</th>
+                        <th class="px-4 py-3" scope="col">Location</th>
+                        <th class="px-4 py-3" scope="col">Status</th>
+                        <th class="px-4 py-3" scope="col"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </template>
+                <tr
                     v-for="school in filteredSchools"
                     :key="school.id"
-                    class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    class="hover:bg-surface-muted/70"
                     data-testid="school-row"
                 >
-                    <div class="min-w-0">
-                        <p class="text-body font-medium text-text" data-testid="school-name">
-                            {{ school.name }}
-                        </p>
-                        <p
-                            v-if="formatLocation(school)"
-                            class="text-meta text-text-muted"
-                            data-testid="school-location"
-                        >
-                            {{ formatLocation(school) }}
-                        </p>
-                        <p class="text-meta text-text-muted" data-testid="school-status">
-                            {{ school.is_active ? 'Active' : 'Inactive' }}
-                        </p>
-                    </div>
-                    <div v-if="canManage" class="flex flex-wrap gap-2 sm:justify-end">
-                        <ButtonOutline
-                            :data-testid="`school-edit-${school.id}`"
-                            @click="openEditForm(school)"
-                        >
-                            Edit
-                        </ButtonOutline>
-                        <ButtonOutline
-                            :data-testid="`school-delete-${school.id}`"
-                            @click="openDeleteConfirm(school)"
-                        >
-                            Delete
-                        </ButtonOutline>
-                    </div>
-                </li>
-            </ul>
+                    <td class="px-4 py-3 font-medium text-text" data-testid="school-name">
+                        {{ school.name }}
+                    </td>
+                    <td class="px-4 py-3 text-text-muted" data-testid="school-location">
+                        {{ formatLocation(school) || '—' }}
+                    </td>
+                    <td class="px-4 py-3" data-testid="school-status">
+                        {{ school.is_active ? 'Active' : 'Inactive' }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div v-if="canManage" class="flex flex-wrap justify-end gap-2">
+                            <TableAction
+                                icon="edit"
+                                :label="`Edit ${school.name}`"
+                                :data-testid="`school-edit-${school.id}`"
+                                @click="openEditForm(school)"
+                            />
+                            <TableAction
+                                icon="delete"
+                                :label="`Delete ${school.name}`"
+                                tone="danger"
+                                :data-testid="`school-delete-${school.id}`"
+                                @click="openDeleteConfirm(school)"
+                            />
+                        </div>
+                    </td>
+                </tr>
+            </DataTable>
         </template>
 
         <Modal
@@ -314,12 +311,15 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
-import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
-import Card from '../shared/ui/Card.vue';
+import CrudSearch from '../shared/ui/CrudSearch.vue';
+import DataTable from '../shared/ui/DataTable.vue';
+import EmptyState from '../shared/ui/EmptyState.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 import Modal from '../shared/ui/Modal.vue';
+import PageHero from '../shared/ui/PageHero.vue';
+import TableAction from '../shared/ui/TableAction.vue';
 
 const session = useSession();
 const canManage = computed(() => session.role.value === 'tenant_admin');
