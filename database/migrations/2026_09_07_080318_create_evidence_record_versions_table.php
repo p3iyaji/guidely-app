@@ -18,7 +18,7 @@ return new class extends Migration
             $table->unsignedInteger('version');
             $table->json('snapshot');
             $table->timestamp('superseded_at');
-            $table->foreignUlid('superseded_by')->constrained('users')->restrictOnDelete();
+            $table->foreignId('superseded_by')->constrained('users')->restrictOnDelete();
             $table->timestamps();
 
             $table->unique(['evidence_record_id', 'version']);
