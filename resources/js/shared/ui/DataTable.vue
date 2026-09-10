@@ -5,7 +5,7 @@
     >
         <div class="overflow-x-auto">
             <table class="min-w-full text-left text-body">
-                <thead class="border-b border-border bg-canvas text-meta font-semibold uppercase tracking-wide text-text-muted">
+                <thead class="border-b border-border bg-surface-muted/60 text-meta font-semibold uppercase tracking-wide text-text-muted">
                     <slot name="head" />
                 </thead>
                 <tbody class="divide-y divide-border">

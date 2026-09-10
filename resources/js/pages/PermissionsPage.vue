@@ -4,16 +4,7 @@
             eyebrow="Access"
             title="Permission catalogue"
             description="These entries and their Role catalogue mappings document proposed access designs only. They never grant product access; access is enforced from the built-in Role selected on Users. Built-in keys cannot be changed."
-        >
-            <template v-if="canManage && !loading && !loadError" #action>
-                <ButtonPrimary
-                    data-testid="permissions-add-open"
-                    @click="openCreateForm"
-                >
-                    Add catalogue permission
-                </ButtonPrimary>
-            </template>
-        </PageHero>
+        />
 
         <CrudSearch
             id="permissions-search"
@@ -520,4 +511,6 @@ async function submitDelete() {
         saving.value = false;
     }
 }
+
+defineExpose({ openCreateForm });
 </script>

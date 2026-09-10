@@ -120,7 +120,7 @@ describe('PermissionsPage', () => {
 
         const wrapper = await mountPage();
 
-        await wrapper.find('[data-testid="permissions-add-open"]').trigger('click');
+        wrapper.vm.openCreateForm();
         await flushPromises();
 
         expect(wrapper.find('[data-testid="permissions-catalogue-notice"]').text()).toContain(

@@ -66,11 +66,11 @@
             >
                 <template #head>
                     <tr>
-                        <th class="px-4 py-3" scope="col">Catalogue role</th>
-                        <th class="px-4 py-3" scope="col">Key</th>
-                        <th class="px-4 py-3" scope="col">Kind</th>
-                        <th class="hidden px-4 py-3 lg:table-cell" scope="col">Documented permissions</th>
-                        <th class="px-4 py-3" scope="col"><span class="sr-only">Actions</span></th>
+                        <th class="whitespace-nowrap px-4 py-3" scope="col">Catalogue role</th>
+                        <th class="hidden whitespace-nowrap px-4 py-3 sm:table-cell" scope="col">Key</th>
+                        <th class="whitespace-nowrap px-4 py-3" scope="col">Kind</th>
+                        <th class="hidden whitespace-nowrap px-4 py-3 lg:table-cell" scope="col">Documented permissions</th>
+                        <th class="w-20 whitespace-nowrap px-4 py-3 text-right" scope="col"><span class="sr-only">Actions</span></th>
                     </tr>
                 </template>
                 <tr
@@ -79,20 +79,35 @@
                     class="hover:bg-surface-muted/70"
                     data-testid="role-row"
                 >
-                    <td class="px-4 py-3 font-medium text-text" data-testid="role-label">
-                        {{ role.label }}
+                    <td class="px-4 py-3 align-top">
+                        <p class="font-medium text-text" data-testid="role-label">{{ role.label }}</p>
+                        <p class="mt-0.5 font-mono text-meta text-text-muted sm:hidden" data-testid="role-key-mobile">
+                            {{ role.key }}
+                        </p>
                     </td>
-                    <td class="px-4 py-3 font-mono text-meta text-text-muted" data-testid="role-key">
+                    <td class="hidden px-4 py-3 align-top font-mono text-meta text-text-muted sm:table-cell" data-testid="role-key">
                         {{ role.key }}
                     </td>
-                    <td class="px-4 py-3 text-text-muted" data-testid="role-kind">
-                        {{ role.is_system ? 'Built-in' : 'Custom · not assignable' }}
+                    <td class="px-4 py-3 align-top">
+                        <span
+                            class="inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-label font-medium"
+                            :class="role.is_system ? 'bg-primary-soft text-primary' : 'bg-surface-muted text-text-muted'"
+                            data-testid="role-kind"
+                        >
+                            {{ role.is_system ? 'Built-in' : 'Custom · not assignable' }}
+                        </span>
                     </td>
-                    <td class="hidden px-4 py-3 text-meta text-text-muted lg:table-cell" data-testid="role-permissions">
-                        {{ permissionSummary(role) || '—' }}
+                    <td class="hidden px-4 py-3 align-top lg:table-cell">
+                        <div v-if="permissionCount(role) > 0" data-testid="role-permissions">
+                            <p class="text-meta font-medium text-text-muted">{{ permissionSummary(role) }}</p>
+                            <span class="mt-1 inline-flex items-center whitespace-nowrap rounded-full border border-border bg-surface-muted px-2 py-0.5 text-meta font-medium text-text-muted">
+                                {{ permissionCount(role) }} mapped
+                            </span>
+                        </div>
+                        <span v-else class="text-meta text-text-muted" data-testid="role-permissions-empty">—</span>
                     </td>
-                    <td class="px-4 py-3 text-right">
-                        <div v-if="canManage" class="flex flex-wrap justify-end gap-2">
+                    <td class="px-4 py-3 align-middle">
+                        <div v-if="canManage" class="flex items-center justify-end gap-1">
                             <TableAction
                                 icon="edit"
                                 :label="`Edit ${role.label}`"
@@ -324,6 +339,13 @@ onMounted(async () => {
  */
 function isRecord(value) {
     return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @param {Record<string, unknown>} role
+ */
+function permissionCount(role) {
+    return Array.isArray(role.permissions) ? role.permissions.length : 0;
 }
 
 /**

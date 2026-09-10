@@ -1,9 +1,9 @@
 <template>
     <button
         type="button"
-        class="inline-flex min-h-9 items-center rounded-md text-label font-semibold focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+        class="inline-flex items-center rounded-md text-label font-semibold focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
         :class="[
-            icon ? 'size-9 justify-center p-0' : 'px-2',
+            icon ? 'size-8 justify-center p-0' : 'min-h-9 px-2',
             tone === 'danger'
                 ? 'text-danger hover:bg-danger-soft'
                 : 'text-primary hover:bg-primary-soft',
