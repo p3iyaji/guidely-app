@@ -306,18 +306,23 @@ describe('CapturePage', () => {
 
     it('switches to Intervention mode, submits, and shows confirmation with the new id', async () => {
         mockLoadSuccess();
-        apiFetch.mockResolvedValueOnce({
-            ok: true,
-            status: 201,
-            json: async () => ({
-                data: {
-                    id: '01hevidence2',
-                    lifecycle: 'submitted',
-                    type: 'intervention',
-                    provision: { id: '01hprovision1', code: 'UNIVERSAL', label: 'Universal classroom strategies' },
-                },
-            }),
-        });
+        apiFetch
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ data: [] }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 201,
+                json: async () => ({
+                    data: {
+                        id: '01hevidence2',
+                        lifecycle: 'submitted',
+                        type: 'intervention',
+                        provision: { id: '01hprovision1', code: 'UNIVERSAL', label: 'Universal classroom strategies' },
+                    },
+                }),
+            });
 
         const wrapper = mountCapture();
         await flushPromises();
@@ -357,18 +362,120 @@ describe('CapturePage', () => {
             .toContain('Universal classroom strategies');
     });
 
-    it('surfaces provision field errors from a 422 response in Intervention mode', async () => {
+    it.each(['import', 'connector'])(
+        'shows an already-evidenced cue for a matching %s Intervention without disabling submission',
+        async (source) => {
+            mockLoadSuccess();
+            apiFetch.mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: [{
+                        id: `01h${source}intervention`,
+                        type: 'intervention',
+                        source,
+                        external_id: 'MIS-SESSION-42',
+                        occurred_at: '2026-09-06T09:00:00Z',
+                        provision: {
+                            id: '01hprovision1',
+                            code: 'UNIVERSAL',
+                            label: 'Universal classroom strategies',
+                        },
+                    }],
+                }),
+            });
+
+            const wrapper = mountCapture();
+            await flushPromises();
+
+            await wrapper.find('[data-testid="capture-mode-intervention"]').trigger('click');
+            await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
+            await flushPromises();
+            await wrapper.find('[data-testid="capture-provision"]').setValue('01hprovision1');
+            await wrapper.find('[data-testid="capture-occurred-at"]').setValue('2026-09-06T10:15');
+            await flushPromises();
+
+            const cue = wrapper.find('[data-testid="capture-already-evidenced"]');
+            expect(cue.attributes('role')).toBe('status');
+            expect(cue.text()).toContain('already appears on the Evidence Base from import/sync');
+            expect(cue.text()).toContain('6 Sept 2026');
+            expect(cue.text()).toContain('MIS-SESSION-42');
+            expect(wrapper.find('[data-testid="capture-submit"]').attributes('disabled')).toBeUndefined();
+        },
+    );
+
+    it.each([
+        {
+            name: 'capture source',
+            source: 'capture',
+            occurredAt: '2026-09-06T09:00:00Z',
+            provisionId: '01hprovision1',
+        },
+        {
+            name: 'different provision',
+            source: 'import',
+            occurredAt: '2026-09-06T09:00:00Z',
+            provisionId: '01hprovision2',
+        },
+        {
+            name: 'different local date',
+            source: 'connector',
+            occurredAt: '2026-09-05T09:00:00Z',
+            provisionId: '01hprovision1',
+        },
+    ])('does not show the already-evidenced cue for $name', async ({
+        source,
+        occurredAt,
+        provisionId,
+    }) => {
         mockLoadSuccess();
         apiFetch.mockResolvedValueOnce({
-            ok: false,
-            status: 422,
+            ok: true,
             json: async () => ({
-                message: 'The given data was invalid.',
-                errors: {
-                    provision_term_id: ['A Provision Ontology term is required.'],
-                },
+                data: [{
+                    id: '01hexistingintervention',
+                    type: 'intervention',
+                    source,
+                    external_id: 'MIS-SESSION-42',
+                    occurred_at: occurredAt,
+                    provision: {
+                        id: provisionId,
+                        code: 'UNIVERSAL',
+                        label: 'Universal classroom strategies',
+                    },
+                }],
             }),
         });
+
+        const wrapper = mountCapture();
+        await flushPromises();
+
+        await wrapper.find('[data-testid="capture-mode-intervention"]').trigger('click');
+        await wrapper.find('[data-testid="capture-pupil"]').setValue('01hpupil1');
+        await flushPromises();
+        await wrapper.find('[data-testid="capture-provision"]').setValue('01hprovision1');
+        await wrapper.find('[data-testid="capture-occurred-at"]').setValue('2026-09-06T10:15');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="capture-already-evidenced"]').exists()).toBe(false);
+    });
+
+    it('surfaces provision field errors from a 422 response in Intervention mode', async () => {
+        mockLoadSuccess();
+        apiFetch
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ data: [] }),
+            })
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 422,
+                json: async () => ({
+                    message: 'The given data was invalid.',
+                    errors: {
+                        provision_term_id: ['A Provision Ontology term is required.'],
+                    },
+                }),
+            });
 
         const wrapper = mountCapture();
         await flushPromises();
@@ -408,11 +515,16 @@ describe('CapturePage', () => {
 
     it('shows submit error when Intervention response is ok but missing data.id', async () => {
         mockLoadSuccess();
-        apiFetch.mockResolvedValueOnce({
-            ok: true,
-            status: 201,
-            json: async () => ({ data: {} }),
-        });
+        apiFetch
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ data: [] }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 201,
+                json: async () => ({ data: {} }),
+            });
 
         const wrapper = mountCapture();
         await flushPromises();

@@ -1,0 +1,36 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('connectors', function (Blueprint $table) {
+            $table->timestamp('last_sync_started_at')->nullable();
+            $table->timestamp('last_sync_completed_at')->nullable();
+            $table->timestamp('last_sync_failed_at')->nullable();
+            $table->text('last_error')->nullable();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('connectors', function (Blueprint $table) {
+            $table->dropColumn([
+                'last_sync_started_at',
+                'last_sync_completed_at',
+                'last_sync_failed_at',
+                'last_error',
+            ]);
+        });
+    }
+};

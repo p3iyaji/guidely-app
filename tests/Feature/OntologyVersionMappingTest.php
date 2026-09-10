@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Domain\Evidence\EvidenceRecord;
-use App\Domain\Identity\AccessMessages;
 use App\Domain\Ontology\NeedTerm;
 use App\Domain\Ontology\OntologyVersion;
 use App\Domain\Ontology\OntologyVersionStatus;
@@ -319,7 +318,7 @@ class OntologyVersionMappingTest extends TestCase
         }
     }
 
-    public function test_tenant_admin_can_list_need_terms_but_not_capture_ontology_domains(): void
+    public function test_tenant_admin_can_list_all_read_only_ontology_catalogue_domains(): void
     {
         $tenant = Tenant::factory()->create();
         $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
@@ -340,11 +339,7 @@ class OntologyVersionMappingTest extends TestCase
             '/api/v1/ontology/setting-terms',
         ] as $path) {
             $this->actingAs($admin)->getJson($path)
-                ->assertForbidden()
-                ->assertJson([
-                    'message' => AccessMessages::FORBIDDEN,
-                    'code' => 'forbidden',
-                ]);
+                ->assertOk();
         }
     }
 

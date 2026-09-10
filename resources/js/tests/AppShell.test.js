@@ -15,8 +15,10 @@ import { isNavItemActive } from '../features/shell/isNavItemActive.js';
 import {
     allNavTargets,
     canSearchReviewCycles,
+    canViewEvidenceBase,
     navItemsForRole,
     navLabelsForRole,
+    shellSearchScopesForRole,
     TEACHER_SUPPORT_BOTTOM_NAV,
     usesTeacherSupportBottomNav,
 } from '../features/shell/navByRole.js';
@@ -31,6 +33,7 @@ import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
 import StatusPill from '../shared/ui/StatusPill.vue';
 import TopBar from '../shared/ui/TopBar.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
+import LibraryManagementPage from '../pages/LibraryManagementPage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
@@ -50,10 +53,12 @@ import SchoolsPage from '../pages/SchoolsPage.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
 import FeatureFlagsPage from '../pages/FeatureFlagsPage.vue';
 import ProfilePage from '../pages/ProfilePage.vue';
+import OntologyCataloguePage from '../pages/OntologyCataloguePage.vue';
 import ProvisionTermsPage from '../pages/ProvisionTermsPage.vue';
 import PermissionsPage from '../pages/PermissionsPage.vue';
 import RolesPage from '../pages/RolesPage.vue';
 import UsersPage from '../pages/UsersPage.vue';
+import AuditEventsPage from '../pages/AuditEventsPage.vue';
 import { routes as productionRoutes } from '../router/index.js';
 
 describe('Role nav IA', () => {
@@ -123,6 +128,7 @@ describe('Role nav IA', () => {
         expect(navLabelsForRole('platform_operator')).toEqual([
             'Dashboard',
             'Pilot toolkit',
+            'Library management',
             'Settings',
         ]);
     });
@@ -130,29 +136,32 @@ describe('Role nav IA', () => {
     it('lists Tenant Admin sidebar items', () => {
         expect(navLabelsForRole('tenant_admin')).toEqual([
             'Users',
-            'Roles',
-            'Permissions',
+            'Role catalogue',
+            'Permission catalogue',
+            'Audit events',
             'Schools',
             'Pupils',
             'Import',
             'Connectors',
             'Feature flags',
+            'Alert thresholds',
+            'Ontology catalogue',
             'Provision terms',
             'Pilot toolkit',
             'Settings',
         ]);
     });
 
-    it('nests Tenant Admin destinations under Access Organisation Integrations Configuration', () => {
+    it('nests Tenant Admin destinations under Administration Organisation Integrations Configuration', () => {
         const groups = navItemsForRole('tenant_admin')
             .filter((item) => item.children?.length)
             .map((item) => [item.label, item.children.map((child) => child.label)]);
 
         expect(groups).toEqual([
-            ['Access', ['Users', 'Roles', 'Permissions']],
+            ['Administration', ['Users', 'Role catalogue', 'Permission catalogue', 'Audit events']],
             ['Organisation', ['Schools', 'Pupils']],
             ['Integrations', ['Import', 'Connectors']],
-            ['Configuration', ['Feature flags', 'Provision terms', 'Pilot toolkit']],
+            ['Configuration', ['Feature flags', 'Alert thresholds', 'Ontology catalogue', 'Provision terms', 'Pilot toolkit']],
         ]);
     });
 
@@ -202,13 +211,36 @@ describe('Role nav IA', () => {
         expect(navItemsForRole(null)).toEqual([]);
     });
 
-    it('enables Review Cycle search only for Roles that list Review Cycles', () => {
+    it('provides the approved shell search scopes by Role', () => {
+        expect(shellSearchScopesForRole('teacher').map((scope) => scope.key)).toEqual(['pupils']);
+        expect(shellSearchScopesForRole('support_staff').map((scope) => scope.key)).toEqual(['pupils']);
+        expect(shellSearchScopesForRole('senco').map((scope) => scope.key)).toEqual([
+            'pupils',
+            'review-cycles',
+        ]);
+        expect(shellSearchScopesForRole('school_leader').map((scope) => scope.key)).toEqual([
+            'pupils',
+            'review-cycles',
+        ]);
+        expect(shellSearchScopesForRole('tenant_admin')).toEqual([]);
+        expect(shellSearchScopesForRole('trust_send_lead')).toEqual([]);
+
         expect(canSearchReviewCycles('senco')).toBe(true);
         expect(canSearchReviewCycles('school_leader')).toBe(true);
         expect(canSearchReviewCycles('teacher')).toBe(false);
         expect(canSearchReviewCycles('support_staff')).toBe(false);
         expect(canSearchReviewCycles('tenant_admin')).toBe(false);
         expect(canSearchReviewCycles(null)).toBe(false);
+    });
+
+    it('limits Evidence Base to capture and oversight Roles', () => {
+        expect(canViewEvidenceBase('teacher')).toBe(true);
+        expect(canViewEvidenceBase('support_staff')).toBe(true);
+        expect(canViewEvidenceBase('senco')).toBe(true);
+        expect(canViewEvidenceBase('school_leader')).toBe(true);
+        expect(canViewEvidenceBase('tenant_admin')).toBe(false);
+        expect(canViewEvidenceBase('trust_send_lead')).toBe(false);
+        expect(canViewEvidenceBase(null)).toBe(false);
     });
 
     it('registers every nav to on production routes', () => {
@@ -233,6 +265,19 @@ describe('Role nav IA', () => {
         const leaf = resolved.matched[resolved.matched.length - 1];
 
         expect(leaf?.components?.default ?? leaf?.component).toBe(PilotToolkitPage);
+        expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
+    });
+
+    it('uses LibraryManagementPage for the operator library route', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/library-management');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(LibraryManagementPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 
@@ -437,6 +482,18 @@ describe('Role nav IA', () => {
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
 
+    it('uses AuditEventsPage for production audit-events route', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/audit-events');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(AuditEventsPage);
+    });
+
     it('uses SchoolsPage for production schools route (not ComingSoon)', () => {
         const router = createRouter({
             history: createMemoryHistory(),
@@ -501,6 +558,18 @@ describe('Role nav IA', () => {
         expect(leaf?.components?.default ?? leaf?.component).toBe(ProvisionTermsPage);
         expect(leaf?.components?.default ?? leaf?.component).not.toBe(ComingSoonPage);
     });
+
+    it('uses OntologyCataloguePage for the production catalogue route', () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: productionRoutes,
+        });
+
+        const resolved = router.resolve('/ontology-catalogue');
+        const leaf = resolved.matched[resolved.matched.length - 1];
+
+        expect(leaf?.components?.default ?? leaf?.component).toBe(OntologyCataloguePage);
+    });
 });
 
 describe('isNavItemActive', () => {
@@ -536,11 +605,12 @@ describe('shared primitives smoke', () => {
         expect(mount(LoadingSkeleton).attributes('role')).toBe('status');
     });
 
-    it('TopBar submits scoped search to the Review Cycles due list', async () => {
+    it('TopBar defaults SENCO search to Pupils and can switch to Review Cycles', async () => {
         const router = createRouter({
             history: createMemoryHistory(),
             routes: [
                 { path: '/', component: { template: '<div />' } },
+                { path: '/pupils', name: 'pupils', component: { template: '<div />' } },
                 { path: '/review-cycles', name: 'review-cycles', component: { template: '<div />' } },
                 { path: '/profile', name: 'profile', component: { template: '<div />' } },
             ],
@@ -549,30 +619,43 @@ describe('shared primitives smoke', () => {
         await router.isReady();
 
         const wrapper = mount(TopBar, {
-            props: { userName: 'Ada Lovelace', canSearchReviewCycles: true },
+            props: {
+                userName: 'Ada Lovelace',
+                searchScopes: shellSearchScopesForRole('senco'),
+            },
             global: { plugins: [router] },
         });
 
-        const search = wrapper.find('[data-testid="search-stub"] input');
+        const search = wrapper.find('#shell-search');
         expect(search.exists()).toBe(true);
-        expect(search.attributes('placeholder')).toMatch(/Review Cycles/i);
+        expect(search.attributes('placeholder')).toMatch(/Pupils/i);
         expect(search.attributes('readonly')).toBeUndefined();
+        expect(wrapper.find('[data-testid="shell-search-scope"]').attributes('aria-label')).toBeUndefined();
+        expect(wrapper.find('label[for="shell-search-scope"]').text()).toBe('Search scope');
         expect(wrapper.find('[data-testid="avatar"]').text()).toBe('AL');
 
         await search.setValue('Maya');
-        await wrapper.find('[data-testid="search-stub"]').trigger('submit');
+        await wrapper.find('[data-testid="shell-search"]').trigger('submit');
+        await flushPromises();
+
+        expect(router.currentRoute.value.path).toBe('/pupils');
+        expect(router.currentRoute.value.query.q).toBe('Maya');
+
+        await wrapper.find('[data-testid="shell-search-scope"]').setValue('review-cycles');
+        expect(wrapper.find('#shell-search').attributes('placeholder')).toMatch(/Review Cycles/i);
+        await wrapper.find('[data-testid="shell-search"]').trigger('submit');
         await flushPromises();
 
         expect(router.currentRoute.value.path).toBe('/review-cycles');
         expect(router.currentRoute.value.query.q).toBe('Maya');
     });
 
-    it('TopBar hides Review Cycle search when the Role cannot list cycles', async () => {
+    it('TopBar sends Teacher search to scoped Pupils without a scope selector', async () => {
         const router = createRouter({
             history: createMemoryHistory(),
             routes: [
                 { path: '/', component: { template: '<div />' } },
-                { path: '/review-cycles', name: 'review-cycles', component: { template: '<div />' } },
+                { path: '/pupils', name: 'pupils', component: { template: '<div />' } },
                 { path: '/profile', name: 'profile', component: { template: '<div />' } },
             ],
         });
@@ -580,12 +663,40 @@ describe('shared primitives smoke', () => {
         await router.isReady();
 
         const wrapper = mount(TopBar, {
-            props: { userName: 'Ada Lovelace', canSearchReviewCycles: false },
+            props: {
+                userName: 'Ada Lovelace',
+                searchScopes: shellSearchScopesForRole('teacher'),
+            },
             global: { plugins: [router] },
         });
 
-        expect(wrapper.find('[data-testid="search-stub"]').exists()).toBe(false);
-        expect(router.currentRoute.value.path).toBe('/');
+        expect(wrapper.find('[data-testid="shell-search"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="shell-search-scope"]').exists()).toBe(false);
+
+        await wrapper.find('#shell-search').setValue('Alex');
+        await wrapper.find('[data-testid="shell-search"]').trigger('submit');
+        await flushPromises();
+
+        expect(router.currentRoute.value.fullPath).toBe('/pupils?q=Alex');
+    });
+
+    it('TopBar hides shell search when the Role has no approved scope', async () => {
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: [
+                { path: '/', component: { template: '<div />' } },
+                { path: '/profile', name: 'profile', component: { template: '<div />' } },
+            ],
+        });
+        await router.push('/');
+        await router.isReady();
+
+        const wrapper = mount(TopBar, {
+            props: { userName: 'Ada Lovelace', searchScopes: [] },
+            global: { plugins: [router] },
+        });
+
+        expect(wrapper.find('[data-testid="shell-search"]').exists()).toBe(false);
     });
 
     it('TopBar account menu emits sign-out', async () => {
@@ -674,9 +785,11 @@ describe('AppShell smoke', () => {
                         { path: 'users', component: stub },
                         { path: 'roles', component: stub },
                         { path: 'permissions', component: stub },
+                        { path: 'audit-events', component: stub },
                         { path: 'schools', component: stub },
                         { path: 'connectors', component: stub },
                         { path: 'feature-flags', component: stub },
+                        { path: 'ontology-catalogue', component: stub },
                         { path: 'provision-terms', component: stub },
                         { path: 'pilot-toolkit', component: stub },
                         ...extraChildren,
@@ -717,7 +830,8 @@ describe('AppShell smoke', () => {
         expect(labels).toContain('My Pupils');
         expect(labels.join(' ')).not.toMatch(/messages/i);
         expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="search-stub"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="shell-search"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="shell-search-scope"]').exists()).toBe(false);
     });
 
     it('hides Teacher bottom nav pattern for SENCO', async () => {
@@ -728,7 +842,8 @@ describe('AppShell smoke', () => {
         expect(labels).toContain('Review Cycles');
         expect(labels).toContain('Gaps');
         expect(labels).toContain('Capture');
-        expect(wrapper.find('[data-testid="search-stub"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="shell-search"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="shell-search-scope"]').exists()).toBe(true);
     });
 
     it('hides grouped SENCO children until the parent dropdown is opened', async () => {
@@ -784,7 +899,7 @@ describe('AppShell smoke', () => {
             .findAll('[data-testid="sidebar-group-toggle"]')
             .map((node) => node.text().replace('▾', '').trim());
 
-        expect(groupLabels).toEqual(['Access', 'Organisation', 'Integrations', 'Configuration']);
+        expect(groupLabels).toEqual(['Administration', 'Organisation', 'Integrations', 'Configuration']);
         expect(desktop.findAll('[data-testid="sidebar-item"]').map((node) => node.text())).toContain('Settings');
     });
 
@@ -911,6 +1026,7 @@ describe('AppShell smoke', () => {
 
 describe('HomeDashboard live summary', () => {
     afterEach(() => {
+        useSession().setUser(null);
         localStorage.removeItem(LOCAL_STORAGE_QUEUE_KEY);
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
@@ -926,6 +1042,35 @@ describe('HomeDashboard live summary', () => {
                     review_cycles_due: 0,
                     drafts: 3,
                     window_days: 30,
+                    action_items: [
+                        {
+                            type: 'review_cycle',
+                            id: 'cycle_1',
+                            title: 'Annual Review for Ada Lovelace',
+                            detail: 'Overdue · 2026-09-01',
+                            href: '/review-cycles?q=Ada%20Lovelace&window=30',
+                            priority: 'overdue',
+                            date: '2026-09-01',
+                        },
+                        {
+                            type: 'gap',
+                            id: 'gap_1',
+                            title: 'Open gap for Grace Hopper',
+                            detail: 'Evidential Sufficiency',
+                            href: '/pupils/pupil_1?focus=determination&gap=gap_1',
+                            priority: 'gap',
+                            date: '2026-09-02',
+                        },
+                        {
+                            type: 'draft',
+                            id: 'draft_1',
+                            title: 'Continue draft for Alan Turing',
+                            detail: 'Observation draft',
+                            href: '/capture?draft=draft_1',
+                            priority: 'draft',
+                            date: '2026-09-09T12:00:00+00:00',
+                        },
+                    ],
                 },
             }),
         });
@@ -940,6 +1085,17 @@ describe('HomeDashboard live summary', () => {
         expect(wrapper.find('[data-testid="kpi-card-select"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="dashboard-summary-error"]').exists()).toBe(false);
         expect(wrapper.text()).toContain('Overdue and due within 30 days');
+        expect(wrapper.findAll('[data-testid="action-item-title"]').map((node) => node.text())).toEqual([
+            'Annual Review for Ada Lovelace',
+            'Open gap for Grace Hopper',
+            'Continue draft for Alan Turing',
+        ]);
+        expect(wrapper.findAll('[data-testid="action-item"]').map((node) => node.attributes('href'))).toEqual([
+            '/review-cycles?q=Ada%20Lovelace&window=30',
+            '/pupils/pupil_1?focus=determination&gap=gap_1',
+            '/capture?draft=draft_1',
+        ]);
+        expect(wrapper.text()).not.toContain('Live data pending');
     });
 
     it('keeps unavailable metrics as dashes while authorized empty counts show zero', async () => {
@@ -952,6 +1108,7 @@ describe('HomeDashboard live summary', () => {
                     review_cycles_due: 0,
                     drafts: null,
                     window_days: 30,
+                    action_items: [],
                 },
             }),
         }));
@@ -960,6 +1117,7 @@ describe('HomeDashboard live summary', () => {
         await flushPromises();
 
         expect(wrapper.findAll('[data-testid="kpi-value"]').map((node) => node.text())).toEqual(['0', '—', '0', '—']);
+        expect(wrapper.find('[data-testid="action-items-empty"]').text()).toContain('Nothing needs attention right now');
     });
 
     it('adds only new device-local drafts to the complete server count', async () => {
@@ -1025,8 +1183,30 @@ describe('HomeDashboard live summary', () => {
         expect(wrapper.findAll('[data-testid="kpi-value"]').every((node) => node.text() === '—')).toBe(true);
         expect(wrapper.find('[data-testid="dashboard-summary-error"]').attributes('role')).toBe('alert');
         expect(wrapper.find('[data-testid="dashboard-summary-error"]').text()).toBe('Unable to load dashboard summary.');
+        expect(wrapper.find('[data-testid="action-items-unavailable"]').text()).toContain('Action queue unavailable');
+        expect(wrapper.find('[data-testid="action-items-empty"]').exists()).toBe(false);
         expect(wrapper.text()).toContain('Needs attention');
         expect(wrapper.text()).toContain('Quick actions');
+    });
+
+    it('offers Tenant Admin Open pupils from the dashboard', async () => {
+        useSession().setUser({
+            id: 'usr_1',
+            name: 'Ada Admin',
+            email: 'ada@example.com',
+            role: 'tenant_admin',
+            tenant_id: 'ten_1',
+        });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: {} }),
+        }));
+
+        const wrapper = mount(HomeDashboard);
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('Open pupils');
+        expect(wrapper.find('a[href="/pupils"]').exists()).toBe(true);
     });
 });
 

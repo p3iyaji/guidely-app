@@ -31,6 +31,10 @@ class ConnectorResource extends JsonResource
             'field_shares' => $this->resource instanceof Connector
                 ? $this->resource->normalizedFieldShares()
                 : [],
+            'last_sync_started_at' => $this->last_sync_started_at?->utc()->toIso8601String(),
+            'last_sync_completed_at' => $this->last_sync_completed_at?->utc()->toIso8601String(),
+            'last_sync_failed_at' => $this->last_sync_failed_at?->utc()->toIso8601String(),
+            'last_error' => $this->last_error,
         ];
     }
 }

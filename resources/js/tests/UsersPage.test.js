@@ -222,6 +222,12 @@ describe('UsersPage', () => {
         await wrapper.find('[data-testid="users-add-open"]').trigger('click');
         await flushPromises();
 
+        expect(wrapper.find('[data-testid="user-role-authority-note"]').text()).toContain(
+            'Only built-in Roles can be assigned',
+        );
+        expect(wrapper.find('[data-testid="user-role-authority-note"]').text()).toContain(
+            'Permission mappings never grant access',
+        );
         expect(wrapper.find('[data-testid="user-role-input"]').html()).not.toContain('Trust SEND Lead');
         wrapper.unmount();
 

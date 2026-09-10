@@ -30,7 +30,7 @@
                 :show-menu-toggle="showMenuToggle"
                 :aria-expanded="navOpen"
                 :signing-out="signingOut"
-                :can-search-review-cycles="reviewCycleSearchEnabled"
+                :search-scopes="searchScopes"
                 :page-title="pageTitle"
                 :workspace-label="workspaceLabel"
                 :role-label="roleLabel"
@@ -55,8 +55,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import {
-    canSearchReviewCycles,
     navItemsForRole,
+    shellSearchScopesForRole,
     TEACHER_SUPPORT_BOTTOM_NAV,
     usesTeacherSupportBottomNav,
 } from '../features/shell/navByRole';
@@ -109,7 +109,7 @@ const resolvedUserName = computed(() => {
     return session.user.value?.name ?? '';
 });
 const navItems = computed(() => navItemsForRole(effectiveRole.value));
-const reviewCycleSearchEnabled = computed(() => canSearchReviewCycles(effectiveRole.value));
+const searchScopes = computed(() => shellSearchScopesForRole(effectiveRole.value));
 const showBottomNav = computed(() => usesTeacherSupportBottomNav(effectiveRole.value));
 const bottomNavItems = computed(() => (showBottomNav.value ? TEACHER_SUPPORT_BOTTOM_NAV : []));
 const roleLabel = computed(() => {

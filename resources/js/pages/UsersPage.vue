@@ -3,7 +3,7 @@
         <PageHero
             eyebrow="Access"
             title="Users"
-            description="Create and update Tenant Users, assign Roles and Schools, reset passwords, and deactivate accounts. Users are not deleted."
+            description="Create and update Tenant Users, assign built-in Roles and Schools, reset passwords, and deactivate accounts. The assigned built-in Role is the authority for product access. Users are not deleted."
         >
             <template v-if="!loading && !loadError" #action>
                 <ButtonPrimary
@@ -130,7 +130,7 @@
             @close="closeForm"
         >
             <p class="text-body text-text-muted">
-                Assign a Role and optional Schools. Platform Operator cannot be assigned from this Tenant.
+                Assign a built-in Role and optional Schools. Platform Operator cannot be assigned from this Tenant.
             </p>
 
             <form class="mt-4 space-y-4" @submit.prevent="submitUserForm">
@@ -248,6 +248,9 @@
                             {{ option.label }}
                         </option>
                     </select>
+                    <p class="mt-1 text-body text-text-muted" data-testid="user-role-authority-note">
+                        Only built-in Roles can be assigned. Product access is enforced from this selection; Role catalogue entries and Permission mappings never grant access.
+                    </p>
                     <p
                         v-if="fieldErrors.role"
                         class="mt-1 text-meta text-danger"

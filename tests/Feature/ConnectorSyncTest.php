@@ -252,6 +252,90 @@ class ConnectorSyncTest extends TestCase
         Queue::assertPushed(SreReevaluatePupil::class, 1);
     }
 
+    public function test_successful_sync_records_started_and_completed_and_clears_stale_error(): void
+    {
+        [$tenant, $school, $admin] = $this->tenantWithEnabledConnector();
+        /** @var Connector $connector */
+        $connector = Connector::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->firstOrFail();
+        $connector->forceFill([
+            'last_sync_failed_at' => '2026-09-09 08:00:00',
+            'last_error' => 'Previous safe failure.',
+        ])->save();
+        $this->travelTo('2026-09-10 09:30:00');
+
+        $this->actingAs($admin)->postJson('/api/v1/connectors/sync', $this->syncPayload($school))
+            ->assertAccepted()
+            ->assertExactJson(['message' => 'Connector sync queued.']);
+
+        $connector->refresh();
+        $this->assertSame('2026-09-10 09:30:00', $connector->last_sync_started_at?->toDateTimeString());
+        $this->assertSame('2026-09-10 09:30:00', $connector->last_sync_completed_at?->toDateTimeString());
+        $this->assertSame('2026-09-09 08:00:00', $connector->last_sync_failed_at?->toDateTimeString());
+        $this->assertNull($connector->last_error);
+    }
+
+    public function test_disabled_connector_job_records_a_safe_failed_attempt(): void
+    {
+        [$tenant, $school, $admin] = $this->tenantWithConnectorsEnabled();
+        $connector = Connector::factory()->forTenant($tenant)->create(['enabled' => false]);
+        $this->travelTo('2026-09-10 10:00:00');
+
+        $this->runJob(new ConnectorSync($tenant->id, $school->id, $admin->id, []));
+
+        $connector->refresh();
+        $this->assertSame('2026-09-10 10:00:00', $connector->last_sync_started_at?->toDateTimeString());
+        $this->assertSame('2026-09-10 10:00:00', $connector->last_sync_failed_at?->toDateTimeString());
+        $this->assertNull($connector->last_sync_completed_at);
+        $this->assertSame('Connector is disabled.', $connector->last_error);
+    }
+
+    public function test_unavailable_school_job_records_a_safe_failed_attempt(): void
+    {
+        [$tenant, , $admin] = $this->tenantWithEnabledConnector();
+        /** @var Connector $connector */
+        $connector = Connector::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->runJob(new ConnectorSync($tenant->id, '01INVALIDSCHOOLID0000000000', $admin->id, []));
+
+        $connector->refresh();
+        $this->assertNotNull($connector->last_sync_failed_at);
+        $this->assertSame('The selected School is unavailable for this Connector.', $connector->last_error);
+    }
+
+    public function test_unavailable_actor_job_records_a_safe_failed_attempt(): void
+    {
+        [$tenant, $school] = $this->tenantWithEnabledConnector();
+        /** @var Connector $connector */
+        $connector = Connector::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->runJob(new ConnectorSync($tenant->id, $school->id, '01INVALIDACTORID000000000000', []));
+
+        $connector->refresh();
+        $this->assertNotNull($connector->last_sync_failed_at);
+        $this->assertSame(
+            'The requesting operator is unavailable or no longer permitted to sync.',
+            $connector->last_error,
+        );
+    }
+
+    public function test_terminal_failure_callback_records_only_a_generic_safe_error(): void
+    {
+        [$tenant, $school, $admin] = $this->tenantWithEnabledConnector();
+        /** @var Connector $connector */
+        $connector = Connector::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->firstOrFail();
+        $job = new ConnectorSync($tenant->id, $school->id, $admin->id, []);
+
+        $job->failed(new RuntimeException('secret=do-not-store; pupil payload'));
+
+        $connector->refresh();
+        $this->assertNotNull($connector->last_sync_failed_at);
+        $this->assertSame(
+            'Connector sync failed. Review the application logs or try again.',
+            $connector->last_error,
+        );
+        $this->assertStringNotContainsString('do-not-store', (string) $connector->last_error);
+    }
+
     public function test_missing_connector_row_returns_422_and_does_not_write_or_enqueue_sre(): void
     {
         Queue::fake([SreReevaluatePupil::class]);
@@ -312,10 +396,19 @@ class ConnectorSyncTest extends TestCase
 
         $this->assertSame(0, Pupil::withoutGlobalScope('tenant')->where('mis_key', 'MIS-FAIL')->count());
         $this->assertSame(1, Pupil::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->where('mis_key', 'MIS-100')->count());
+        $connector = Connector::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->firstOrFail();
+        $this->assertNotNull($connector->last_sync_started_at);
+        $this->assertNotNull($connector->last_sync_completed_at);
+        $this->assertNull($connector->last_sync_failed_at);
+        $this->assertSame(
+            'Completed with warnings: 1 pupil record(s) could not be processed.',
+            $connector->last_error,
+        );
         Log::shouldHaveReceived('error')->withArgs(function (string $message, array $context) use ($tenant): bool {
             return $message === 'ConnectorSync pupil failed.'
                 && ($context['tenant_id'] ?? null) === $tenant->id
-                && ($context['message'] ?? null) === 'sync boom'
+                && ($context['exception_class'] ?? null) === RuntimeException::class
+                && ! array_key_exists('message', $context)
                 && ! array_key_exists('evidence', $context)
                 && ! array_key_exists('body', $context);
         })->once();
@@ -447,5 +540,16 @@ class ConnectorSyncTest extends TestCase
             'school_id' => $school->id,
             'pupils' => [$pupil],
         ];
+    }
+
+    private function runJob(ConnectorSync $job): void
+    {
+        $job->handle(
+            app(FilterConnectorPayload::class),
+            app(ConnectorPupilUpserter::class),
+            app(ImportedInterventionEvidenceUpserter::class),
+            app(EnqueueSreReevaluation::class),
+            app(ConnectorAdapterRegistry::class),
+        );
     }
 }

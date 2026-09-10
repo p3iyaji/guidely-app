@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Domain\Identity\AccessMessages;
 use App\Domain\Ontology\PilotRuleLibrary;
 use App\Domain\Ontology\Rule;
 use App\Domain\Ontology\RuleCategory;
@@ -190,17 +189,13 @@ class RuleLibraryTest extends TestCase
         }
     }
 
-    public function test_tenant_admin_cannot_list_rules(): void
+    public function test_tenant_admin_can_list_rules_for_the_read_only_catalogue(): void
     {
         $tenant = Tenant::factory()->create();
         $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
 
         $this->actingAs($admin)->getJson('/api/v1/ontology/rules')
-            ->assertForbidden()
-            ->assertJson([
-                'message' => AccessMessages::FORBIDDEN,
-                'code' => 'forbidden',
-            ]);
+            ->assertOk();
     }
 
     /**

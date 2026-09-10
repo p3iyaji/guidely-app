@@ -43,8 +43,23 @@ class ConnectorSync implements ShouldQueue
         EnqueueSreReevaluation $enqueueSreReevaluation,
         ConnectorAdapterRegistry $adapters,
     ): void {
+        $connector = $this->connector();
+
+        if ($connector === null) {
+            Log::warning('ConnectorSync skipped: Connector missing.', [
+                'tenant_id' => $this->tenantId,
+            ]);
+
+            return;
+        }
+
+        $connector->forceFill([
+            'last_sync_started_at' => now(),
+        ])->save();
+
         try {
             CurrentTenant::using($this->tenantId, function () use (
+                $connector,
                 $filter,
                 $pupilUpserter,
                 $evidenceUpserter,
@@ -52,6 +67,7 @@ class ConnectorSync implements ShouldQueue
                 $adapters,
             ): void {
                 $this->sync(
+                    $connector,
                     $filter,
                     $pupilUpserter,
                     $evidenceUpserter,
@@ -62,7 +78,7 @@ class ConnectorSync implements ShouldQueue
         } catch (Throwable $exception) {
             Log::error('ConnectorSync failed.', [
                 'tenant_id' => $this->tenantId,
-                'message' => $exception->getMessage(),
+                'exception_class' => $exception::class,
             ]);
 
             throw $exception;
@@ -70,18 +86,16 @@ class ConnectorSync implements ShouldQueue
     }
 
     private function sync(
+        Connector $connector,
         FilterConnectorPayload $filter,
         ConnectorPupilUpserter $pupilUpserter,
         ImportedInterventionEvidenceUpserter $evidenceUpserter,
         EnqueueSreReevaluation $enqueueSreReevaluation,
         ConnectorAdapterRegistry $adapters,
     ): void {
-        $connector = Connector::withoutGlobalScope('tenant')
-            ->where('tenant_id', $this->tenantId)
-            ->first();
-
-        if ($connector === null || $connector->enabled !== true) {
-            Log::warning('ConnectorSync skipped: Connector missing or disabled.', [
+        if ($connector->enabled !== true) {
+            $this->recordFailure($connector, 'Connector is disabled.');
+            Log::warning('ConnectorSync skipped: Connector disabled.', [
                 'tenant_id' => $this->tenantId,
             ]);
 
@@ -91,6 +105,7 @@ class ConnectorSync implements ShouldQueue
         $school = School::withoutGlobalScope('tenant')->find($this->schoolId);
 
         if ($school === null || $school->tenant_id !== $this->tenantId) {
+            $this->recordFailure($connector, 'The selected School is unavailable for this Connector.');
             Log::warning('ConnectorSync skipped: School is not in this Tenant.', [
                 'tenant_id' => $this->tenantId,
             ]);
@@ -101,6 +116,7 @@ class ConnectorSync implements ShouldQueue
         $user = User::query()->find($this->actorId);
 
         if ($user === null || $user->tenant_id !== $this->tenantId || ! $user->can('sync', $connector)) {
+            $this->recordFailure($connector, 'The requesting operator is unavailable or no longer permitted to sync.');
             Log::warning('ConnectorSync skipped: actor cannot sync this Connector.', [
                 'tenant_id' => $this->tenantId,
             ]);
@@ -116,14 +132,17 @@ class ConnectorSync implements ShouldQueue
         }
 
         $pupils = $adapters->for($type)->pull($connector, $school, $this->pupils);
+        $warningCount = 0;
 
         foreach ($pupils as $pupilPayload) {
             if (! is_array($pupilPayload)) {
+                $warningCount++;
+
                 continue;
             }
 
             try {
-                $this->syncPupil(
+                if ($this->syncPupil(
                     $connector,
                     $user,
                     $request,
@@ -132,14 +151,19 @@ class ConnectorSync implements ShouldQueue
                     $pupilUpserter,
                     $evidenceUpserter,
                     $enqueueSreReevaluation,
-                );
+                )) {
+                    $warningCount++;
+                }
             } catch (Throwable $exception) {
+                $warningCount++;
                 Log::error('ConnectorSync pupil failed.', [
                     'tenant_id' => $this->tenantId,
-                    'message' => $exception->getMessage(),
+                    'exception_class' => $exception::class,
                 ]);
             }
         }
+
+        $this->recordCompletion($connector, $warningCount);
     }
 
     /**
@@ -154,13 +178,13 @@ class ConnectorSync implements ShouldQueue
         ConnectorPupilUpserter $pupilUpserter,
         ImportedInterventionEvidenceUpserter $evidenceUpserter,
         EnqueueSreReevaluation $enqueueSreReevaluation,
-    ): void {
+    ): bool {
         $fieldPayload = Arr::only($pupilPayload, ConnectorField::values());
         $filtered = $filter->handle($connector, $this->schoolId, $fieldPayload);
         $result = $pupilUpserter->upsert($this->schoolId, $filtered, $user, $request);
 
         if (! isset($result['pupil'])) {
-            return;
+            return true;
         }
 
         $pupil = $result['pupil'];
@@ -194,8 +218,9 @@ class ConnectorSync implements ShouldQueue
             if (isset($evidenceResult['error'])) {
                 Log::warning('ConnectorSync evidence skipped.', [
                     'tenant_id' => $this->tenantId,
-                    'message' => $evidenceResult['error'],
                 ]);
+
+                return true;
             } else {
                 $action = $evidenceResult['action'] ?? null;
 
@@ -208,5 +233,43 @@ class ConnectorSync implements ShouldQueue
         if ($evidenceChanged) {
             $enqueueSreReevaluation->handle($pupil, 'connector_sync', 'connector');
         }
+
+        return false;
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        $connector = $this->connector();
+
+        if ($connector === null) {
+            return;
+        }
+
+        $this->recordFailure($connector, 'Connector sync failed. Review the application logs or try again.');
+    }
+
+    private function connector(): ?Connector
+    {
+        return Connector::withoutGlobalScope('tenant')
+            ->where('tenant_id', $this->tenantId)
+            ->first();
+    }
+
+    private function recordCompletion(Connector $connector, int $warningCount): void
+    {
+        $connector->forceFill([
+            'last_sync_completed_at' => now(),
+            'last_error' => $warningCount > 0
+                ? "Completed with warnings: {$warningCount} pupil record(s) could not be processed."
+                : null,
+        ])->save();
+    }
+
+    private function recordFailure(Connector $connector, string $safeReason): void
+    {
+        $connector->forceFill([
+            'last_sync_failed_at' => now(),
+            'last_error' => $safeReason,
+        ])->save();
     }
 }

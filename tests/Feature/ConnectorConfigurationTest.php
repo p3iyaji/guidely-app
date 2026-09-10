@@ -119,6 +119,31 @@ class ConnectorConfigurationTest extends TestCase
         $this->assertStringNotContainsString('ciphertext', (string) $response->getContent());
     }
 
+    public function test_get_returns_sync_health_without_exposing_secret(): void
+    {
+        [$tenant, , $admin] = $this->tenantWithConnectorsEnabled();
+        Connector::factory()->forTenant($tenant)->withSecret('health-secret')->create([
+            'last_sync_started_at' => '2026-09-10 08:00:00',
+            'last_sync_completed_at' => '2026-09-10 08:01:00',
+            'last_sync_failed_at' => '2026-09-09 07:00:00',
+            'last_error' => 'Completed with warnings: 1 pupil record(s) could not be processed.',
+        ]);
+
+        $response = $this->actingAs($admin)->getJson('/api/v1/connectors');
+
+        $response->assertOk()
+            ->assertJsonPath('data.last_sync_started_at', '2026-09-10T08:00:00+00:00')
+            ->assertJsonPath('data.last_sync_completed_at', '2026-09-10T08:01:00+00:00')
+            ->assertJsonPath('data.last_sync_failed_at', '2026-09-09T07:00:00+00:00')
+            ->assertJsonPath(
+                'data.last_error',
+                'Completed with warnings: 1 pupil record(s) could not be processed.',
+            )
+            ->assertJsonMissing(['secret']);
+
+        $this->assertStringNotContainsString('health-secret', (string) $response->getContent());
+    }
+
     public function test_filter_omits_unshared_fields_and_keeps_opted_in_keys(): void
     {
         [, $school, $admin] = $this->tenantWithConnectorsEnabled();

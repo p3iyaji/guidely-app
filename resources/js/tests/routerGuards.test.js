@@ -4,6 +4,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import AccessDenied from '../pages/AccessDenied.vue';
 import LoginPage from '../pages/LoginPage.vue';
+import OntologyCataloguePage from '../pages/OntologyCataloguePage.vue';
 import { routes } from '../router/index.js';
 
 describe('router auth meta', () => {
@@ -11,11 +12,22 @@ describe('router auth meta', () => {
         const home = routes.find((entry) => entry.path === '/');
         const login = routes.find((entry) => entry.path === '/login');
         const accessDenied = routes.find((entry) => entry.path === '/access-denied');
+        const libraryManagement = home?.children?.find(
+            (entry) => entry.name === 'library-management',
+        );
+        const ontologyCatalogue = home?.children?.find(
+            (entry) => entry.name === 'ontology-catalogue',
+        );
 
         expect(home?.meta?.requiresAuth).toBe(true);
         expect(login?.meta?.guest).toBe(true);
-        expect(accessDenied?.name).toBe('access-denied');
-        expect(accessDenied?.component).toBe(AccessDenied);
+        expect(accessDenied?.children?.[0]?.name).toBe('access-denied');
+        expect(accessDenied?.children?.[0]?.component).toBe(AccessDenied);
+        expect(libraryManagement?.path).toBe('library-management');
+        expect(libraryManagement?.meta?.requiresAuth).toBe(true);
+        expect(ontologyCatalogue?.path).toBe('ontology-catalogue');
+        expect(ontologyCatalogue?.component).toBe(OntologyCataloguePage);
+        expect(ontologyCatalogue?.meta?.requiresAuth).toBe(true);
     });
 
     it('redirects guests from home to login', async () => {

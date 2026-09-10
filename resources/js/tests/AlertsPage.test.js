@@ -3,6 +3,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryHistory, createRouter } from 'vue-router';
+import { useSession } from '../features/auth/session.js';
 import AlertsPage from '../pages/AlertsPage.vue';
 
 function jsonResponse(body, status = 200) {
@@ -18,7 +19,15 @@ function jsonResponse(body, status = 200) {
     };
 }
 
-function mountPage() {
+function mountPage(role = 'senco') {
+    useSession().setUser({
+        id: 'usr_1',
+        name: 'Ada User',
+        email: 'ada@example.com',
+        role,
+        tenant_id: 'ten_1',
+    });
+
     const router = createRouter({
         history: createMemoryHistory(),
         routes: [
@@ -45,6 +54,7 @@ describe('AlertsPage', () => {
     });
 
     afterEach(() => {
+        useSession().setUser(null);
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
@@ -109,5 +119,93 @@ describe('AlertsPage', () => {
         expect(wrapper.text()).toContain('Gap density Indicator: observed 100% meets configured threshold 50%.');
         expect(wrapper.text()).not.toContain('Maya');
         expect(wrapper.text()).not.toMatch(/AI found/i);
+    });
+
+    it('loads and saves Trust thresholds as human-readable percentages for a Tenant Admin', async () => {
+        const fetchMock = vi.fn(async (url, options = {}) => {
+            const path = String(url);
+            const method = String(options.method ?? 'GET').toUpperCase();
+
+            if (path.includes('/api/v1/compliance-alert-thresholds') && method === 'GET') {
+                return jsonResponse({
+                    data: [
+                        { id: 'thr_gap', school_id: null, metric: 'gap_density', threshold: 0.4 },
+                        { id: 'thr_late', school_id: null, metric: 'lateness_rate', threshold: 0.125 },
+                    ],
+                });
+            }
+
+            if (path.includes('/api/v1/compliance-alert-thresholds') && method === 'PATCH') {
+                return jsonResponse({ data: JSON.parse(String(options.body ?? '{}')) });
+            }
+
+            return jsonResponse({ data: [] });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const wrapper = mountPage('tenant_admin');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="threshold-gap_density"]').element.value).toBe('40');
+        expect(wrapper.find('[data-testid="threshold-lateness_rate"]').element.value).toBe('12.5');
+        expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/api/v1/compliance-alerts'))).toBe(false);
+
+        await wrapper.find('[data-testid="threshold-gap_density"]').setValue('65');
+        await wrapper.find('[data-testid="threshold-lateness_rate"]').setValue('20.5');
+        await wrapper.find('[data-testid="threshold-form"]').trigger('submit');
+        await flushPromises();
+
+        const patchBodies = fetchMock.mock.calls
+            .filter((call) => String(call[0]).includes('/api/v1/compliance-alert-thresholds')
+                && String(call[1]?.method ?? 'GET').toUpperCase() === 'PATCH')
+            .map((call) => JSON.parse(String(call[1].body)));
+
+        expect(patchBodies).toEqual([
+            { school_id: null, metric: 'gap_density', threshold: 0.65 },
+            { school_id: null, metric: 'lateness_rate', threshold: 0.205 },
+        ]);
+        expect(wrapper.find('[data-testid="thresholds-success"]').text()).toBe('Alert thresholds saved.');
+    });
+
+    it('does not request thresholds for a non-admin alert viewer', async () => {
+        const fetchMock = vi.fn(async () => jsonResponse({ data: [] }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const wrapper = mountPage('trust_send_lead');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="threshold-manager"]').exists()).toBe(false);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/compliance-alerts');
+    });
+
+    it('shows a per-field API validation error while retaining threshold values', async () => {
+        const fetchMock = vi.fn(async (url, options = {}) => {
+            const method = String(options.method ?? 'GET').toUpperCase();
+
+            if (method === 'PATCH') {
+                return jsonResponse({
+                    message: 'The threshold field must be between 0 and 1.',
+                    errors: {
+                        threshold: ['The threshold field must be between 0 and 1.'],
+                    },
+                }, 422);
+            }
+
+            return jsonResponse({ data: [] });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const wrapper = mountPage('tenant_admin');
+        await flushPromises();
+        await wrapper.find('[data-testid="threshold-gap_density"]').setValue('75');
+        await wrapper.find('[data-testid="threshold-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="threshold-error-gap_density"]').text())
+            .toBe('The threshold field must be between 0 and 1.');
+        expect(wrapper.find('[data-testid="thresholds-save-error"]').text())
+            .toBe('The threshold field must be between 0 and 1.');
+        expect(wrapper.find('[data-testid="threshold-gap_density"]').element.value).toBe('75');
     });
 });

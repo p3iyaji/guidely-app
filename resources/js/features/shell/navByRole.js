@@ -76,11 +76,12 @@ export const NAV_BY_ROLE = {
     tenant_admin: [
         {
             key: 'access',
-            label: 'Access',
+            label: 'Administration',
             children: [
                 { key: 'users', label: 'Users', to: '/users' },
-                { key: 'roles', label: 'Roles', to: '/roles' },
-                { key: 'permissions', label: 'Permissions', to: '/permissions' },
+                { key: 'roles', label: 'Role catalogue', to: '/roles' },
+                { key: 'permissions', label: 'Permission catalogue', to: '/permissions' },
+                { key: 'audit-events', label: 'Audit events', to: '/audit-events' },
             ],
         },
         {
@@ -104,6 +105,8 @@ export const NAV_BY_ROLE = {
             label: 'Configuration',
             children: [
                 { key: 'feature-flags', label: 'Feature flags', to: '/feature-flags' },
+                { key: 'alert-thresholds', label: 'Alert thresholds', to: '/alerts' },
+                { key: 'ontology-catalogue', label: 'Ontology catalogue', to: '/ontology-catalogue' },
                 { key: 'provision-terms', label: 'Provision terms', to: '/provision-terms' },
                 { key: 'pilot-toolkit', label: 'Pilot toolkit', to: '/pilot-toolkit' },
             ],
@@ -113,6 +116,7 @@ export const NAV_BY_ROLE = {
     platform_operator: [
         { key: 'dashboard', label: 'Dashboard', to: '/' },
         { key: 'pilot-toolkit', label: 'Pilot toolkit', to: '/pilot-toolkit' },
+        { key: 'library-management', label: 'Library management', to: '/library-management' },
         { key: 'settings', label: 'Settings', to: '/settings' },
     ],
 };
@@ -171,14 +175,66 @@ export function navItemsForRole(role) {
 }
 
 /**
- * TopBar Review Cycle search is presentation only. SENCO and School Leader have
- * the Review Cycles nav item; other Roles must not be sent to that 403 page.
+ * TopBar search destinations are presentation only. API scope remains the
+ * authority for which records each Role can see.
+ *
+ * @param {string|null|undefined} role
+ * @returns {{ key: string, label: string, to: string, placeholder: string }[]}
+ */
+export function shellSearchScopesForRole(role) {
+    const key = normalizeRole(role);
+    const pupils = {
+        key: 'pupils',
+        label: 'Pupils',
+        to: '/pupils',
+        placeholder: 'Search Pupils',
+    };
+
+    if (key === 'teacher' || key === 'support_staff') {
+        return [pupils];
+    }
+
+    if (key === 'senco' || key === 'school_leader') {
+        return [
+            pupils,
+            {
+                key: 'review-cycles',
+                label: 'Review Cycles',
+                to: '/review-cycles',
+                placeholder: 'Search Review Cycles',
+            },
+        ];
+    }
+
+    return [];
+}
+
+/**
+ * Backwards-compatible helper for consumers that only need Review Cycle
+ * availability.
  *
  * @param {string|null|undefined} role
  * @returns {boolean}
  */
 export function canSearchReviewCycles(role) {
-    return flattenNavItems(navItemsForRole(role)).some((item) => item.key === 'review-cycles');
+    return shellSearchScopesForRole(role).some((scope) => scope.key === 'review-cycles');
+}
+
+/**
+ * Evidence Base is for capture and oversight Roles. Tenant Admin manages the
+ * Pupil working record and must not be sent to the Evidence API 403 page.
+ * Presentation only — APIs still authorise.
+ *
+ * @param {string|null|undefined} role
+ * @returns {boolean}
+ */
+export function canViewEvidenceBase(role) {
+    const key = normalizeRole(role);
+
+    return key === 'teacher'
+        || key === 'support_staff'
+        || key === 'senco'
+        || key === 'school_leader';
 }
 
 /**

@@ -30,7 +30,10 @@ class DashboardSummaryTest extends TestCase
         $senco = User::factory()->forTenant($tenant)->senco()->create();
         $senco->schools()->attach($school->id);
         $teacher = User::factory()->forTenant($tenant)->teacher()->create();
-        $visiblePupil = Pupil::factory()->forSchool($school)->create();
+        $visiblePupil = Pupil::factory()->forSchool($school)->create([
+            'given_name' => 'Ada',
+            'family_name' => 'Lovelace',
+        ]);
         $secondVisiblePupil = Pupil::factory()->forSchool($school)->create();
         $hiddenPupil = Pupil::factory()->forSchool($otherSchool)->create();
 
@@ -67,7 +70,8 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.open_gaps', 2)
             ->assertJsonPath('data.review_cycles_due', 2)
             ->assertJsonPath('data.drafts', 101)
-            ->assertJsonPath('data.window_days', 30);
+            ->assertJsonPath('data.window_days', 30)
+            ->assertJsonCount(6, 'data.action_items');
 
         $this->assertSame([
             'pupils_in_scope',
@@ -75,8 +79,27 @@ class DashboardSummaryTest extends TestCase
             'review_cycles_due',
             'drafts',
             'window_days',
+            'action_items',
         ], array_keys($response->json('data')));
-        $this->assertStringNotContainsString($visiblePupil->id, $response->getContent());
+        $this->assertSame(
+            ['review_cycle', 'review_cycle', 'gap', 'gap', 'draft', 'draft'],
+            array_column($response->json('data.action_items'), 'type'),
+        );
+        $this->assertSame(
+            ['overdue', 'due', 'gap', 'gap', 'draft', 'draft'],
+            array_column($response->json('data.action_items'), 'priority'),
+        );
+        $this->assertSame([
+            'type',
+            'id',
+            'title',
+            'detail',
+            'href',
+            'priority',
+            'date',
+        ], array_keys($response->json('data.action_items.0')));
+        $this->assertSame('Annual Review for Ada Lovelace', $response->json('data.action_items.0.title'));
+        $this->assertSame('Overdue · 2026-09-01', $response->json('data.action_items.0.detail'));
         $this->assertStringNotContainsString($secondVisiblePupil->id, $response->getContent());
         $this->assertStringNotContainsString($hiddenPupil->id, $response->getContent());
     }
@@ -106,7 +129,8 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.pupils_in_scope', 0)
             ->assertJsonPath('data.open_gaps', 0)
             ->assertJsonPath('data.review_cycles_due', 0)
-            ->assertJsonPath('data.drafts', 0);
+            ->assertJsonPath('data.drafts', 0)
+            ->assertJsonPath('data.action_items', []);
     }
 
     public function test_teacher_counts_only_assigned_pupils_and_own_drafts(): void
@@ -119,7 +143,7 @@ class DashboardSummaryTest extends TestCase
         $assigned = Pupil::factory()->forSchool($school)->assignedTo($teacher)->create();
         $unassigned = Pupil::factory()->forSchool($school)->create();
 
-        EvidenceRecord::factory()
+        $visibleDraft = EvidenceRecord::factory()
             ->forPupil($assigned)
             ->authoredBy($teacher)
             ->draft()
@@ -134,14 +158,25 @@ class DashboardSummaryTest extends TestCase
             ->authoredBy($otherTeacher)
             ->draft()
             ->create(['setting_term_id' => null]);
+        $hiddenOwnDraft = EvidenceRecord::factory()
+            ->forPupil($unassigned)
+            ->authoredBy($teacher)
+            ->draft()
+            ->create(['setting_term_id' => null]);
 
-        $this->actingAs($teacher)
+        $response = $this->actingAs($teacher)
             ->getJson('/api/v1/dashboard-summary')
             ->assertOk()
             ->assertJsonPath('data.pupils_in_scope', 1)
             ->assertJsonPath('data.open_gaps', null)
             ->assertJsonPath('data.review_cycles_due', null)
-            ->assertJsonPath('data.drafts', 1);
+            ->assertJsonPath('data.drafts', 1)
+            ->assertJsonCount(1, 'data.action_items')
+            ->assertJsonPath('data.action_items.0.type', 'draft')
+            ->assertJsonPath('data.action_items.0.href', '/capture?draft='.$visibleDraft->id);
+
+        $this->assertStringNotContainsString($unassigned->id, $response->getContent());
+        $this->assertStringNotContainsString($hiddenOwnDraft->id, $response->getContent());
     }
 
     public function test_tenant_admin_counts_all_tenant_pupils_and_no_protected_metrics(): void
@@ -163,7 +198,8 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.pupils_in_scope', 2)
             ->assertJsonPath('data.open_gaps', null)
             ->assertJsonPath('data.review_cycles_due', null)
-            ->assertJsonPath('data.drafts', null);
+            ->assertJsonPath('data.drafts', null)
+            ->assertJsonPath('data.action_items', []);
     }
 
     #[DataProvider('trustRoleCases')]
@@ -184,7 +220,8 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.pupils_in_scope', 0)
             ->assertJsonPath('data.open_gaps', null)
             ->assertJsonPath('data.review_cycles_due', null)
-            ->assertJsonPath('data.drafts', null);
+            ->assertJsonPath('data.drafts', null)
+            ->assertJsonPath('data.action_items', []);
     }
 
     #[DataProvider('roleVisibilityCases')]
@@ -214,7 +251,8 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.pupils_in_scope', $pupils)
             ->assertJsonPath('data.open_gaps', $gaps)
             ->assertJsonPath('data.review_cycles_due', $cycles)
-            ->assertJsonPath('data.drafts', $drafts);
+            ->assertJsonPath('data.drafts', $drafts)
+            ->assertJsonPath('data.action_items', []);
     }
 
     public function test_custom_window_uses_london_horizon_and_invalid_window_returns_422(): void

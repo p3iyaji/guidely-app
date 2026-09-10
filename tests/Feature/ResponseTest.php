@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditEvent;
 use App\Domain\Audit\AuditEventType;
 use App\Domain\Evidence\EvidenceLifecycle;
 use App\Domain\Evidence\EvidenceRecord;
+use App\Domain\Evidence\EvidenceSource;
 use App\Domain\Evidence\EvidenceType;
 use App\Domain\Identity\AccessMessages;
 use App\Domain\Ontology\ProvisionTerm;
@@ -281,6 +282,10 @@ class ResponseTest extends TestCase
     {
         [, , $teacher, $pupil] = $this->tenantSchoolTeacherWithAssignedPupil();
         $submitted = $this->interventionFor($pupil, $teacher);
+        $submitted->forceFill([
+            'source' => EvidenceSource::Import,
+            'external_id' => 'MIS-SESSION-42',
+        ])->save();
 
         EvidenceRecord::factory()
             ->forPupil($pupil)
@@ -308,7 +313,11 @@ class ResponseTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $submitted->id)
             ->assertJsonPath('data.0.type', EvidenceType::Intervention->value)
+            ->assertJsonPath('data.0.source', EvidenceSource::Import->value)
+            ->assertJsonPath('data.0.external_id', 'MIS-SESSION-42')
             ->assertJsonPath('data.0.provision.code', 'UNIVERSAL');
+
+        $this->assertArrayNotHasKey('body', $response->json('data.0'));
     }
 
     public function test_teacher_cannot_list_interventions_for_unassigned_pupil(): void

@@ -3,7 +3,7 @@
         <PageHero
             eyebrow="Pupils"
             :title="pageTitle"
-            description="View Pupils in your list, including documentation status."
+            :description="pageDescription"
         >
             <template v-if="canManage && !loading && !loadError" #action>
                 <ButtonPrimary
@@ -136,11 +136,11 @@
                             <RouterLink
                                 :to="{ name: 'pupil-detail', params: { id: pupil.id } }"
                                 class="inline-flex size-9 items-center justify-center rounded-md text-primary hover:bg-primary-soft focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                                :aria-label="`Open ${displayName(pupil)}`"
-                                :title="`Open ${displayName(pupil)}`"
+                                :aria-label="openPupilLabel(pupil)"
+                                :title="openPupilLabel(pupil)"
                             >
                                 <AppIcon name="open" class="size-4.5" />
-                                <span class="sr-only">Open {{ displayName(pupil) }}</span>
+                                <span class="sr-only">{{ openPupilLabel(pupil) }}</span>
                             </RouterLink>
                             <template v-if="canManage">
                                 <TableAction
@@ -426,20 +426,57 @@
                         No Teachers or Support Staff have access to this School yet.
                     </p>
                     <div v-else class="mt-2 space-y-2">
-                        <label
+                        <div
                             v-for="staff in assignableStaff"
                             :key="staff.id"
-                            class="flex items-center gap-2 text-body text-text"
+                            class="rounded-md border border-border px-3 py-2"
                         >
-                            <input
-                                v-model="selectedAssigneeIds"
-                                type="checkbox"
-                                :value="String(staff.id)"
-                                :data-testid="`pupil-assignee-${staff.id}`"
+                            <label class="flex items-center gap-2 text-body text-text">
+                                <input
+                                    v-model="selectedAssigneeIds"
+                                    type="checkbox"
+                                    :value="String(staff.id)"
+                                    :data-testid="`pupil-assignee-${staff.id}`"
+                                >
+                                {{ staff.name }}
+                                <span class="text-meta text-text-muted">({{ staff.role === 'support_staff' ? 'Support Staff' : 'Teacher' }})</span>
+                            </label>
+                            <div
+                                v-if="isAssigneeSelected(staff.id)"
+                                class="mt-3 grid gap-3 sm:grid-cols-2"
                             >
-                            {{ staff.name }}
-                            <span class="text-meta text-text-muted">({{ staff.role === 'support_staff' ? 'Support Staff' : 'Teacher' }})</span>
-                        </label>
+                                <div>
+                                    <label
+                                        class="block text-meta text-text"
+                                        :for="`pupil-assignee-class-${staff.id}`"
+                                    >
+                                        Class label (optional)
+                                    </label>
+                                    <input
+                                        :id="`pupil-assignee-class-${staff.id}`"
+                                        v-model="assignmentLabels[String(staff.id)].class_label"
+                                        type="text"
+                                        class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                                        :data-testid="`pupil-assignee-class-${staff.id}`"
+                                    >
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-meta text-text"
+                                        :for="`pupil-assignee-cohort-${staff.id}`"
+                                    >
+                                        Cohort label (optional)
+                                    </label>
+                                    <input
+                                        :id="`pupil-assignee-cohort-${staff.id}`"
+                                        v-model="assignmentLabels[String(staff.id)].cohort_label"
+                                        type="text"
+                                        class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                                        :data-testid="`pupil-assignee-cohort-${staff.id}`"
+                                    >
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </fieldset>
 
@@ -514,6 +551,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
+import { canViewEvidenceBase } from '../features/shell/navByRole';
 import AppIcon from '../shared/ui/AppIcon.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import ButtonSecondary from '../shared/ui/ButtonSecondary.vue';
@@ -548,6 +586,14 @@ const pageTitle = computed(() => {
     return 'Pupils';
 });
 
+const pageDescription = computed(() => {
+    if (!canViewEvidenceBase(session.role.value)) {
+        return 'Manage Pupil working records in your Tenant. Opening a Pupil shows the record, not the Evidence Base.';
+    }
+
+    return 'View Pupils in your list, including documentation status.';
+});
+
 watch(
     pageTitle,
     (title) => {
@@ -565,10 +611,12 @@ const schools = ref([]);
 const needTerms = ref([]);
 const assignableStaff = ref([]);
 const selectedAssigneeIds = ref([]);
+const assignmentLabels = ref({});
+const initialAssignmentLabels = ref({});
 const staffLoadError = ref('');
 const loading = ref(true);
 const loadError = ref('');
-const searchQuery = ref('');
+const searchQuery = ref(routeQueryText(route.query.q));
 const formMode = ref(null);
 const selectedPupil = ref(null);
 const saving = ref(false);
@@ -649,6 +697,13 @@ watch(
 );
 
 watch(
+    () => route.query.q,
+    (query) => {
+        searchQuery.value = routeQueryText(query);
+    },
+);
+
+watch(
     () => pupilForm.primary_need_term_id,
     (primaryId) => {
         if (!primaryId) {
@@ -678,6 +733,13 @@ watch(hasEvaluatingPupils, (shouldPoll) => {
  */
 function isRecord(value) {
     return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} value
+ */
+function routeQueryText(value) {
+    return Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '');
 }
 
 function startEvaluatingPoll() {
@@ -750,6 +812,19 @@ function displayName(pupil) {
 }
 
 /**
+ * @param {{ given_name?: string, family_name?: string }} pupil
+ */
+function openPupilLabel(pupil) {
+    const name = displayName(pupil);
+
+    if (canViewEvidenceBase(session.role.value)) {
+        return `Open ${name}`;
+    }
+
+    return `View ${name}`;
+}
+
+/**
  * @param {{ primary_need?: { label?: string }, secondary_need?: { label?: string } }} pupil
  */
 function needSummary(pupil) {
@@ -768,7 +843,19 @@ function needSummary(pupil) {
  */
 function assigneeSummary(pupil) {
     const staff = Array.isArray(pupil.assigned_staff) ? pupil.assigned_staff : [];
-    const names = staff.map((row) => (isRecord(row) ? String(row.name ?? '') : '')).filter(Boolean);
+    const names = staff.map((row) => {
+        if (!isRecord(row)) {
+            return '';
+        }
+
+        const name = String(row.name ?? '');
+        const labels = [
+            optionalText(row.class_label) ? `Class: ${optionalText(row.class_label)}` : '',
+            optionalText(row.cohort_label) ? `Cohort: ${optionalText(row.cohort_label)}` : '',
+        ].filter(Boolean);
+
+        return labels.length > 0 ? `${name} (${labels.join(' · ')})` : name;
+    }).filter(Boolean);
 
     return names.join(', ');
 }
@@ -806,6 +893,53 @@ function optionalText(value) {
     return trimmed === '' ? null : trimmed;
 }
 
+/**
+ * @param {string|number} userId
+ */
+function isAssigneeSelected(userId) {
+    return selectedAssigneeIds.value.includes(String(userId));
+}
+
+/**
+ * @param {unknown} classLabel
+ * @param {unknown} cohortLabel
+ */
+function assignmentLabelValues(classLabel = '', cohortLabel = '') {
+    return {
+        class_label: classLabel == null ? '' : String(classLabel),
+        cohort_label: cohortLabel == null ? '' : String(cohortLabel),
+    };
+}
+
+/**
+ * @param {unknown[]} staffRows
+ */
+function initializeAssignmentLabels(staffRows) {
+    const labels = {};
+
+    for (const row of staffRows) {
+        if (!isRecord(row) || row.id == null) {
+            continue;
+        }
+
+        labels[String(row.id)] = assignmentLabelValues(row.class_label, row.cohort_label);
+    }
+
+    assignmentLabels.value = labels;
+    initialAssignmentLabels.value = structuredClone(labels);
+}
+
+/**
+ * @param {string|number} userId
+ */
+function ensureAssignmentLabels(userId) {
+    const key = String(userId);
+
+    if (!assignmentLabels.value[key]) {
+        assignmentLabels.value[key] = assignmentLabelValues();
+    }
+}
+
 function clearFieldErrors() {
     fieldErrors.school_id = '';
     fieldErrors.given_name = '';
@@ -835,6 +969,8 @@ function resetPupilForm() {
     pupilForm.secondary_need_term_id = '';
     pupilForm.secondary_need_notes = '';
     selectedAssigneeIds.value = [];
+    assignmentLabels.value = {};
+    initialAssignmentLabels.value = {};
     formError.value = '';
     clearFieldErrors();
 }
@@ -923,9 +1059,11 @@ async function openEditForm(pupil) {
     pupilForm.secondary_need_notes = pupil.secondary_need && isRecord(pupil.secondary_need)
         ? String(pupil.secondary_need.notes ?? '')
         : '';
-    selectedAssigneeIds.value = Array.isArray(pupil.assigned_staff)
-        ? pupil.assigned_staff.map((row) => String(isRecord(row) ? row.id : '')).filter(Boolean)
-        : [];
+    const assignedStaff = Array.isArray(pupil.assigned_staff) ? pupil.assigned_staff : [];
+    selectedAssigneeIds.value = assignedStaff
+        .map((row) => String(isRecord(row) ? row.id : ''))
+        .filter(Boolean);
+    initializeAssignmentLabels(assignedStaff);
     formMode.value = 'edit';
     await loadNeedTerms();
     await loadAssignableStaff(pupilForm.school_id);
@@ -961,10 +1099,14 @@ async function loadPupils() {
     loadError.value = '';
 
     try {
-        const response = await apiFetch('/api/v1/pupils');
+        const response = await apiFetch('/api/v1/pupils', {
+            skipForbiddenRedirect: true,
+        });
 
         if (!response.ok) {
-            loadError.value = 'Unable to load Pupils.';
+            loadError.value = response.status === 403
+                ? 'You don’t have access to the Pupils list.'
+                : 'Unable to load Pupils.';
             pupils.value = [];
             return;
         }
@@ -1027,6 +1169,10 @@ async function loadAssignableStaff(schoolId) {
         const payload = await response.json();
         const rows = Array.isArray(payload.data) ? payload.data : [];
         assignableStaff.value = rows.filter(isRecord);
+
+        for (const staff of assignableStaff.value) {
+            ensureAssignmentLabels(staff.id);
+        }
     } catch {
         assignableStaff.value = [];
         staffLoadError.value = 'Unable to load staff for this School.';
@@ -1040,8 +1186,13 @@ async function loadAssignableStaff(schoolId) {
  */
 async function syncAssignments(pupil, isCreate) {
     const pupilId = String(pupil.id ?? '');
+    const currentRows = isCreate
+        ? []
+        : (Array.isArray(selectedPupil.value?.assigned_staff)
+            ? selectedPupil.value.assigned_staff
+            : []);
     const current = new Set(
-        (Array.isArray(pupil.assigned_staff) ? pupil.assigned_staff : [])
+        currentRows
             .map((row) => String(isRecord(row) ? row.id : ''))
             .filter(Boolean),
     );
@@ -1049,19 +1200,32 @@ async function syncAssignments(pupil, isCreate) {
     let latest = pupil;
 
     for (const userId of selected) {
-        if (current.has(userId)) {
+        const labels = assignmentLabels.value[userId] ?? assignmentLabelValues();
+        const initialLabels = initialAssignmentLabels.value[userId] ?? assignmentLabelValues();
+        const classLabel = optionalText(labels.class_label);
+        const cohortLabel = optionalText(labels.cohort_label);
+        const labelsChanged = classLabel !== optionalText(initialLabels.class_label)
+            || cohortLabel !== optionalText(initialLabels.cohort_label);
+
+        if (current.has(userId) && !labelsChanged) {
             continue;
         }
 
         const response = await apiFetch(`/api/v1/pupils/${pupilId}/assignments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: Number(userId) || userId }),
+            body: JSON.stringify({
+                user_id: Number(userId) || userId,
+                class_label: classLabel,
+                cohort_label: cohortLabel,
+            }),
         });
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            formError.value = payload.message ?? 'Pupil saved, but assigning staff failed.';
+            const detail = typeof payload.message === 'string' ? ` ${payload.message}` : '';
+            formError.value =
+                `Pupil saved, but assignment changes stopped.${detail} Some earlier changes may already have been applied. Close and reopen this form to review them before retrying.`;
 
             return false;
         }
@@ -1082,7 +1246,8 @@ async function syncAssignments(pupil, isCreate) {
             });
 
             if (!response.ok && response.status !== 204) {
-                formError.value = 'Pupil saved, but removing an assignment failed.';
+                formError.value =
+                    'Pupil saved, but only some assignment changes may have been applied. Close and reopen this form to review them before retrying.';
 
                 return false;
             }
@@ -1091,7 +1256,17 @@ async function syncAssignments(pupil, isCreate) {
 
     return {
         ...latest,
-        assigned_staff: assignableStaff.value.filter((staff) => selected.has(String(staff.id))),
+        assigned_staff: assignableStaff.value
+            .filter((staff) => selected.has(String(staff.id)))
+            .map((staff) => {
+                const labels = assignmentLabels.value[String(staff.id)] ?? assignmentLabelValues();
+
+                return {
+                    ...staff,
+                    class_label: optionalText(labels.class_label),
+                    cohort_label: optionalText(labels.cohort_label),
+                };
+            }),
     };
 }
 

@@ -92,7 +92,7 @@ class AccessPermissionController extends Controller
 
         if ($accessPermission->isInUse()) {
             return response()->json([
-                'message' => 'This Permission is assigned to a Role and cannot be deleted.',
+                'message' => 'This Permission is linked to a role catalogue entry and cannot be deleted.',
                 'code' => self::IN_USE_CODE,
             ], 409);
         }

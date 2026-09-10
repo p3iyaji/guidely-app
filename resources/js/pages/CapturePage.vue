@@ -323,6 +323,21 @@
                         >
                             {{ provisionsEmptyError }}
                         </p>
+                        <p
+                            v-if="alreadyEvidencedIntervention"
+                            id="capture-already-evidenced"
+                            class="mt-2 rounded-md bg-info-soft px-3 py-2 text-meta text-info"
+                            data-testid="capture-already-evidenced"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            This provision already appears on the Evidence Base from import/sync
+                            on {{ formatOccurredAtDate(alreadyEvidencedIntervention.occurred_at) }}<template
+                                v-if="alreadyEvidencedExternalReference"
+                            >
+                                (external reference: {{ alreadyEvidencedExternalReference }})</template>.
+                            Add only if the mapping is incomplete or this is a new event.
+                        </p>
                     </div>
 
                     <div v-else>
@@ -474,6 +489,7 @@ const provisionTerms = ref([]);
 const interventions = ref([]);
 const interventionsLoading = ref(false);
 const interventionsEmptyMessage = ref('');
+const interventionsPupilId = ref('');
 /** Bumped to ignore stale Intervention list responses when pupil/mode changes. */
 let interventionsLoadToken = 0;
 const loading = ref(true);
@@ -674,6 +690,34 @@ const draftSaveDisabled = computed(() => {
         || !form.occurred_at_local;
 });
 
+const alreadyEvidencedIntervention = computed(() => {
+    if (
+        mode.value !== 'intervention'
+        || !form.pupil_id
+        || interventionsPupilId.value !== String(form.pupil_id)
+        || !form.provision_term_id
+        || !form.occurred_at_local
+    ) {
+        return null;
+    }
+
+    const selectedDate = selectedLocalCalendarDate(form.occurred_at_local);
+
+    if (!selectedDate) {
+        return null;
+    }
+
+    return interventions.value.find((item) => (
+        (item.source === 'import' || item.source === 'connector')
+        && String(item.provision?.id ?? '') === String(form.provision_term_id)
+        && evidenceLocalCalendarDate(item.occurred_at) === selectedDate
+    )) ?? null;
+});
+
+const alreadyEvidencedExternalReference = computed(() => (
+    safeExternalReference(alreadyEvidencedIntervention.value?.external_id)
+));
+
 const settingDescribedBy = computed(() => {
     if (fieldErrors.setting_term_id) {
         return 'capture-setting-error';
@@ -693,6 +737,10 @@ const provisionDescribedBy = computed(() => {
 
     if (provisionsEmptyError.value) {
         return 'capture-provisions-empty';
+    }
+
+    if (alreadyEvidencedIntervention.value) {
+        return 'capture-already-evidenced';
     }
 
     return undefined;
@@ -723,9 +771,10 @@ watch(() => form.pupil_id, async (pupilId) => {
     form.related_intervention_id = '';
     fieldErrors.related_intervention_id = '';
 
-    if (mode.value !== 'response') {
+    if (mode.value !== 'response' && mode.value !== 'intervention') {
         invalidateInterventionsLoad();
         interventions.value = [];
+        interventionsPupilId.value = '';
         interventionsEmptyMessage.value = '';
 
         return;
@@ -774,11 +823,12 @@ function setMode(nextMode) {
     form.related_intervention_id = '';
     form.body = '';
 
-    if (nextMode === 'response' && form.pupil_id) {
+    if ((nextMode === 'response' || nextMode === 'intervention') && form.pupil_id) {
         loadInterventionsForPupil(form.pupil_id);
-    } else if (nextMode !== 'response') {
+    } else if (nextMode !== 'response' && nextMode !== 'intervention') {
         invalidateInterventionsLoad();
         interventions.value = [];
+        interventionsPupilId.value = '';
         interventionsEmptyMessage.value = '';
     }
 }
@@ -823,6 +873,82 @@ function formatOccurredAt(iso) {
         timeStyle: 'short',
         timeZone: 'Europe/London',
     });
+}
+
+/**
+ * @param {string|undefined} iso
+ */
+function formatOccurredAtDate(iso) {
+    if (!iso) {
+        return '';
+    }
+
+    const parsed = new Date(iso);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return '';
+    }
+
+    return parsed.toLocaleDateString('en-GB', {
+        dateStyle: 'medium',
+        timeZone: 'Europe/London',
+    });
+}
+
+/**
+ * The datetime-local control represents the school-local calendar date without a time zone.
+ *
+ * @param {string} localValue
+ */
+function selectedLocalCalendarDate(localValue) {
+    return /^\d{4}-\d{2}-\d{2}T/.test(localValue) ? localValue.slice(0, 10) : '';
+}
+
+/**
+ * Existing evidence is shown in Europe/London throughout Capture, so date matching uses that
+ * same school-local calendar date rather than the UTC date.
+ *
+ * @param {string|undefined} iso
+ */
+function evidenceLocalCalendarDate(iso) {
+    if (!iso) {
+        return '';
+    }
+
+    const parsed = new Date(iso);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return '';
+    }
+
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'Europe/London',
+    }).formatToParts(parsed);
+    const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+
+    return `${values.year}-${values.month}-${values.day}`;
+}
+
+/**
+ * Vue escapes interpolation; reject control characters and unexpectedly long identifiers too.
+ *
+ * @param {unknown} value
+ */
+function safeExternalReference(value) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    const reference = value.trim();
+
+    if (!reference || reference.length > 128 || /[\u0000-\u001F\u007F]/.test(reference)) {
+        return '';
+    }
+
+    return reference;
 }
 
 function defaultLocalDateTime() {
@@ -881,6 +1007,7 @@ function resetForm() {
     form.body = '';
     invalidateInterventionsLoad();
     interventions.value = [];
+    interventionsPupilId.value = '';
     interventionsEmptyMessage.value = '';
 }
 
@@ -1005,9 +1132,6 @@ async function loadDraft(id) {
         form.related_intervention_id = draft.related_intervention_id ?? '';
         form.body = draft.body ?? '';
 
-        if (mode.value === 'response' && form.pupil_id) {
-            await loadInterventionsForPupil(form.pupil_id);
-        }
     } catch {
         draftLoadError.value = 'Unable to open that draft. You can still capture a new record.';
     }
@@ -1246,8 +1370,13 @@ async function loadFormData() {
  * @param {string} pupilId
  */
 async function loadInterventionsForPupil(pupilId) {
+    if (pupilId && interventionsPupilId.value === String(pupilId)) {
+        return;
+    }
+
     const token = ++interventionsLoadToken;
     interventions.value = [];
+    interventionsPupilId.value = '';
     interventionsEmptyMessage.value = '';
 
     if (!pupilId) {
@@ -1278,6 +1407,7 @@ async function loadInterventionsForPupil(pupilId) {
         }
 
         interventions.value = asArray(payload.data);
+        interventionsPupilId.value = String(pupilId);
 
         if (interventions.value.length === 0) {
             interventionsEmptyMessage.value = 'No Interventions recorded for this Pupil yet. You can still submit with the session date and time.';
@@ -1287,6 +1417,8 @@ async function loadInterventionsForPupil(pupilId) {
             return;
         }
 
+        interventions.value = [];
+        interventionsPupilId.value = '';
         interventionsEmptyMessage.value = 'Unable to load Interventions for this Pupil.';
     } finally {
         if (token === interventionsLoadToken) {

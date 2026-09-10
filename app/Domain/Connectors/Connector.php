@@ -47,6 +47,9 @@ class Connector extends Model
             'type' => ConnectorType::class,
             'enabled' => 'boolean',
             'field_shares' => 'array',
+            'last_sync_started_at' => 'datetime',
+            'last_sync_completed_at' => 'datetime',
+            'last_sync_failed_at' => 'datetime',
         ];
     }
 

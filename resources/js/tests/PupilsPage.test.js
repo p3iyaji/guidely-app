@@ -127,10 +127,10 @@ describe('PupilsPage', () => {
     /**
      * @param {string} [role]
      * @param {unknown} [pupilsOverride]
-     * @param {{ flush?: boolean }} [options]
+     * @param {{ flush?: boolean, initialPath?: string }} [options]
      */
     async function mountPage(role = 'teacher', pupilsOverride, options = {}) {
-        const { flush = true } = options;
+        const { flush = true, initialPath = '/pupils' } = options;
 
         if (pupilsOverride !== undefined) {
             fetchMock.mockImplementation(async (url, options = {}) => {
@@ -184,7 +184,7 @@ describe('PupilsPage', () => {
             ],
         });
 
-        await router.push('/pupils');
+        await router.push(initialPath);
         await router.isReady();
 
         const wrapper = mount(PupilsPage, {
@@ -310,6 +310,10 @@ describe('PupilsPage', () => {
         await wrapper.find('[data-testid="pupil-primary-need"]').setValue('need_ci');
         expect(wrapper.find('[data-testid="pupil-assignee-11"]').exists()).toBe(true);
         await wrapper.find('[data-testid="pupil-assignee-11"]').setValue(true);
+        expect(wrapper.find('[data-testid="pupil-assignee-class-11"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="pupil-assignee-cohort-11"]').exists()).toBe(true);
+        await wrapper.find('[data-testid="pupil-assignee-class-11"]').setValue('  Year 7 Blue  ');
+        await wrapper.find('[data-testid="pupil-assignee-cohort-11"]').setValue('Autumn intake');
         await wrapper.find('form').trigger('submit.prevent');
         await flushPromises();
 
@@ -331,7 +335,11 @@ describe('PupilsPage', () => {
         });
 
         expect(postAssign).toBeTruthy();
-        expect(JSON.parse(String(postAssign[1].body)).user_id).toBe(11);
+        expect(JSON.parse(String(postAssign[1].body))).toEqual({
+            user_id: 11,
+            class_label: 'Year 7 Blue',
+            cohort_label: 'Autumn intake',
+        });
     });
 
     it('shows loading skeleton before pupils resolve', async () => {
@@ -383,6 +391,25 @@ describe('PupilsPage', () => {
         await flushPromises();
 
         expect(wrapper.findAll('[data-testid="pupil-row"]').length).toBe(2);
+    });
+
+    it('initializes search from q and reacts to route query changes', async () => {
+        const { wrapper, router } = await mountPage(
+            'teacher',
+            undefined,
+            { initialPath: '/pupils?q=Jordan' },
+        );
+
+        expect(wrapper.find('[data-testid="pupils-search"]').element.value).toBe('Jordan');
+        expect(wrapper.findAll('[data-testid="pupil-row"]')).toHaveLength(1);
+        expect(wrapper.find('[data-testid="pupil-name"]').text()).toContain('Jordan Lee');
+
+        await router.push('/pupils?q=Year+8');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="pupils-search"]').element.value).toBe('Year 8');
+        expect(wrapper.findAll('[data-testid="pupil-row"]')).toHaveLength(1);
+        expect(wrapper.find('[data-testid="pupil-name"]').text()).toContain('Alex Rivera');
     });
 
     it('shows evaluating StatusPill with spinner and polls until status clears', async () => {
@@ -689,6 +716,117 @@ describe('PupilsPage', () => {
         expect(wrapper.find('[data-testid="pupils-add-form"]').exists()).toBe(false);
     });
 
+    it('initializes, displays, updates, and removes assignment labels without reposting unchanged assignments', async () => {
+        const assignedStaff = [
+            {
+                id: 11,
+                name: 'Alex Teacher',
+                role: 'teacher',
+                class_label: 'Year 8 Blue',
+                cohort_label: 'Autumn intake',
+            },
+            {
+                id: 12,
+                name: 'Pat Support',
+                role: 'support_staff',
+                class_label: 'Year 8',
+                cohort_label: null,
+            },
+            {
+                id: 13,
+                name: 'Morgan Teacher',
+                role: 'teacher',
+                class_label: null,
+                cohort_label: 'Reading group',
+            },
+        ];
+        const pupil = {
+            id: 'pup_1',
+            given_name: 'Alex',
+            family_name: 'Rivera',
+            year_group: 'Year 8',
+            documentation_status: 'not-started',
+            school_id: 'sch_1',
+            send_status: 'sen_support',
+            assigned_staff: assignedStaff,
+        };
+        const { wrapper } = await mountPage('senco', [pupil]);
+
+        expect(wrapper.find('[data-testid="pupil-assignees"]').text()).toContain(
+            'Alex Teacher (Class: Year 8 Blue · Cohort: Autumn intake)',
+        );
+
+        fetchMock.mockImplementation(async (url, options = {}) => {
+            const path = String(url);
+            const method = (options.method ?? 'GET').toUpperCase();
+
+            if (path.includes('/api/v1/schools') && !path.includes('/assignable-staff')) {
+                return jsonResponse({
+                    data: [{ id: 'sch_1', name: 'Northbridge Primary', is_active: true }],
+                });
+            }
+
+            if (path.includes('/assignable-staff')) {
+                return jsonResponse({
+                    data: assignedStaff.map(({ class_label, cohort_label, ...staff }) => staff),
+                });
+            }
+
+            if (path.includes('/ontology/need-terms')) {
+                return jsonResponse({ data: [] });
+            }
+
+            if (path === '/api/v1/pupils/pup_1' && method === 'PATCH') {
+                return jsonResponse({ data: pupil });
+            }
+
+            if (path.endsWith('/assignments') && method === 'POST') {
+                return jsonResponse({ data: pupil });
+            }
+
+            if (path.endsWith('/assignments/12') && method === 'DELETE') {
+                return jsonResponse({}, 204);
+            }
+
+            return jsonResponse({});
+        });
+
+        await wrapper.find('[data-testid="pupil-edit-pup_1"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="pupil-assignee-class-11"]').element.value).toBe('Year 8 Blue');
+        expect(wrapper.find('[data-testid="pupil-assignee-cohort-11"]').element.value).toBe('Autumn intake');
+        expect(wrapper.find('[data-testid="pupil-assignee-class-13"]').element.value).toBe('');
+        expect(wrapper.find('[data-testid="pupil-assignee-cohort-13"]').element.value).toBe('Reading group');
+
+        await wrapper.find('[data-testid="pupil-assignee-class-11"]').setValue('Year 9 Green');
+        await wrapper.find('[data-testid="pupil-assignee-12"]').setValue(false);
+        await wrapper.find('[data-testid="pupils-add-form"] form').trigger('submit.prevent');
+        await flushPromises();
+
+        const assignmentPosts = fetchMock.mock.calls.filter(([url, options]) =>
+            String(url).endsWith('/assignments')
+                && String(options?.method ?? 'GET').toUpperCase() === 'POST',
+        );
+        expect(assignmentPosts).toHaveLength(1);
+        expect(JSON.parse(String(assignmentPosts[0][1].body))).toEqual({
+            user_id: 11,
+            class_label: 'Year 9 Green',
+            cohort_label: 'Autumn intake',
+        });
+
+        const assignmentDeletes = fetchMock.mock.calls.filter(([url, options]) =>
+            String(url).endsWith('/assignments/12')
+                && String(options?.method ?? 'GET').toUpperCase() === 'DELETE',
+        );
+        expect(assignmentDeletes).toHaveLength(1);
+        expect(wrapper.find('[data-testid="pupils-add-form"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="pupil-assignees"]').text()).toContain(
+            'Alex Teacher (Class: Year 9 Green · Cohort: Autumn intake)',
+        );
+        expect(wrapper.find('[data-testid="pupil-assignees"]').text()).not.toContain('Pat Support');
+    });
+
     it('deletes a Pupil via DELETE after confirm', async () => {
         const { wrapper } = await mountPage('tenant_admin', [
             {
@@ -736,6 +874,15 @@ describe('PupilsPage', () => {
         expect(deleteCall).toBeTruthy();
         expect(wrapper.text()).not.toContain('Alex Rivera');
         expect(wrapper.find('[data-testid="pupils-list"]').exists()).toBe(false);
+    });
+
+    it('keeps Tenant Admin pupil links on the working record and explains Evidence Base is elsewhere', async () => {
+        const { wrapper } = await mountPage('tenant_admin');
+
+        expect(wrapper.text()).toContain('Opening a Pupil shows the record, not the Evidence Base.');
+        expect(wrapper.find('[data-testid="pupil-row-link-pup_1"]').attributes('href')).toBe('/pupils/pup_1');
+        expect(wrapper.find('[aria-label="View Alex Rivera"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="pupil-edit-pup_1"]').exists()).toBe(true);
     });
 });
 

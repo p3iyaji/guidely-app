@@ -19,7 +19,7 @@ const sampleRecords = [
         id: 'ev_1',
         type: 'observation',
         lifecycle: 'submitted',
-        source: null,
+        source: 'capture',
         pupil_id: 'pup_1',
         author_id: 'usr_1',
         occurred_at: '2026-09-06T10:00:00+00:00',
@@ -32,6 +32,7 @@ const sampleRecords = [
         type: 'intervention',
         lifecycle: 'submitted',
         source: 'import',
+        external_id: 'MIS-EVIDENCE-42',
         pupil_id: 'pup_1',
         author_id: 'usr_2',
         occurred_at: '2026-09-05T09:00:00+00:00',
@@ -306,6 +307,7 @@ describe('EvidenceBasePage', () => {
             history: createMemoryHistory(),
             routes: [
                 { path: '/', component: { template: '<div />' } },
+                { path: '/pupils', name: 'pupils', component: { template: '<div>pupils</div>' } },
                 {
                     path: '/pupils/:id',
                     name: 'pupil-detail',
@@ -552,7 +554,10 @@ describe('EvidenceBasePage', () => {
 
         expect(fetchMock.mock.calls.some(([url]) => String(url).includes('filter=import'))).toBe(true);
         expect(wrapper.findAll('[data-testid="evidence-row"]').length).toBe(1);
-        expect(wrapper.find('[data-testid="evidence-type"]').text()).toContain('Import');
+        expect(wrapper.find('[data-testid="evidence-type"]').text()).toContain('Intervention');
+        expect(wrapper.find('[data-testid="evidence-source"]').text()).toContain('Imported');
+        expect(wrapper.find('[data-testid="evidence-external-reference"]').text())
+            .toContain('External reference: MIS-EVIDENCE-42');
 
         await wrapper.find('[data-testid="evidence-filter-review_note"]').trigger('click');
         await flushPromises();
@@ -563,6 +568,29 @@ describe('EvidenceBasePage', () => {
         expect(wrapper.find('[data-testid="evidence-body"]').text())
             .toContain('SENCO review commentary on documentation sufficiency.');
         expect(wrapper.find('[data-testid="evidence-base-capture-cta"]').exists()).toBe(false);
+    });
+
+    it('shows capture, import, and connector provenance without using external references as row identity', async () => {
+        const connectorRecord = {
+            ...sampleRecords[0],
+            id: 'ev_connector',
+            source: 'connector',
+            external_id: 'connector-ref-7',
+        };
+        const { wrapper } = await mountPage('senco', {
+            evidence: [sampleRecords[0], sampleRecords[1], connectorRecord],
+        });
+
+        const rows = wrapper.findAll('[data-testid="evidence-row"]');
+
+        expect(rows).toHaveLength(3);
+        expect(rows[0].find('[data-testid="evidence-source"]').text()).toBe('Captured in GuidelyEdu');
+        expect(rows[0].find('[data-testid="evidence-external-reference"]').exists()).toBe(false);
+        expect(rows[1].find('[data-testid="evidence-source"]').text()).toBe('Imported');
+        expect(rows[2].find('[data-testid="evidence-source"]').text()).toBe('Connector sync');
+        expect(rows[2].find('[data-testid="evidence-external-reference"]').text())
+            .toContain('connector-ref-7');
+        expect(rows[2].attributes('id')).toBe('evidence-ev_connector');
     });
 
     it('lets SENCO create a review note and hides the control for Teacher and School Leader', async () => {
@@ -654,6 +682,36 @@ describe('EvidenceBasePage', () => {
         const leader = await mountPage('school_leader');
         expect(leader.wrapper.find('[data-testid="evidence-amend-open"]').exists()).toBe(false);
         leader.wrapper.unmount();
+    });
+
+    it('shows Tenant Admin a Pupil working record without calling Evidence APIs', async () => {
+        const { wrapper } = await mountPage('tenant_admin', {
+            pupilOverride: {
+                ...pupil,
+                send_status: 'sen_support',
+                documentation_status: 'gaps',
+                next_review_at: '2026-10-15',
+                primary_need: { id: 'need_1', label: 'Communication and interaction' },
+                assigned_staff: [{ id: 'usr_2', name: 'Alex Teacher' }],
+                notes: 'Imported from MIS.',
+            },
+        });
+
+        expect(wrapper.find('[data-testid="pupil-working-record"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="evidence-base-title"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="evidence-base-filters"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="pupil-record-note"]').text()).toContain('Evidence Base');
+        expect(wrapper.find('[data-testid="pupil-record-note"]').text()).toContain('working record');
+        expect(wrapper.find('[data-testid="pupil-record-year"]').text()).toContain('Year 4');
+        expect(wrapper.find('[data-testid="pupil-record-send-status"]').text()).toContain('SEN Support');
+        expect(wrapper.find('[data-testid="pupil-record-primary-need"]').text())
+            .toContain('Communication and interaction');
+        expect(wrapper.find('[data-testid="pupil-record-assignees"]').text()).toContain('Alex Teacher');
+        expect(wrapper.find('[data-testid="pupil-record-notes"]').text()).toContain('Imported from MIS.');
+        expect(wrapper.find('[data-testid="pupil-record-back"]').attributes('href')).toBe('/pupils');
+        expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/evidence'))).toBe(false);
+        expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/determinations'))).toBe(false);
+        expect(wrapper.text()).not.toContain('You don’t have access');
     });
 
     it('opens amend form with previous versions and saves a correction', async () => {

@@ -43,18 +43,74 @@
                         <h2 class="text-body font-semibold text-text">Needs attention</h2>
                         <p class="mt-0.5 text-meta text-text-muted">Priority work across your scope</p>
                     </div>
-                    <span class="rounded-full bg-primary-soft px-2.5 py-1 text-meta font-semibold text-primary">
-                        Live data pending
+                    <span
+                        v-if="actionItems.length > 0"
+                        class="rounded-full bg-primary-soft px-2.5 py-1 text-meta font-semibold text-primary"
+                        data-testid="action-item-count"
+                    >
+                        {{ actionItems.length }} {{ actionItems.length === 1 ? 'item' : 'items' }}
                     </span>
                 </header>
-                <div class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center">
+                <div
+                    v-if="loadError"
+                    class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center"
+                    data-testid="action-items-unavailable"
+                >
+                    <span class="grid size-11 place-items-center rounded-full bg-danger-soft text-danger">
+                        <AppIcon name="alerts" class="size-5" />
+                    </span>
+                    <h3 class="mt-4 text-body font-semibold text-text">Action queue unavailable</h3>
+                    <p class="mt-2 max-w-md text-body text-text-muted">
+                        Try again later or use the quick actions to continue your work.
+                    </p>
+                </div>
+                <nav
+                    v-else-if="actionItems.length > 0"
+                    class="divide-y divide-border"
+                    aria-label="Needs attention"
+                    data-testid="action-items"
+                >
+                    <a
+                        v-for="item in actionItems"
+                        :key="`${item.type}:${item.id}`"
+                        :href="item.href"
+                        class="group flex min-h-18 items-center gap-3 px-5 py-3 hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-inset focus:ring-focus-ring"
+                        data-testid="action-item"
+                    >
+                        <span
+                            class="grid size-9 shrink-0 place-items-center rounded-md bg-primary-soft text-primary"
+                        >
+                            <AppIcon :name="actionItemIcon(item.type)" class="size-4.5" />
+                        </span>
+                        <span class="min-w-0 flex-1">
+                            <span
+                                class="block text-body font-semibold text-text group-hover:text-primary"
+                                data-testid="action-item-title"
+                            >
+                                {{ item.title }}
+                            </span>
+                            <span class="block text-meta text-text-muted">{{ item.detail }}</span>
+                        </span>
+                        <span
+                            class="rounded-full px-2.5 py-1 text-label font-semibold"
+                            :class="actionPriorityClass(item.priority)"
+                        >
+                            {{ actionPriorityLabel(item.priority) }}
+                        </span>
+                        <span class="text-text-muted" aria-hidden="true">›</span>
+                    </a>
+                </nav>
+                <div
+                    v-else
+                    class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center"
+                    data-testid="action-items-empty"
+                >
                     <span class="grid size-11 place-items-center rounded-full bg-primary-soft text-primary">
                         <AppIcon name="alerts" class="size-5" />
                     </span>
-                    <h3 class="mt-4 text-body font-semibold text-text">Your action queue will appear here</h3>
+                    <h3 class="mt-4 text-body font-semibold text-text">Nothing needs attention right now</h3>
                     <p class="mt-2 max-w-md text-body text-text-muted">
-                        Open gaps, overdue reviews, and drafts will be prioritised here once dashboard
-                        summaries are connected.
+                        You’re all caught up across the pupils and work currently in your scope.
                     </p>
                 </div>
             </section>
@@ -151,8 +207,10 @@ const summary = ref({
     reviewCyclesDue: null,
     drafts: null,
     windowDays: 30,
+    actionItems: [],
 });
 const loadError = ref('');
+const actionItems = computed(() => summary.value.actionItems);
 
 const kpis = computed(() => [
     { label: 'Pupils in scope', value: summary.value.pupilsInScope, icon: 'pupils', detail: 'Current active pupils' },
@@ -198,9 +256,9 @@ const actionSets = {
         { label: 'Open alerts', detail: 'Prioritise compliance alerts', to: '/alerts', icon: 'alerts' },
     ],
     tenant_admin: [
+        { label: 'Open pupils', detail: 'Review and manage pupil records', to: '/pupils', icon: 'pupils' },
         { label: 'Manage users', detail: 'Provision staff and access', to: '/users', icon: 'users' },
         { label: 'Manage schools', detail: 'Update tenant schools', to: '/schools', icon: 'schools' },
-        { label: 'Review connectors', detail: 'Check MIS integrations', to: '/connectors', icon: 'integrations' },
     ],
     platform_operator: [
         { label: 'Open pilot toolkit', detail: 'Manage pilot onboarding', to: '/pilot-toolkit', icon: 'configuration' },
@@ -233,6 +291,55 @@ function reviewWindowOrDefault(value) {
     return [7, 30, 90].includes(value) ? value : 30;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {Array<{type: string, id: string, title: string, detail: string, href: string, priority: string, date: string|null}>}
+ */
+function validActionItems(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    const types = new Set(['review_cycle', 'gap', 'draft']);
+    const priorities = new Set(['overdue', 'due', 'gap', 'draft']);
+
+    return value.filter((item) => (
+        item
+        && typeof item === 'object'
+        && types.has(item.type)
+        && typeof item.id === 'string'
+        && typeof item.title === 'string'
+        && typeof item.detail === 'string'
+        && typeof item.href === 'string'
+        && item.href.startsWith('/')
+        && priorities.has(item.priority)
+        && (item.date === null || typeof item.date === 'string')
+    )).slice(0, 6);
+}
+
+function actionItemIcon(type) {
+    return {
+        review_cycle: 'reviews',
+        gap: 'gaps',
+        draft: 'drafts',
+    }[type] ?? 'alerts';
+}
+
+function actionPriorityLabel(priority) {
+    return {
+        overdue: 'Overdue',
+        due: 'Due',
+        gap: 'Gap',
+        draft: 'Draft',
+    }[priority] ?? 'Action';
+}
+
+function actionPriorityClass(priority) {
+    return priority === 'overdue'
+        ? 'bg-danger-soft text-danger'
+        : 'bg-primary-soft text-primary';
+}
+
 async function loadSummary() {
     loadError.value = '';
 
@@ -255,6 +362,7 @@ async function loadSummary() {
             reviewCyclesDue: countOrNull(data.review_cycles_due),
             drafts: serverDrafts,
             windowDays: reviewWindowOrDefault(data.window_days),
+            actionItems: validActionItems(data.action_items),
         };
 
         if (serverDrafts === null) {

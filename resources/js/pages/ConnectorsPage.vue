@@ -118,6 +118,57 @@
                 </ButtonPrimary>
             </form>
 
+            <Card
+                v-if="loaded"
+                class="mt-8"
+                data-testid="connector-health"
+            >
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-body font-semibold text-text">Connector health</h2>
+                        <p class="mt-1 text-meta text-text-muted" data-testid="connector-health-state">
+                            {{ healthState }}
+                        </p>
+                    </div>
+                    <ButtonOutline
+                        type="button"
+                        :disabled="refreshingHealth"
+                        data-testid="connector-health-refresh"
+                        @click="refreshHealth"
+                    >
+                        {{ refreshingHealth ? 'Refreshing…' : 'Refresh health' }}
+                    </ButtonOutline>
+                </div>
+                <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Last completed sync</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="connector-last-completed">
+                            {{ formatHealthDate(health.lastCompletedAt, 'Never completed') }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Last failed sync</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="connector-last-failed">
+                            {{ formatHealthDate(health.lastFailedAt, 'Never failed') }}
+                        </dd>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Last error or warning</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="connector-last-error">
+                            {{ health.lastError || 'None' }}
+                        </dd>
+                    </div>
+                </dl>
+                <p
+                    v-if="healthRefreshError"
+                    class="mt-4 text-body text-danger"
+                    data-testid="connector-health-refresh-error"
+                    role="alert"
+                >
+                    {{ healthRefreshError }}
+                </p>
+            </Card>
+
             <form
                 v-if="loaded"
                 class="mt-8 space-y-4"
@@ -210,7 +261,7 @@
                     :disabled="syncing || !form.enabled"
                     data-testid="connector-sync-submit"
                 >
-                    {{ syncing ? 'Syncing…' : 'Run sync' }}
+                    {{ syncing ? 'Queueing…' : 'Run sync' }}
                 </ButtonPrimary>
             </form>
         </template>
@@ -220,6 +271,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
 import { apiFetch } from '../api/client';
+import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import Card from '../shared/ui/Card.vue';
 import FeatureFlaggedEmpty from '../shared/ui/FeatureFlaggedEmpty.vue';
@@ -243,8 +295,17 @@ const saving = ref(false);
 const syncError = ref('');
 const syncSuccess = ref('');
 const syncing = ref(false);
+const refreshingHealth = ref(false);
+const healthRefreshError = ref('');
+const healthState = ref('Never synced');
 const hasSecret = ref(false);
 const schools = ref([]);
+const health = reactive({
+    lastStartedAt: null,
+    lastCompletedAt: null,
+    lastFailedAt: null,
+    lastError: '',
+});
 
 const form = reactive({
     enabled: false,
@@ -288,6 +349,7 @@ function applyConnector(payload) {
     form.enabled = payload?.enabled === true;
     form.secret = '';
     hasSecret.value = payload?.has_secret === true;
+    applyHealth(payload);
 
     const shares = payload?.field_shares ?? [];
     const next = {};
@@ -308,6 +370,49 @@ function applyConnector(payload) {
     }
 
     form.fieldShares = next;
+}
+
+function applyHealth(payload) {
+    health.lastStartedAt = payload?.last_sync_started_at ?? null;
+    health.lastCompletedAt = payload?.last_sync_completed_at ?? null;
+    health.lastFailedAt = payload?.last_sync_failed_at ?? null;
+    health.lastError = payload?.last_error ?? '';
+
+    const started = Date.parse(health.lastStartedAt ?? '');
+    const completed = Date.parse(health.lastCompletedAt ?? '');
+    const failed = Date.parse(health.lastFailedAt ?? '');
+    const startedTime = Number.isNaN(started) ? 0 : started;
+    const completedTime = Number.isNaN(completed) ? 0 : completed;
+    const failedTime = Number.isNaN(failed) ? 0 : failed;
+    const latestFinished = Math.max(completedTime, failedTime);
+
+    if (startedTime > latestFinished) {
+        healthState.value = 'Sync in progress';
+    } else if (latestFinished === 0) {
+        healthState.value = 'Never synced';
+    } else if (completedTime >= failedTime) {
+        healthState.value = health.lastError ? 'Last sync completed with warnings' : 'Last sync completed';
+    } else {
+        healthState.value = 'Last sync failed';
+    }
+}
+
+function formatHealthDate(value, fallback) {
+    if (!value) {
+        return fallback;
+    }
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return fallback;
+    }
+
+    return parsed.toLocaleString('en-GB', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'Europe/London',
+    });
 }
 
 onMounted(async () => {
@@ -395,6 +500,27 @@ async function save() {
         saveError.value = 'Unable to save Connector settings.';
     } finally {
         saving.value = false;
+    }
+}
+
+async function refreshHealth() {
+    refreshingHealth.value = true;
+    healthRefreshError.value = '';
+
+    try {
+        const response = await apiFetch('/api/v1/connectors');
+
+        if (!response.ok) {
+            healthRefreshError.value = 'Unable to refresh Connector health.';
+            return;
+        }
+
+        const payload = await response.json();
+        applyHealth(payload.data);
+    } catch {
+        healthRefreshError.value = 'Unable to refresh Connector health.';
+    } finally {
+        refreshingHealth.value = false;
     }
 }
 

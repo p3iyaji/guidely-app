@@ -10,6 +10,7 @@ use App\Domain\Pupils\Pupil;
 use App\Domain\Reporting\ComplianceAlert;
 use App\Domain\Reporting\ComplianceAlertMetric;
 use App\Domain\Reporting\ComplianceAlertScope;
+use App\Domain\Reporting\ComplianceAlertThreshold;
 use App\Domain\Reviews\ReviewCycle;
 use App\Domain\Tenancy\FeatureFlagKey;
 use App\Domain\Tenancy\School;
@@ -298,6 +299,76 @@ class ComplianceAlertTest extends TestCase
                 'code' => 'feature_not_available',
                 'feature' => 'compliance_alerts',
             ]);
+    }
+
+    public function test_tenant_admin_can_save_and_list_only_their_trust_thresholds(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $otherTenant = Tenant::factory()->create();
+        $this->enableComplianceAlerts($tenant);
+        $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+        $foreignThreshold = ComplianceAlertThreshold::factory()
+            ->forTenant($otherTenant)
+            ->forMetric(ComplianceAlertMetric::LatenessRate)
+            ->create();
+
+        $this->actingAs($admin)
+            ->patchJson('/api/v1/compliance-alert-thresholds', [
+                'school_id' => null,
+                'metric' => ComplianceAlertMetric::GapDensity->value,
+                'threshold' => 0.4,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.school_id', null)
+            ->assertJsonPath('data.metric', ComplianceAlertMetric::GapDensity->value)
+            ->assertJsonPath('data.threshold', 0.4);
+
+        $this->assertDatabaseHas('compliance_alert_thresholds', [
+            'tenant_id' => $tenant->id,
+            'school_id' => null,
+            'metric' => ComplianceAlertMetric::GapDensity->value,
+            'threshold' => 0.4,
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson('/api/v1/compliance-alert-thresholds')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.metric', ComplianceAlertMetric::GapDensity->value)
+            ->assertJsonMissing(['id' => $foreignThreshold->id]);
+    }
+
+    public function test_non_admin_alert_viewer_cannot_list_thresholds(): void
+    {
+        [$tenant, $oak] = $this->twoActiveSchools();
+        $this->enableComplianceAlerts($tenant);
+        $senco = $this->sencoFor($oak);
+
+        $this->actingAs($senco)
+            ->getJson('/api/v1/compliance-alert-thresholds')
+            ->assertForbidden();
+    }
+
+    public function test_tenant_admin_cannot_save_a_threshold_for_another_tenants_school(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $otherTenant = Tenant::factory()->create();
+        $foreignSchool = School::factory()->forTenant($otherTenant)->create();
+        $this->enableComplianceAlerts($tenant);
+        $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
+
+        $this->actingAs($admin)
+            ->patchJson('/api/v1/compliance-alert-thresholds', [
+                'school_id' => $foreignSchool->id,
+                'metric' => ComplianceAlertMetric::GapDensity->value,
+                'threshold' => 0.4,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('school_id');
+
+        $this->assertDatabaseMissing('compliance_alert_thresholds', [
+            'school_id' => $foreignSchool->id,
+        ]);
     }
 
     /**

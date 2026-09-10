@@ -2,15 +2,15 @@
     <div data-testid="permissions-page">
         <PageHero
             eyebrow="Access"
-            title="Permissions"
-            description="Built-in Permissions describe product capabilities. Edit labels and grouping, or create custom Permissions for this Tenant and assign them to Roles. Built-in keys cannot be changed."
+            title="Permission catalogue"
+            description="These entries and their Role catalogue mappings document proposed access designs only. They never grant product access; access is enforced from the built-in Role selected on Users. Built-in keys cannot be changed."
         >
             <template v-if="canManage && !loading && !loadError" #action>
                 <ButtonPrimary
                     data-testid="permissions-add-open"
                     @click="openCreateForm"
                 >
-                    Add Permission
+                    Add catalogue permission
                 </ButtonPrimary>
             </template>
         </PageHero>
@@ -42,13 +42,13 @@
                 v-if="permissions.length === 0"
                 test-id="permissions-empty"
             >
-                No Permissions in this Tenant.
+                No Permission catalogue entries in this Tenant.
                 <template v-if="canManage" #actions>
                     <ButtonPrimary
                         data-testid="permissions-add-cta"
                         @click="openCreateForm"
                     >
-                        Add Permission
+                        Add catalogue permission
                     </ButtonPrimary>
                 </template>
             </EmptyState>
@@ -57,7 +57,7 @@
                 v-else-if="permissions.length > 0 && filteredPermissions.length === 0"
                 test-id="permissions-search-empty"
             >
-                No Permissions match your search.
+                No Permission catalogue entries match your search.
             </EmptyState>
 
             <DataTable
@@ -66,7 +66,7 @@
             >
                 <template #head>
                     <tr>
-                        <th class="px-4 py-3" scope="col">Permission</th>
+                        <th class="px-4 py-3" scope="col">Catalogue permission</th>
                         <th class="px-4 py-3" scope="col">Key</th>
                         <th class="px-4 py-3" scope="col">Kind</th>
                         <th class="px-4 py-3" scope="col"><span class="sr-only">Actions</span></th>
@@ -112,11 +112,14 @@
 
         <Modal
             :open="canManage && (formMode === 'create' || formMode === 'edit')"
-            :title="formMode === 'edit' ? 'Edit Permission' : 'Add Permission'"
+            :title="formMode === 'edit' ? 'Edit catalogue permission' : 'Add catalogue permission'"
             :close-disabled="saving"
             data-testid="permissions-form"
             @close="closeForm"
         >
+            <p class="mb-4 text-body text-text-muted" data-testid="permissions-catalogue-notice">
+                Catalogue permissions are documentation only. Creating or editing one never grants product access.
+            </p>
             <form class="space-y-4" @submit.prevent="submitPermissionForm">
                 <div>
                     <label class="block text-body text-text" for="permission-key">Key</label>
@@ -189,7 +192,7 @@
                         :disabled="saving"
                         data-testid="permissions-form-submit"
                     >
-                        {{ saving ? 'Saving…' : (formMode === 'create' ? 'Save Permission' : 'Save changes') }}
+                        {{ saving ? 'Saving…' : (formMode === 'create' ? 'Save catalogue permission' : 'Save changes') }}
                     </ButtonPrimary>
                     <ButtonSecondary
                         :disabled="saving"
@@ -204,13 +207,13 @@
 
         <Modal
             :open="canManage && formMode === 'delete' && selectedPermission !== null"
-            title="Delete Permission"
+            title="Delete catalogue permission"
             :close-disabled="saving"
             data-testid="permissions-delete-confirm"
             @close="closeForm"
         >
             <p class="text-body text-text">
-                Delete {{ selectedPermission?.label }}? This cannot be undone from this screen.
+                Delete the catalogue entry {{ selectedPermission?.label }}? This removes catalogue metadata only and does not change product access.
             </p>
             <p
                 v-if="formError"
@@ -413,7 +416,7 @@ async function loadPermissions() {
         }
 
         if (!response.ok) {
-            loadError.value = 'Unable to load Permissions.';
+            loadError.value = 'Unable to load the Permission catalogue.';
             permissions.value = [];
 
             return;
@@ -423,7 +426,7 @@ async function loadPermissions() {
         const rows = Array.isArray(payload.data) ? payload.data : [];
         permissions.value = rows.filter(isRecord);
     } catch {
-        loadError.value = 'Unable to load Permissions.';
+        loadError.value = 'Unable to load the Permission catalogue.';
         permissions.value = [];
     } finally {
         loading.value = false;
@@ -461,7 +464,9 @@ async function submitPermissionForm() {
             }
 
             formError.value = payload.message
-                ?? (isCreate ? 'Unable to create Permission.' : 'Unable to update Permission.');
+                ?? (isCreate
+                    ? 'Unable to create the catalogue permission.'
+                    : 'Unable to update the catalogue permission.');
 
             return;
         }
@@ -481,7 +486,9 @@ async function submitPermissionForm() {
         searchQuery.value = '';
         closeForm();
     } catch {
-        formError.value = isCreate ? 'Unable to create Permission.' : 'Unable to update Permission.';
+        formError.value = isCreate
+            ? 'Unable to create the catalogue permission.'
+            : 'Unable to update the catalogue permission.';
     } finally {
         saving.value = false;
     }
@@ -500,7 +507,7 @@ async function submitDelete() {
 
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
-            formError.value = payload.message ?? 'Unable to delete Permission.';
+            formError.value = payload.message ?? 'Unable to delete the catalogue permission.';
 
             return;
         }
@@ -508,7 +515,7 @@ async function submitDelete() {
         permissions.value = permissions.value.filter((row) => row.id !== permissionId);
         closeForm();
     } catch {
-        formError.value = 'Unable to delete Permission.';
+        formError.value = 'Unable to delete the catalogue permission.';
     } finally {
         saving.value = false;
     }

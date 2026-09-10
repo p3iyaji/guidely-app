@@ -2,15 +2,15 @@
     <div data-testid="roles-page">
         <PageHero
             eyebrow="Access"
-            title="Roles"
-            description="Built-in Roles define product access. Edit labels and Permission assignments, or create custom Roles for this Tenant. Custom Roles are not yet assignable on Users. Built-in keys cannot be changed."
+            title="Role catalogue"
+            description="Built-in entries correspond to product Roles. Custom entries and all Permission mappings document proposed access designs only: they cannot be assigned and never grant product access. Access is enforced from the built-in Role selected on Users. Built-in keys cannot be changed."
         >
             <template v-if="canManage && !loading && !loadError" #action>
                 <ButtonPrimary
                     data-testid="roles-add-open"
                     @click="openCreateForm"
                 >
-                    Add Role
+                    Add catalogue role
                 </ButtonPrimary>
             </template>
         </PageHero>
@@ -42,13 +42,13 @@
                 v-if="roles.length === 0"
                 test-id="roles-empty"
             >
-                No Roles in this Tenant.
+                No Role catalogue entries in this Tenant.
                 <template v-if="canManage" #actions>
                     <ButtonPrimary
                         data-testid="roles-add-cta"
                         @click="openCreateForm"
                     >
-                        Add Role
+                        Add catalogue role
                     </ButtonPrimary>
                 </template>
             </EmptyState>
@@ -57,7 +57,7 @@
                 v-else-if="roles.length > 0 && filteredRoles.length === 0"
                 test-id="roles-search-empty"
             >
-                No Roles match your search.
+                No Role catalogue entries match your search.
             </EmptyState>
 
             <DataTable
@@ -66,10 +66,10 @@
             >
                 <template #head>
                     <tr>
-                        <th class="px-4 py-3" scope="col">Role</th>
+                        <th class="px-4 py-3" scope="col">Catalogue role</th>
                         <th class="px-4 py-3" scope="col">Key</th>
                         <th class="px-4 py-3" scope="col">Kind</th>
-                        <th class="hidden px-4 py-3 lg:table-cell" scope="col">Permissions</th>
+                        <th class="hidden px-4 py-3 lg:table-cell" scope="col">Documented permissions</th>
                         <th class="px-4 py-3" scope="col"><span class="sr-only">Actions</span></th>
                     </tr>
                 </template>
@@ -86,7 +86,7 @@
                         {{ role.key }}
                     </td>
                     <td class="px-4 py-3 text-text-muted" data-testid="role-kind">
-                        {{ role.is_system ? 'Built-in' : 'Custom' }}
+                        {{ role.is_system ? 'Built-in' : 'Custom · not assignable' }}
                     </td>
                     <td class="hidden px-4 py-3 text-meta text-text-muted lg:table-cell" data-testid="role-permissions">
                         {{ permissionSummary(role) || '—' }}
@@ -114,11 +114,14 @@
 
         <Modal
             :open="canManage && (formMode === 'create' || formMode === 'edit')"
-            :title="formMode === 'edit' ? 'Edit Role' : 'Add Role'"
+            :title="formMode === 'edit' ? 'Edit catalogue role' : 'Add catalogue role'"
             :close-disabled="saving"
             data-testid="roles-form"
             @close="closeForm"
         >
+            <p class="mb-4 text-body text-text-muted" data-testid="roles-catalogue-notice">
+                Catalogue entries and Permission mappings are documentation only. They do not change product access, and custom roles cannot be assigned to Users.
+            </p>
             <form class="space-y-4" @submit.prevent="submitRoleForm">
                 <div>
                     <label class="block text-body text-text" for="role-key">Key</label>
@@ -168,7 +171,7 @@
                     />
                 </div>
                 <fieldset>
-                    <legend class="text-body text-text">Permissions</legend>
+                    <legend class="text-body text-text">Documented Permission mappings</legend>
                     <div class="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-md border border-border p-3">
                         <label
                             v-for="permission in permissions"
@@ -202,7 +205,7 @@
                         :disabled="saving"
                         data-testid="roles-form-submit"
                     >
-                        {{ saving ? 'Saving…' : (formMode === 'create' ? 'Save Role' : 'Save changes') }}
+                        {{ saving ? 'Saving…' : (formMode === 'create' ? 'Save catalogue role' : 'Save changes') }}
                     </ButtonPrimary>
                     <ButtonSecondary
                         :disabled="saving"
@@ -217,13 +220,13 @@
 
         <Modal
             :open="canManage && formMode === 'delete' && selectedRole !== null"
-            title="Delete Role"
+            title="Delete catalogue role"
             :close-disabled="saving"
             data-testid="roles-delete-confirm"
             @close="closeForm"
         >
             <p class="text-body text-text">
-                Delete {{ selectedRole?.label }}? This cannot be undone from this screen.
+                Delete the catalogue entry {{ selectedRole?.label }}? This removes catalogue metadata only and does not change product access.
             </p>
             <p
                 v-if="formError"
@@ -447,7 +450,7 @@ async function loadPage() {
         }
 
         if (!rolesResponse.ok || !permissionsResponse.ok) {
-            loadError.value = 'Unable to load Roles.';
+            loadError.value = 'Unable to load the Role catalogue.';
             roles.value = [];
             permissions.value = [];
 
@@ -462,7 +465,7 @@ async function loadPage() {
         roles.value = roleRows.filter(isRecord);
         permissions.value = permissionRows.filter(isRecord);
     } catch {
-        loadError.value = 'Unable to load Roles.';
+        loadError.value = 'Unable to load the Role catalogue.';
         roles.value = [];
         permissions.value = [];
     } finally {
@@ -500,7 +503,8 @@ async function submitRoleForm() {
                 applyFieldErrors(payload);
             }
 
-            formError.value = payload.message ?? (isCreate ? 'Unable to create Role.' : 'Unable to update Role.');
+            formError.value = payload.message
+                ?? (isCreate ? 'Unable to create the catalogue role.' : 'Unable to update the catalogue role.');
 
             return;
         }
@@ -520,7 +524,9 @@ async function submitRoleForm() {
         searchQuery.value = '';
         closeForm();
     } catch {
-        formError.value = isCreate ? 'Unable to create Role.' : 'Unable to update Role.';
+        formError.value = isCreate
+            ? 'Unable to create the catalogue role.'
+            : 'Unable to update the catalogue role.';
     } finally {
         saving.value = false;
     }
@@ -539,7 +545,7 @@ async function submitDelete() {
 
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
-            formError.value = payload.message ?? 'Unable to delete Role.';
+            formError.value = payload.message ?? 'Unable to delete the catalogue role.';
 
             return;
         }
@@ -547,7 +553,7 @@ async function submitDelete() {
         roles.value = roles.value.filter((row) => row.id !== roleId);
         closeForm();
     } catch {
-        formError.value = 'Unable to delete Role.';
+        formError.value = 'Unable to delete the catalogue role.';
     } finally {
         saving.value = false;
     }

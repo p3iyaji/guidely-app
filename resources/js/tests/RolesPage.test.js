@@ -87,14 +87,16 @@ describe('RolesPage', () => {
         return wrapper;
     }
 
-    it('lists built-in and custom Roles for Tenant Admin', async () => {
+    it('labels built-in and custom entries as a non-authoritative Role catalogue', async () => {
         const wrapper = await mountPage();
 
         expect(wrapper.find('[data-testid="roles-page"]').exists()).toBe(true);
-        expect(wrapper.find('h1').text()).toBe('Roles');
+        expect(wrapper.find('h1').text()).toBe('Role catalogue');
         expect(wrapper.findAll('[data-testid="role-row"]').length).toBe(2);
         expect(wrapper.text()).toContain('Teacher');
         expect(wrapper.text()).toContain('Year Lead');
+        expect(wrapper.text()).toContain('Custom · not assignable');
+        expect(wrapper.text()).toContain('never grant product access');
         expect(wrapper.find('[data-testid="role-edit-role_teacher"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="role-edit-role_custom"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="role-delete-role_teacher"]').exists()).toBe(true);
@@ -145,6 +147,11 @@ describe('RolesPage', () => {
 
         await wrapper.find('[data-testid="roles-add-open"]').trigger('click');
         await flushPromises();
+
+        expect(wrapper.find('[data-testid="roles-catalogue-notice"]').text()).toContain(
+            'custom roles cannot be assigned to Users',
+        );
+
         await wrapper.find('[data-testid="role-key-input"]').setValue('phase_lead');
         await wrapper.find('[data-testid="role-label-input"]').setValue('Phase Lead');
         await wrapper.find('[data-testid="role-permission-perm_1"]').setValue(true);

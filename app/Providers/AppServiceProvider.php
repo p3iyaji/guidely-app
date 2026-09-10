@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Audit\AuditEvent;
 use App\Domain\Connectors\Connector;
 use App\Domain\Connectors\ConnectorAdapterRegistry;
 use App\Domain\Connectors\PilotStubAdapter;
@@ -25,6 +26,7 @@ use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use App\Policies\AccessPermissionPolicy;
 use App\Policies\AccessRolePolicy;
+use App\Policies\AuditEventPolicy;
 use App\Policies\ComplianceAlertPolicy;
 use App\Policies\ConnectorPolicy;
 use App\Policies\DashboardSummaryPolicy;
@@ -67,6 +69,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(AuditEvent::class, AuditEventPolicy::class);
         Gate::policy(AccessRole::class, AccessRolePolicy::class);
         Gate::policy(AccessPermission::class, AccessPermissionPolicy::class);
         Gate::policy(Connector::class, ConnectorPolicy::class);
@@ -87,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ComplianceAlert::class, ComplianceAlertPolicy::class);
 
         Gate::define('create-pilot-tenant', fn (User $user): bool => $user->isPlatformOperator() && ! $user->isDeactivated());
+        Gate::define('manage-tenant-libraries', fn (User $user): bool => $user->isPlatformOperator() && ! $user->isDeactivated());
         Gate::define('view-pilot-toolkit', fn (User $user): bool => $user->isActiveTenantStaff() && $user->isTenantAdmin());
         Gate::define('import-pupils', function (User $user): bool {
             if (! $user->isActiveTenantStaff()) {

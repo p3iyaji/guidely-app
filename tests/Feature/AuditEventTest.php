@@ -81,11 +81,11 @@ class AuditEventTest extends TestCase
             ->patchJson('/api/v1/audit-events/'.$this->seedAuditEvent()->id, [
                 'event_type' => 'purged',
             ])
-            ->assertNotFound();
+            ->assertMethodNotAllowed();
 
         $this->actingAs($this->tenantAdmin())
             ->deleteJson('/api/v1/audit-events/'.$this->seedAuditEvent()->id)
-            ->assertNotFound();
+            ->assertMethodNotAllowed();
     }
 
     public function test_user_create_update_deactivate_and_password_reset_emit_audit_events(): void

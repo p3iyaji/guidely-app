@@ -69,14 +69,15 @@ describe('PermissionsPage', () => {
         return wrapper;
     }
 
-    it('lists built-in and custom Permissions for Tenant Admin', async () => {
+    it('labels entries as a non-authoritative Permission catalogue', async () => {
         const wrapper = await mountPage();
 
         expect(wrapper.find('[data-testid="permissions-page"]').exists()).toBe(true);
-        expect(wrapper.find('h1').text()).toBe('Permissions');
+        expect(wrapper.find('h1').text()).toBe('Permission catalogue');
         expect(wrapper.findAll('[data-testid="permission-row"]').length).toBe(2);
         expect(wrapper.text()).toContain('Manage Users');
         expect(wrapper.text()).toContain('Approve referrals');
+        expect(wrapper.text()).toContain('never grant product access');
         expect(wrapper.find('[data-testid="permission-edit-perm_1"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="permission-edit-perm_2"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="permission-delete-perm_1"]').exists()).toBe(true);
@@ -121,6 +122,11 @@ describe('PermissionsPage', () => {
 
         await wrapper.find('[data-testid="permissions-add-open"]').trigger('click');
         await flushPromises();
+
+        expect(wrapper.find('[data-testid="permissions-catalogue-notice"]').text()).toContain(
+            'never grants product access',
+        );
+
         await wrapper.find('[data-testid="permission-key-input"]').setValue('sign_ehcp');
         await wrapper.find('[data-testid="permission-label-input"]').setValue('Sign EHCP');
         await wrapper.find('[data-testid="permissions-form"] form').trigger('submit.prevent');

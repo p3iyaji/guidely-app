@@ -427,14 +427,14 @@ class ObservationTest extends TestCase
         $this->assertNotContains('FOREIGN', $codes);
     }
 
-    public function test_tenant_admin_cannot_list_setting_terms(): void
+    public function test_tenant_admin_can_list_setting_terms_for_the_read_only_catalogue(): void
     {
         $tenant = Tenant::factory()->create();
         $admin = User::factory()->forTenant($tenant)->tenantAdmin()->create();
 
         $response = $this->actingAs($admin)->getJson('/api/v1/ontology/setting-terms');
 
-        $this->assertForbidden($response);
+        $response->assertOk();
     }
 
     private function assertForbidden($response): void

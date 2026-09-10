@@ -22,6 +22,7 @@ class DashboardSummaryResource extends JsonResource
             'review_cycles_due' => $this->reviewCyclesDue,
             'drafts' => $this->drafts,
             'window_days' => $this->windowDays,
+            'action_items' => $this->actionItems,
         ];
     }
 }

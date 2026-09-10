@@ -231,7 +231,11 @@ class AccessPermissionTest extends TestCase
         $response = $this->actingAs($admin)->deleteJson('/api/v1/permissions/'.$permission->id);
 
         $response->assertConflict()
-            ->assertJsonPath('code', AccessPermissionController::IN_USE_CODE);
+            ->assertJsonPath('code', AccessPermissionController::IN_USE_CODE)
+            ->assertJsonPath(
+                'message',
+                'This Permission is linked to a role catalogue entry and cannot be deleted.',
+            );
 
         $this->assertDatabaseHas('access_permissions', ['id' => $permission->id]);
     }

@@ -22,19 +22,37 @@
 
         <div class="ml-auto flex min-w-0 items-center justify-end gap-3 sm:gap-4">
             <form
-                v-if="canSearchReviewCycles"
-                class="relative hidden w-56 lg:block xl:w-72"
-                data-testid="search-stub"
+                v-if="searchScopes.length > 0"
+                class="hidden items-center gap-2 lg:flex"
+                data-testid="shell-search"
                 @submit.prevent="onSearch"
             >
+                <label v-if="searchScopes.length > 1" class="sr-only" for="shell-search-scope">
+                    Search scope
+                </label>
+                <select
+                    v-if="searchScopes.length > 1"
+                    id="shell-search-scope"
+                    v-model="selectedScopeKey"
+                    class="w-32 rounded-md border border-border bg-surface-muted px-2 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                    data-testid="shell-search-scope"
+                >
+                    <option
+                        v-for="scope in searchScopes"
+                        :key="scope.key"
+                        :value="scope.key"
+                    >
+                        {{ scope.label }}
+                    </option>
+                </select>
                 <label class="sr-only" for="shell-search">Search</label>
                 <input
                     id="shell-search"
                     v-model="searchQuery"
                     type="search"
-                    placeholder="Search Review Cycles"
-                    class="w-full rounded-md border border-border bg-surface-muted px-3 py-2 text-body text-text placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                    title="Search is limited to Review Cycles within your scope"
+                    :placeholder="selectedScope?.placeholder ?? 'Search'"
+                    class="w-56 rounded-md border border-border bg-surface-muted px-3 py-2 text-body text-text placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-focus-ring xl:w-72"
+                    :title="`Search is limited to ${selectedScope?.label ?? 'records'} within your scope`"
                 >
             </form>
 
@@ -98,7 +116,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import AppIcon from './AppIcon.vue';
 
@@ -119,9 +137,9 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
-    canSearchReviewCycles: {
-        type: Boolean,
-        default: false,
+    searchScopes: {
+        type: Array,
+        default: () => [],
     },
     pageTitle: {
         type: String,
@@ -142,8 +160,24 @@ const emit = defineEmits(['toggle-nav', 'sign-out']);
 const router = useRouter();
 const accountMenuOpen = ref(false);
 const searchQuery = ref('');
+const selectedScopeKey = ref(props.searchScopes[0]?.key ?? '');
 /** @type {import('vue').Ref<HTMLElement|null>} */
 const accountMenuRoot = ref(null);
+
+const selectedScope = computed(() =>
+    props.searchScopes.find((scope) => scope.key === selectedScopeKey.value)
+        ?? props.searchScopes[0]
+        ?? null,
+);
+
+watch(
+    () => props.searchScopes,
+    (scopes) => {
+        if (!scopes.some((scope) => scope.key === selectedScopeKey.value)) {
+            selectedScopeKey.value = scopes[0]?.key ?? '';
+        }
+    },
+);
 
 const initials = computed(() => {
     const parts = props.userName.trim().split(/\s+/).filter(Boolean);
@@ -165,10 +199,14 @@ function onSignOut() {
 }
 
 function onSearch() {
+    if (!selectedScope.value) {
+        return;
+    }
+
     const q = searchQuery.value.trim();
 
     router.push({
-        path: '/review-cycles',
+        path: selectedScope.value.to,
         query: q === '' ? {} : { q },
     });
 }

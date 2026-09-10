@@ -2,9 +2,12 @@
 
 namespace App\Domain\Audit;
 
+use App\Domain\Tenancy\CurrentTenant;
 use App\Domain\Tenancy\Tenant;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -61,5 +64,25 @@ class AuditEvent extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    #[Scope]
+    protected function forCurrentTenant(Builder $query): Builder
+    {
+        return $query->where(
+            $query->qualifyColumn('tenant_id'),
+            CurrentTenant::id(),
+        );
+    }
+
+    /**
+     * Scope route-model binding to the current Tenant (404 otherwise).
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return static::query()
+            ->forCurrentTenant()
+            ->where($field ?? $this->getRouteKeyName(), $value)
+            ->firstOrFail();
     }
 }

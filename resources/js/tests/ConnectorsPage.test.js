@@ -63,6 +63,10 @@ describe('ConnectorsPage', () => {
                             enabled: false,
                             has_secret: false,
                             field_shares: [],
+                            last_sync_started_at: null,
+                            last_sync_completed_at: null,
+                            last_sync_failed_at: null,
+                            last_error: null,
                         },
                     });
                 }
@@ -129,6 +133,9 @@ describe('ConnectorsPage', () => {
         expect(wrapper.find('[data-testid="connector-sync-mis-key"]').exists()).toBe(true);
         expect(wrapper.text()).toContain('Oak Primary');
         expect(wrapper.text()).toContain('Run sync');
+        expect(wrapper.find('[data-testid="connector-health-state"]').text()).toBe('Never synced');
+        expect(wrapper.find('[data-testid="connector-last-completed"]').text()).toBe('Never completed');
+        expect(wrapper.find('[data-testid="connector-last-failed"]').text()).toBe('Never failed');
         expect(wrapper.text()).toContain('Pilot stub is the supported type until OQ-4');
         expect(wrapper.text()).not.toMatch(/Wonde|Groupcall|Arbor|SIMS|Bromcom/i);
         expect(wrapper.text()).not.toMatch(/Coming soon/i);
@@ -281,6 +288,63 @@ describe('ConnectorsPage', () => {
         expect(Number.isNaN(Date.parse(body.pupils[0].evidence_occurred_at))).toBe(false);
         expect(body.pupils[0].evidence_occurred_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
         expect(wrapper.find('[data-testid="connectors-sync-success"]').text()).toContain('Connector sync queued.');
+        expect(wrapper.find('[data-testid="connector-last-completed"]').text()).toBe('Never completed');
+        expect(wrapper.find('[data-testid="connector-health-state"]').text()).toBe('Never synced');
+    });
+
+    it('shows completed and failed health and refreshes it on demand', async () => {
+        let connectorReads = 0;
+        fetch.mockImplementation(async (url) => {
+            const path = String(url);
+
+            if (path.includes('/api/v1/schools')) {
+                return jsonResponse({
+                    data: [{ id: 'sch_1', name: 'Oak Primary', is_active: true }],
+                });
+            }
+
+            if (path.includes('/api/v1/connectors')) {
+                connectorReads++;
+
+                return jsonResponse({
+                    data: {
+                        id: 'con_1',
+                        type: 'pilot_stub',
+                        enabled: true,
+                        has_secret: true,
+                        field_shares: [],
+                        last_sync_started_at: connectorReads === 1
+                            ? '2026-09-10T08:00:00+00:00'
+                            : '2026-09-10T09:00:00+00:00',
+                        last_sync_completed_at: connectorReads === 1
+                            ? '2026-09-10T08:01:00+00:00'
+                            : '2026-09-10T09:01:00+00:00',
+                        last_sync_failed_at: '2026-09-09T07:00:00+00:00',
+                        last_error: connectorReads === 1
+                            ? 'Completed with warnings: 1 pupil record(s) could not be processed.'
+                            : null,
+                    },
+                });
+            }
+
+            return jsonResponse({});
+        });
+
+        const wrapper = mount(ConnectorsPage);
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="connector-health-state"]').text())
+            .toBe('Last sync completed with warnings');
+        expect(wrapper.find('[data-testid="connector-last-completed"]').text()).not.toBe('Never completed');
+        expect(wrapper.find('[data-testid="connector-last-failed"]').text()).not.toBe('Never failed');
+        expect(wrapper.find('[data-testid="connector-last-error"]').text()).toContain('Completed with warnings');
+
+        await wrapper.find('[data-testid="connector-health-refresh"]').trigger('click');
+        await flushPromises();
+
+        expect(connectorReads).toBe(2);
+        expect(wrapper.find('[data-testid="connector-health-state"]').text()).toBe('Last sync completed');
+        expect(wrapper.find('[data-testid="connector-last-error"]').text()).toBe('None');
     });
 
     it('shows the Connector disabled message when Run sync returns 422', async () => {

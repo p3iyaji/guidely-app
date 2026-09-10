@@ -3,12 +3,15 @@ import { useSession } from '../features/auth/session';
 import AppShell from '../layouts/AppShell.vue';
 import GuestLayout from '../layouts/GuestLayout.vue';
 import AccessDenied from '../pages/AccessDenied.vue';
+import AuditEventsPage from '../pages/AuditEventsPage.vue';
 import ConnectorsPage from '../pages/ConnectorsPage.vue';
 import EvidenceBasePage from '../pages/EvidenceBasePage.vue';
 import FeatureFlagsPage from '../pages/FeatureFlagsPage.vue';
 import GapsPage from '../pages/GapsPage.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
+import LibraryManagementPage from '../pages/LibraryManagementPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
+import OntologyCataloguePage from '../pages/OntologyCataloguePage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 import ProfilePage from '../pages/ProfilePage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
@@ -48,9 +51,16 @@ const routes = [
     },
     {
         path: '/access-denied',
-        name: 'access-denied',
-        component: AccessDenied,
+        component: AppShell,
         meta: { requiresAuth: true },
+        children: [
+            {
+                path: '',
+                name: 'access-denied',
+                component: AccessDenied,
+                meta: { title: 'Access denied', requiresAuth: true },
+            },
+        ],
     },
     {
         path: '/',
@@ -163,13 +173,19 @@ const routes = [
                 path: 'roles',
                 name: 'roles',
                 component: RolesPage,
-                meta: { title: 'Roles', requiresAuth: true },
+                meta: { title: 'Role catalogue', requiresAuth: true },
             },
             {
                 path: 'permissions',
                 name: 'permissions',
                 component: PermissionsPage,
-                meta: { title: 'Permissions', requiresAuth: true },
+                meta: { title: 'Permission catalogue', requiresAuth: true },
+            },
+            {
+                path: 'audit-events',
+                name: 'audit-events',
+                component: AuditEventsPage,
+                meta: { title: 'Audit events', requiresAuth: true },
             },
             {
                 path: 'connectors',
@@ -190,10 +206,22 @@ const routes = [
                 meta: { title: 'Provision terms', requiresAuth: true },
             },
             {
+                path: 'ontology-catalogue',
+                name: 'ontology-catalogue',
+                component: OntologyCataloguePage,
+                meta: { title: 'Ontology and Rule catalogue', requiresAuth: true },
+            },
+            {
                 path: 'pilot-toolkit',
                 name: 'pilot-toolkit',
                 component: PilotToolkitPage,
                 meta: { title: 'Pilot toolkit', requiresAuth: true },
+            },
+            {
+                path: 'library-management',
+                name: 'library-management',
+                component: LibraryManagementPage,
+                meta: { title: 'Library management', requiresAuth: true },
             },
         ],
     },

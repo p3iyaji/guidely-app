@@ -121,7 +121,7 @@ class AccessRoleController extends Controller
 
         if ($accessRole->isInUse()) {
             return response()->json([
-                'message' => 'This Role is assigned to Users and cannot be deleted.',
+                'message' => 'This role catalogue entry matches a built-in Role assigned to Users and cannot be deleted.',
                 'code' => self::IN_USE_CODE,
             ], 409);
         }

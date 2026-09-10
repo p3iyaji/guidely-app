@@ -6,6 +6,98 @@
             <LoadingSkeleton variant="card" />
         </div>
 
+        <template v-else-if="!canViewEvidenceBase">
+            <PageHero
+                eyebrow="Pupils"
+                :title="pupilName"
+                :description="workingRecordDescription"
+            >
+                <template #action>
+                    <RouterLink
+                        to="/pupils"
+                        class="inline-flex min-h-11 items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-body font-semibold text-text hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        data-testid="pupil-record-back"
+                    >
+                        Back to Pupils
+                    </RouterLink>
+                </template>
+            </PageHero>
+
+            <p
+                v-if="loadError"
+                class="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-body text-danger"
+                data-testid="evidence-base-error"
+                role="alert"
+            >
+                {{ loadError }}
+            </p>
+
+            <Card
+                v-else
+                data-testid="pupil-working-record"
+            >
+                <p
+                    class="rounded-md bg-info-soft px-3 py-2 text-meta text-info"
+                    data-testid="pupil-record-note"
+                    role="note"
+                >
+                    The Evidence Base is for SENCO and assigned teaching staff. You can manage this
+                    working record, assignments, and import from Pupils.
+                </p>
+
+                <dl class="mt-5 grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Year group</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="pupil-record-year">
+                            {{ pupil?.year_group || '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">SEND status</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="pupil-record-send-status">
+                            {{ sendStatusLabel(pupil?.send_status) }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Documentation</dt>
+                        <dd class="mt-1">
+                            <StatusPill :status="pupil?.documentation_status ?? 'not-started'" />
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Next review</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="pupil-record-next-review">
+                            {{ formatWorkingRecordDate(pupil?.next_review_at) }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Primary Need</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="pupil-record-primary-need">
+                            {{ needLabel(pupil?.primary_need) }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Secondary Need</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="pupil-record-secondary-need">
+                            {{ needLabel(pupil?.secondary_need) }}
+                        </dd>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Assigned staff</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="pupil-record-assignees">
+                            {{ assignedStaffLabel }}
+                        </dd>
+                    </div>
+                    <div v-if="pupil?.notes" class="sm:col-span-2">
+                        <dt class="text-meta font-semibold uppercase tracking-wider text-text-muted">Notes</dt>
+                        <dd class="mt-1 text-body text-text" data-testid="pupil-record-notes">
+                            {{ pupil.notes }}
+                        </dd>
+                    </div>
+                </dl>
+            </Card>
+        </template>
+
         <template v-else>
             <div>
                 <h1 class="text-heading font-semibold text-text" data-testid="evidence-base-title">
@@ -398,6 +490,25 @@
                             >
                                 {{ record.author.name }}
                             </p>
+                            <div
+                                v-if="provenanceLabel(record)"
+                                class="mt-2 flex flex-wrap items-center gap-2"
+                                data-testid="evidence-provenance"
+                            >
+                                <span
+                                    class="inline-flex items-center rounded-full bg-surface-muted px-2.5 py-0.5 text-label font-medium text-text-muted"
+                                    data-testid="evidence-source"
+                                >
+                                    {{ provenanceLabel(record) }}
+                                </span>
+                                <span
+                                    v-if="record.external_id"
+                                    class="break-all text-meta text-text-muted"
+                                    data-testid="evidence-external-reference"
+                                >
+                                    External reference: {{ record.external_id }}
+                                </span>
+                            </div>
                             <p
                                 v-if="termLabel(record)"
                                 class="mt-1 text-meta text-text-muted"
@@ -662,14 +773,17 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../features/auth/session';
+import { canViewEvidenceBase as roleCanViewEvidenceBase } from '../features/shell/navByRole';
 import ButtonOutline from '../shared/ui/ButtonOutline.vue';
 import ButtonPrimary from '../shared/ui/ButtonPrimary.vue';
 import Card from '../shared/ui/Card.vue';
 import LoadingSkeleton from '../shared/ui/LoadingSkeleton.vue';
+import PageHero from '../shared/ui/PageHero.vue';
 import ReasoningPathwayPanel from '../shared/ui/ReasoningPathwayPanel.vue';
+import StatusPill from '../shared/ui/StatusPill.vue';
 
 const filterChips = [
     { value: '', label: 'All' },
@@ -750,6 +864,7 @@ const overrideFieldErrors = reactive({
 const isTeacher = computed(() => session.role.value === 'teacher');
 const isSenco = computed(() => session.role.value === 'senco');
 const isSchoolLeader = computed(() => session.role.value === 'school_leader');
+const canViewEvidenceBase = computed(() => roleCanViewEvidenceBase(session.role.value));
 
 const canViewDeterminations = computed(() => {
     return (isSenco.value || isSchoolLeader.value)
@@ -771,11 +886,84 @@ const canAddReviewNote = computed(() => {
 
 const pupilName = computed(() => {
     if (!pupil.value) {
-        return 'Evidence Base';
+        return canViewEvidenceBase.value ? 'Evidence Base' : 'Pupil';
     }
 
-    return `${pupil.value.given_name ?? ''} ${pupil.value.family_name ?? ''}`.trim() || 'Evidence Base';
+    const name = `${pupil.value.given_name ?? ''} ${pupil.value.family_name ?? ''}`.trim();
+
+    if (name !== '') {
+        return name;
+    }
+
+    return canViewEvidenceBase.value ? 'Evidence Base' : 'Pupil';
 });
+
+const workingRecordDescription = computed(() => {
+    if (loadError.value) {
+        return 'This Pupil working record could not be loaded.';
+    }
+
+    return pupilSubtitle.value || 'Pupil working record for this Tenant.';
+});
+
+const assignedStaffLabel = computed(() => {
+    const staff = Array.isArray(pupil.value?.assigned_staff) ? pupil.value.assigned_staff : [];
+    const names = staff
+        .map((row) => (row && typeof row === 'object' ? String(row.name ?? '') : ''))
+        .filter(Boolean);
+
+    return names.length > 0 ? names.join(', ') : '—';
+});
+
+/**
+ * @param {unknown} status
+ */
+function sendStatusLabel(status) {
+    if (status === 'sen_support') {
+        return 'SEN Support';
+    }
+
+    if (status === 'ehcp') {
+        return 'EHCP';
+    }
+
+    if (status === 'neither') {
+        return 'Neither';
+    }
+
+    return '—';
+}
+
+/**
+ * @param {unknown} need
+ */
+function needLabel(need) {
+    if (need && typeof need === 'object' && 'label' in need && need.label) {
+        return String(need.label);
+    }
+
+    return '—';
+}
+
+/**
+ * @param {unknown} value
+ */
+function formatWorkingRecordDate(value) {
+    if (value == null || value === '') {
+        return '—';
+    }
+
+    const parsed = new Date(`${value}T00:00:00Z`);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return String(value);
+    }
+
+    return parsed.toLocaleDateString('en-GB', {
+        dateStyle: 'medium',
+        timeZone: 'Europe/London',
+    });
+}
 
 const pupilSubtitle = computed(() => {
     if (!pupil.value) {
@@ -845,7 +1033,9 @@ watch(
             pupil.value = null;
             records.value = [];
             hasAnySubmitted.value = false;
-            loadError.value = 'Unable to load Evidence Base.';
+            loadError.value = canViewEvidenceBase.value
+                ? 'Unable to load Evidence Base.'
+                : 'Unable to load this Pupil.';
             loading.value = false;
 
             return;
@@ -936,16 +1126,23 @@ function canAmend(record) {
 }
 
 /**
- * @param {{ type?: string, source?: string|null }} record
+ * @param {{ type?: string }} record
  */
 function typeLabel(record) {
-    if (record.source === 'import') {
-        const base = typeLabelFromType(record.type);
-
-        return `${base} (Import)`;
-    }
-
     return typeLabelFromType(record.type);
+}
+
+/**
+ * @param {{ source?: string|null }} record
+ */
+function provenanceLabel(record) {
+    const labels = {
+        capture: 'Captured in GuidelyEdu',
+        import: 'Imported',
+        connector: 'Connector sync',
+    };
+
+    return labels[record.source] ?? '';
 }
 
 /**
@@ -1521,7 +1718,9 @@ async function loadPage() {
     try {
         const [pupilOk, evidenceOk] = await Promise.all([
             loadPupil(seq),
-            loadEvidence({ trackUnfiltered: true, seq }),
+            canViewEvidenceBase.value
+                ? loadEvidence({ trackUnfiltered: true, seq })
+                : Promise.resolve(true),
         ]);
 
         if (seq !== loadSeq) {
@@ -1530,8 +1729,10 @@ async function loadPage() {
 
         if (!pupilOk || !evidenceOk) {
             records.value = [];
-            loadError.value = 'Unable to load Evidence Base.';
-        } else if (isSenco.value || isSchoolLeader.value) {
+            loadError.value = canViewEvidenceBase.value
+                ? 'Unable to load Evidence Base.'
+                : 'Unable to load this Pupil.';
+        } else if (canViewEvidenceBase.value && (isSenco.value || isSchoolLeader.value)) {
             await loadDeterminations(seq);
         }
     } catch {
@@ -1540,7 +1741,9 @@ async function loadPage() {
         }
 
         records.value = [];
-        loadError.value = 'Unable to load Evidence Base.';
+        loadError.value = canViewEvidenceBase.value
+            ? 'Unable to load Evidence Base.'
+            : 'Unable to load this Pupil.';
     } finally {
         if (seq === loadSeq) {
             loading.value = false;
@@ -1562,7 +1765,9 @@ async function loadPupil(seq) {
     }
 
     try {
-        const response = await apiFetch(`/api/v1/pupils/${pupilId}`);
+        const response = await apiFetch(`/api/v1/pupils/${pupilId}`, {
+            skipForbiddenRedirect: !canViewEvidenceBase.value,
+        });
 
         if (seq !== loadSeq) {
             return false;

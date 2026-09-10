@@ -242,7 +242,11 @@ class AccessRoleTest extends TestCase
         $response = $this->actingAs($admin)->deleteJson('/api/v1/roles/'.$system->id);
 
         $response->assertConflict()
-            ->assertJsonPath('code', AccessRoleController::IN_USE_CODE);
+            ->assertJsonPath('code', AccessRoleController::IN_USE_CODE)
+            ->assertJsonPath(
+                'message',
+                'This role catalogue entry matches a built-in Role assigned to Users and cannot be deleted.',
+            );
 
         $this->assertDatabaseHas('access_roles', ['id' => $system->id]);
     }

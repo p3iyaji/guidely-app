@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AccessPermissionController;
 use App\Http\Controllers\Api\V1\AccessRoleController;
 use App\Http\Controllers\Api\V1\AssignableStaffController;
+use App\Http\Controllers\Api\V1\AuditEventController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ComplianceAlertController;
 use App\Http\Controllers\Api\V1\ComplianceAlertThresholdController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\V1\FeatureStubController;
 use App\Http\Controllers\Api\V1\GapController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InterventionController;
+use App\Http\Controllers\Api\V1\LibraryManagementController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\NeedTermController;
 use App\Http\Controllers\Api\V1\ObservationController;
@@ -178,6 +180,9 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('permissions', AccessPermissionController::class)
             ->parameters(['permissions' => 'accessPermission'])
             ->names('api.v1.permissions');
+        Route::apiResource('audit-events', AuditEventController::class)
+            ->only(['index', 'show'])
+            ->names('api.v1.audit-events');
 
         Route::apiResource('users', UserController::class)
             ->except(['destroy'])
@@ -189,6 +194,10 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/pilot/tenants', [PilotTenantController::class, 'store'])
             ->name('api.v1.pilot.tenants.store');
+        Route::get('/operator/library-management', [LibraryManagementController::class, 'index'])
+            ->name('api.v1.operator.library-management.index');
+        Route::patch('/operator/library-management/{tenant}', [LibraryManagementController::class, 'update'])
+            ->name('api.v1.operator.library-management.update');
         Route::get('/pilot/import-template', [PilotToolkitController::class, 'importTemplate'])
             ->name('api.v1.pilot.import-template');
         Route::get('/pilot/disclaimers', [PilotToolkitController::class, 'disclaimers'])
