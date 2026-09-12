@@ -18,6 +18,7 @@ import ProfilePage from '../pages/ProfilePage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
 import PermissionsPage from '../pages/PermissionsPage.vue';
 import ProvisionTermsPage from '../pages/ProvisionTermsPage.vue';
+import SettingTermsPage from '../pages/SettingTermsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
 import CapturePage from '../pages/CapturePage.vue';
 import DraftsPage from '../pages/DraftsPage.vue';
@@ -211,6 +212,12 @@ const routes = [
                 name: 'need-terms',
                 component: NeedTermsPage,
                 meta: { title: 'Need terms', requiresAuth: true },
+            },
+            {
+                path: 'setting-terms',
+                name: 'setting-terms',
+                component: SettingTermsPage,
+                meta: { title: 'Setting terms', requiresAuth: true },
             },
             {
                 path: 'ontology-catalogue',

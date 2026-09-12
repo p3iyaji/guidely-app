@@ -20,6 +20,7 @@ class SettingTermResource extends JsonResource
             'id' => $this->id,
             'code' => $this->code,
             'label' => $this->label,
+            'is_active' => $this->is_active,
             'sort_order' => $this->sort_order,
             'ontology_version_id' => $this->ontology_version_id,
         ];

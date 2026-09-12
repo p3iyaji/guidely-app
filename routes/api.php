@@ -153,8 +153,9 @@ Route::prefix('v1')->group(function () {
             ->name('api.v1.evidence.update');
         Route::get('/evidence/{evidence}/versions', [EvidenceController::class, 'versions'])
             ->name('api.v1.evidence.versions.index');
-        Route::get('/ontology/setting-terms', [SettingTermController::class, 'index'])
-            ->name('api.v1.ontology.setting-terms.index');
+        Route::apiResource('ontology/setting-terms', SettingTermController::class)
+            ->parameters(['setting-terms' => 'settingTerm'])
+            ->names('api.v1.ontology.setting-terms');
         Route::apiResource('ontology/provision-terms', ProvisionTermController::class)
             ->parameters(['provision-terms' => 'provisionTerm'])
             ->names('api.v1.ontology.provision-terms');
