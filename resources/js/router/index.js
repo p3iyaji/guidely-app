@@ -13,12 +13,14 @@ import LibraryManagementPage from '../pages/LibraryManagementPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import NeedTermsPage from '../pages/NeedTermsPage.vue';
 import OntologyCataloguePage from '../pages/OntologyCataloguePage.vue';
+import OutcomeTermsPage from '../pages/OutcomeTermsPage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 import ProfilePage from '../pages/ProfilePage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
 import PermissionsPage from '../pages/PermissionsPage.vue';
 import ProvisionTermsPage from '../pages/ProvisionTermsPage.vue';
 import SettingTermsPage from '../pages/SettingTermsPage.vue';
+import ThresholdTermsPage from '../pages/ThresholdTermsPage.vue';
 import ImportPage from '../pages/ImportPage.vue';
 import CapturePage from '../pages/CapturePage.vue';
 import DraftsPage from '../pages/DraftsPage.vue';
@@ -218,6 +220,18 @@ const routes = [
                 name: 'setting-terms',
                 component: SettingTermsPage,
                 meta: { title: 'Setting terms', requiresAuth: true },
+            },
+            {
+                path: 'outcome-terms',
+                name: 'outcome-terms',
+                component: OutcomeTermsPage,
+                meta: { title: 'Outcome terms', requiresAuth: true },
+            },
+            {
+                path: 'threshold-terms',
+                name: 'threshold-terms',
+                component: ThresholdTermsPage,
+                meta: { title: 'Threshold terms', requiresAuth: true },
             },
             {
                 path: 'ontology-catalogue',

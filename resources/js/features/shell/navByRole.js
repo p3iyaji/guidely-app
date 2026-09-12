@@ -110,6 +110,8 @@ export const NAV_BY_ROLE = {
                 { key: 'provision-terms', label: 'Provision terms', to: '/provision-terms' },
                 { key: 'need-terms', label: 'Need terms', to: '/need-terms' },
                 { key: 'setting-terms', label: 'Setting terms', to: '/setting-terms' },
+                { key: 'outcome-terms', label: 'Outcome terms', to: '/outcome-terms' },
+                { key: 'threshold-terms', label: 'Threshold terms', to: '/threshold-terms' },
                 { key: 'pilot-toolkit', label: 'Pilot toolkit', to: '/pilot-toolkit' },
             ],
         },

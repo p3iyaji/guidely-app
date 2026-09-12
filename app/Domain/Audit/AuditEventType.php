@@ -56,6 +56,12 @@ enum AuditEventType: string
     case SettingTermCreated = 'ontology.setting_term.created';
     case SettingTermUpdated = 'ontology.setting_term.updated';
     case SettingTermDeleted = 'ontology.setting_term.deleted';
+    case OutcomeTermCreated = 'ontology.outcome_term.created';
+    case OutcomeTermUpdated = 'ontology.outcome_term.updated';
+    case OutcomeTermDeleted = 'ontology.outcome_term.deleted';
+    case ThresholdTermCreated = 'ontology.threshold_term.created';
+    case ThresholdTermUpdated = 'ontology.threshold_term.updated';
+    case ThresholdTermDeleted = 'ontology.threshold_term.deleted';
     case ReviewCycleCreated = 'review_cycle.created';
     case ReviewCycleClosed = 'review_cycle.closed';
     case DocumentationOutputGenerated = 'documentation_output.generated';

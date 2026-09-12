@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Domain\Ontology\OntologyVersion;
+use App\Domain\Ontology\PilotOntology;
 use App\Domain\Ontology\OutcomeTerm;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -19,7 +20,7 @@ class OutcomeTermFactory extends Factory
     public function definition(): array
     {
         return [
-            'ontology_version_id' => OntologyVersion::factory()->published(),
+            'ontology_version_id' => fn (): string => PilotOntology::ensurePublishedVersion()->id,
             'code' => strtoupper(fake()->unique()->bothify('OUT-##')),
             'label' => fake()->unique()->words(3, true),
             'is_active' => true,

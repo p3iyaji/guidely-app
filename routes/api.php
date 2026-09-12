@@ -162,10 +162,12 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('ontology/need-terms', NeedTermController::class)
             ->parameters(['need-terms' => 'needTerm'])
             ->names('api.v1.ontology.need-terms');
-        Route::get('/ontology/outcome-terms', [OutcomeTermController::class, 'index'])
-            ->name('api.v1.ontology.outcome-terms.index');
-        Route::get('/ontology/threshold-terms', [ThresholdTermController::class, 'index'])
-            ->name('api.v1.ontology.threshold-terms.index');
+        Route::apiResource('ontology/outcome-terms', OutcomeTermController::class)
+            ->parameters(['outcome-terms' => 'outcomeTerm'])
+            ->names('api.v1.ontology.outcome-terms');
+        Route::apiResource('ontology/threshold-terms', ThresholdTermController::class)
+            ->parameters(['threshold-terms' => 'thresholdTerm'])
+            ->names('api.v1.ontology.threshold-terms');
         Route::get('/ontology/relationship-mappings', [RelationshipMappingController::class, 'index'])
             ->name('api.v1.ontology.relationship-mappings.index');
         Route::get('/ontology/rules', [RuleController::class, 'index'])

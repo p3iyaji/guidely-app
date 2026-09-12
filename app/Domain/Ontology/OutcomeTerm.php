@@ -44,4 +44,33 @@ class OutcomeTerm extends Model
     {
         return OutcomeTermFactory::new();
     }
+
+    public function isInUse(): bool
+    {
+        return RelationshipMapping::query()
+            ->where(fn ($query) => $query
+                ->where('from_domain', 'outcome')
+                ->where('from_term_id', $this->id))
+            ->orWhere(fn ($query) => $query
+                ->where('to_domain', 'outcome')
+                ->where('to_term_id', $this->id))
+            ->exists();
+    }
+
+    /**
+     * Resolve only terms on the Tenant's effective published Ontology version.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $versionId = app(EffectiveOntologyVersion::class)->id();
+
+        if ($versionId === null) {
+            return null;
+        }
+
+        return static::query()
+            ->forVersion($versionId)
+            ->where($field ?? $this->getRouteKeyName(), $value)
+            ->firstOrFail();
+    }
 }
