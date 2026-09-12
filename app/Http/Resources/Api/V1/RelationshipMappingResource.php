@@ -35,6 +35,7 @@ class RelationshipMappingResource extends JsonResource
                 'type' => $this->to_domain,
                 'label' => $this->to_term_label,
             ],
+            'is_active' => $this->is_active,
             'sort_order' => $this->sort_order,
             'ontology_version_id' => $this->ontology_version_id,
         ];

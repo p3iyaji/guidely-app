@@ -168,8 +168,9 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('ontology/threshold-terms', ThresholdTermController::class)
             ->parameters(['threshold-terms' => 'thresholdTerm'])
             ->names('api.v1.ontology.threshold-terms');
-        Route::get('/ontology/relationship-mappings', [RelationshipMappingController::class, 'index'])
-            ->name('api.v1.ontology.relationship-mappings.index');
+        Route::apiResource('ontology/relationship-mappings', RelationshipMappingController::class)
+            ->parameters(['relationship-mappings' => 'relationshipMapping'])
+            ->names('api.v1.ontology.relationship-mappings');
         Route::get('/ontology/rules', [RuleController::class, 'index'])
             ->name('api.v1.ontology.rules.index');
 

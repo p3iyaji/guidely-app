@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Domain\Ontology\OntologyVersion;
+use App\Domain\Ontology\PilotOntology;
 use App\Domain\Ontology\RelationshipMapping;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -20,7 +21,7 @@ class RelationshipMappingFactory extends Factory
     public function definition(): array
     {
         return [
-            'ontology_version_id' => OntologyVersion::factory()->published(),
+            'ontology_version_id' => fn (): string => PilotOntology::ensurePublishedVersion()->id,
             'code' => strtoupper(fake()->unique()->bothify('REL-##')),
             'label' => fake()->unique()->words(4, true),
             'relationship_type' => 'need_to_provision',

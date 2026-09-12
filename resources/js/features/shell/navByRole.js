@@ -112,6 +112,7 @@ export const NAV_BY_ROLE = {
                 { key: 'setting-terms', label: 'Setting terms', to: '/setting-terms' },
                 { key: 'outcome-terms', label: 'Outcome terms', to: '/outcome-terms' },
                 { key: 'threshold-terms', label: 'Threshold terms', to: '/threshold-terms' },
+                { key: 'relationship-mappings', label: 'Relationship mappings', to: '/relationship-mappings' },
                 { key: 'pilot-toolkit', label: 'Pilot toolkit', to: '/pilot-toolkit' },
             ],
         },

@@ -15,6 +15,7 @@ import NeedTermsPage from '../pages/NeedTermsPage.vue';
 import OntologyCataloguePage from '../pages/OntologyCataloguePage.vue';
 import OutcomeTermsPage from '../pages/OutcomeTermsPage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
+import RelationshipMappingsPage from '../pages/RelationshipMappingsPage.vue';
 import ProfilePage from '../pages/ProfilePage.vue';
 import PupilsPage from '../pages/PupilsPage.vue';
 import PermissionsPage from '../pages/PermissionsPage.vue';
@@ -232,6 +233,12 @@ const routes = [
                 name: 'threshold-terms',
                 component: ThresholdTermsPage,
                 meta: { title: 'Threshold terms', requiresAuth: true },
+            },
+            {
+                path: 'relationship-mappings',
+                name: 'relationship-mappings',
+                component: RelationshipMappingsPage,
+                meta: { title: 'Relationship mappings', requiresAuth: true },
             },
             {
                 path: 'ontology-catalogue',

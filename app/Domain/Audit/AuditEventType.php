@@ -62,6 +62,9 @@ enum AuditEventType: string
     case ThresholdTermCreated = 'ontology.threshold_term.created';
     case ThresholdTermUpdated = 'ontology.threshold_term.updated';
     case ThresholdTermDeleted = 'ontology.threshold_term.deleted';
+    case RelationshipMappingCreated = 'ontology.relationship_mapping.created';
+    case RelationshipMappingUpdated = 'ontology.relationship_mapping.updated';
+    case RelationshipMappingDeleted = 'ontology.relationship_mapping.deleted';
     case ReviewCycleCreated = 'review_cycle.created';
     case ReviewCycleClosed = 'review_cycle.closed';
     case DocumentationOutputGenerated = 'documentation_output.generated';

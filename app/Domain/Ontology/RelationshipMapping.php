@@ -49,4 +49,21 @@ class RelationshipMapping extends Model
     {
         return RelationshipMappingFactory::new();
     }
+
+    /**
+     * Resolve only mappings on the Tenant's effective published Ontology version.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $versionId = app(EffectiveOntologyVersion::class)->id();
+
+        if ($versionId === null) {
+            return null;
+        }
+
+        return static::query()
+            ->forVersion($versionId)
+            ->where($field ?? $this->getRouteKeyName(), $value)
+            ->firstOrFail();
+    }
 }
