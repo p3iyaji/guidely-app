@@ -147,6 +147,7 @@ describe('Role nav IA', () => {
             'Alert thresholds',
             'Ontology catalogue',
             'Provision terms',
+            'Need terms',
             'Pilot toolkit',
             'Settings',
         ]);
@@ -161,7 +162,7 @@ describe('Role nav IA', () => {
             ['Administration', ['Users', 'Role catalogue', 'Permission catalogue', 'Audit events']],
             ['Organisation', ['Schools', 'Pupils']],
             ['Integrations', ['Import', 'Connectors']],
-            ['Configuration', ['Feature flags', 'Alert thresholds', 'Ontology catalogue', 'Provision terms', 'Pilot toolkit']],
+            ['Configuration', ['Feature flags', 'Alert thresholds', 'Ontology catalogue', 'Provision terms', 'Need terms', 'Pilot toolkit']],
         ]);
     });
 

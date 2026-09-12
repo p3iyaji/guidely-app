@@ -108,6 +108,7 @@ export const NAV_BY_ROLE = {
                 { key: 'alert-thresholds', label: 'Alert thresholds', to: '/alerts' },
                 { key: 'ontology-catalogue', label: 'Ontology catalogue', to: '/ontology-catalogue' },
                 { key: 'provision-terms', label: 'Provision terms', to: '/provision-terms' },
+                { key: 'need-terms', label: 'Need terms', to: '/need-terms' },
                 { key: 'pilot-toolkit', label: 'Pilot toolkit', to: '/pilot-toolkit' },
             ],
         },

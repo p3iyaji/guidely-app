@@ -11,6 +11,7 @@ import GapsPage from '../pages/GapsPage.vue';
 import HomeDashboard from '../pages/HomeDashboard.vue';
 import LibraryManagementPage from '../pages/LibraryManagementPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
+import NeedTermsPage from '../pages/NeedTermsPage.vue';
 import OntologyCataloguePage from '../pages/OntologyCataloguePage.vue';
 import PilotToolkitPage from '../pages/PilotToolkitPage.vue';
 import ProfilePage from '../pages/ProfilePage.vue';
@@ -204,6 +205,12 @@ const routes = [
                 name: 'provision-terms',
                 component: ProvisionTermsPage,
                 meta: { title: 'Provision terms', requiresAuth: true },
+            },
+            {
+                path: 'need-terms',
+                name: 'need-terms',
+                component: NeedTermsPage,
+                meta: { title: 'Need terms', requiresAuth: true },
             },
             {
                 path: 'ontology-catalogue',

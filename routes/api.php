@@ -158,8 +158,9 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('ontology/provision-terms', ProvisionTermController::class)
             ->parameters(['provision-terms' => 'provisionTerm'])
             ->names('api.v1.ontology.provision-terms');
-        Route::get('/ontology/need-terms', [NeedTermController::class, 'index'])
-            ->name('api.v1.ontology.need-terms.index');
+        Route::apiResource('ontology/need-terms', NeedTermController::class)
+            ->parameters(['need-terms' => 'needTerm'])
+            ->names('api.v1.ontology.need-terms');
         Route::get('/ontology/outcome-terms', [OutcomeTermController::class, 'index'])
             ->name('api.v1.ontology.outcome-terms.index');
         Route::get('/ontology/threshold-terms', [ThresholdTermController::class, 'index'])
